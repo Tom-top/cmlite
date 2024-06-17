@@ -65,23 +65,32 @@ def apply_transform(moving_image_path, transform_parameters_paths, output_dir, o
     # Read the moving image
     moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
 
-    # Read the transformation parameters
-    transform_parameter_maps = [sitk.ReadParameterFile(path) for path in transform_parameters_paths]
-
-    # Apply the transformations sequentially
-    transformix_image_filter = sitk.TransformixImageFilter()
-    transformix_image_filter.SetMovingImage(moving_image)
-    for parameter_map in transform_parameter_maps:
-        transformix_image_filter.SetTransformParameterMap(parameter_map)
-    transformix_image_filter.Execute()
-
-    # Get the result image
-    result_image = transformix_image_filter.GetResultImage()
-
-    # Save the result image
+    # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    sitk.WriteImage(result_image, os.path.join(output_dir, output_file_name))
+
+    # Apply each transformation sequentially
+    for i, parameter_path in enumerate(transform_parameters_paths):
+        # Read the transformation parameters
+        parameter_map = sitk.ReadParameterFile(parameter_path)
+
+        # Set up the TransformixImageFilter with the current moving image and parameter map
+        transformix_image_filter = sitk.TransformixImageFilter()
+        transformix_image_filter.SetMovingImage(moving_image)
+        transformix_image_filter.SetTransformParameterMap(parameter_map)
+
+        # Apply the transformation
+        transformix_image_filter.Execute()
+
+        # Get the result image, which will be the input for the next transformation
+        moving_image = transformix_image_filter.GetResultImage()
+
+        # Optionally, save the intermediate result image (useful for debugging)
+        intermediate_output_file_name = f"intermediate_result_{i}.nii"
+        sitk.WriteImage(moving_image, os.path.join(output_dir, intermediate_output_file_name))
+
+    # Save the final result image
+    sitk.WriteImage(moving_image, os.path.join(output_dir, output_file_name))
 
 
 def transform_points(source, sink=None, transform_parameter_files=None, transform_directory=None, indices=False,
@@ -276,25 +285,6 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
                        f"signal_to_auto_{channel} folder already exists!")
 
         ################################################################################################################
-        # 2.3 TRANSFORM SIGNAL TO TEMPLATE
-        ################################################################################################################
-
-        signal_to_template_directory = os.path.join(sample_directory, f"signal_to_template_{channel}")
-        transform_atlas_parameter = dict(
-            moving_image_path=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
-            output_dir=signal_to_template_directory,
-            output_file_name="result.mhd",
-            transform_parameters_paths=[os.path.join(auto_to_template_directory,
-                                                     f"transform_params_{i}.txt")
-                                        for i in range(2)])
-        if not os.path.exists(signal_to_template_directory):
-            ut.print_c(f"[INFO {sample_name}] Running signal to template transform for channel {channel}!")
-            apply_transform(**transform_atlas_parameter)
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Transforming: signal to template skipped for channel {channel}: "
-                       f"signal_to_template_{channel} folder already exists!")
-
-        ################################################################################################################
         # 2.4 ALIGN TEMPLATE TO AUTO
         ################################################################################################################
 
@@ -328,11 +318,40 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
                        f"signal_to_auto_{channel} folder already exists!")
 
         ################################################################################################################
+        # 2.3 TRANSFORM SIGNAL TO TEMPLATE
+        ################################################################################################################
+
+        signal_to_template_directory = os.path.join(sample_directory, f"signal_to_template_{channel}")
+        transform_atlas_parameter = dict(
+            moving_image_path=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
+            output_dir=signal_to_template_directory,
+            output_file_name="result.mhd",
+            transform_parameters_paths=[os.path.join(auto_to_template_directory,
+                                                     f"transform_params_{i}.txt")
+                                        for i in range(2)])
+        if not os.path.exists(signal_to_template_directory):
+            ut.print_c(f"[INFO {sample_name}] Running signal to template transform for channel {channel}!")
+            apply_transform(**transform_atlas_parameter)
+        else:
+            ut.print_c(f"[WARNING {sample_name}] Transforming: signal to template skipped for channel {channel}: "
+                       f"signal_to_template_{channel} folder already exists!")
+
+
+        ################################################################################################################
         # 2.5 TRANSFORM ATLAS TO AUTO
         ################################################################################################################
 
         # Toggling pixel interpolation off during transform
         atlas_to_auto_directory = os.path.join(sample_directory, f"atlas_to_auto_{channel}")
+
+        with open(os.path.join(template_to_auto_directory, "transform_params_0.txt"), 'r') \
+                as file:
+            data = file.read()
+            data = data.replace("(FinalBSplineInterpolationOrder 3)", "(FinalBSplineInterpolationOrder 0)")
+        with open(os.path.join(template_to_auto_directory, "transform_params_0_nointer.txt"),
+                  'w') as file:
+            file.write(data)
+
         with open(os.path.join(template_to_auto_directory, "transform_params_1.txt"), 'r') \
                 as file:
             data = file.read()
@@ -345,7 +364,7 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
             moving_image_path=annotation_file,
             output_dir=atlas_to_auto_directory,
             output_file_name="result.mhd",
-            transform_parameters_paths=[os.path.join(template_to_auto_directory, f"transform_params_0.txt"),
+            transform_parameters_paths=[os.path.join(template_to_auto_directory, f"transform_params_0_nointer.txt"),
                                         os.path.join(template_to_auto_directory, f"transform_params_1_nointer.txt")])
 
         if not os.path.exists(atlas_to_auto_directory):
@@ -353,4 +372,4 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
             apply_transform(**transform_atlas_parameter)
         else:
             ut.print_c(f"[WARNING {sample_name}] Transforming: atlas to auto skipped for channel {channel}: "
-                       f"signal_to_template_{channel} folder already exists!")
+                       f"atlas_to_auto_{channel} folder already exists!")

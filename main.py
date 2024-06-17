@@ -103,4 +103,4 @@ for sample_name in sample_names:
     # 4.0 VOXELIZE
     ####################################################################################################################
 
-    # vox.generate_heatmap(**parameters)
+    vox.generate_heatmap(**parameters)
