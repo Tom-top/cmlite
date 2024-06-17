@@ -347,7 +347,8 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         with open(os.path.join(template_to_auto_directory, "transform_params_0.txt"), 'r') \
                 as file:
             data = file.read()
-            data = data.replace("(FinalBSplineInterpolationOrder 3)", "(FinalBSplineInterpolationOrder 0)")
+            data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
+                                "(FinalBSplineInterpolationOrder 0.000000)")
         with open(os.path.join(template_to_auto_directory, "transform_params_0_nointer.txt"),
                   'w') as file:
             file.write(data)
@@ -355,7 +356,8 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         with open(os.path.join(template_to_auto_directory, "transform_params_1.txt"), 'r') \
                 as file:
             data = file.read()
-            data = data.replace("(FinalBSplineInterpolationOrder 3)", "(FinalBSplineInterpolationOrder 0)")
+            data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
+                                "(FinalBSplineInterpolationOrder 0.000000)")
         with open(os.path.join(template_to_auto_directory, "transform_params_1_nointer.txt"),
                   'w') as file:
             file.write(data)
