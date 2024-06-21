@@ -24,6 +24,8 @@ resources_path = os.path.join(cmlite_path, 'resources')
 external_path = os.path.join(cmlite_path, 'external')
 """str: Absolute path to the ClearMap external program folder"""
 
+atlas_path = os.path.join(resources_path, "atlas")
+
 ###############################################################################
 # %% Paths to external programs and resources
 ###############################################################################
