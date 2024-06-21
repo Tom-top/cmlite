@@ -3,8 +3,6 @@ import os
 from natsort import natsorted
 import numpy as np
 
-import settings
-
 import utils.utils as ut
 
 import IO.IO as io
