@@ -1,5 +1,8 @@
 import os
 
+import utils.utils
+
+
 class CmliteError(Exception):
     pass
 
@@ -34,7 +37,9 @@ def create_dir(dir, verbose=True):
 def create_ws(user, experiment):
     print("\n")
     print_c(f"[INFO] User: {user}. Selected experiment: {experiment}")
-    working_directory = create_dir(f"/mnt/data/{user}/{experiment}")
+    working_directory = f"/mnt/data/{user}/{experiment}"
+    if not os.path.exists(working_directory):
+        raise CmliteError(f"The selected experiment does not exists: {working_directory}")
     raw_directory = create_dir(os.path.join(working_directory, "raw"))
     analysis_directory = create_dir(os.path.join(working_directory, "analysis"))
     return working_directory, raw_directory, analysis_directory

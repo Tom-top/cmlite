@@ -1,6 +1,8 @@
 import os
+import re
 import sys
 import tempfile
+import shutil
 import subprocess
 import platform
 import multiprocessing as mp
@@ -8,10 +10,10 @@ import multiprocessing as mp
 import numpy as np
 from io import UnsupportedOperation
 
-import SimpleITK as sitk
-
 import utils.utils as ut
 import utils.exceptions as excep
+
+import IO.IO as io
 
 elastix_lib_path = "/home/imaging/PycharmProjects/cmlite/external/elastix/build/bin"  # Change this to the directory containing libANNlib-4.9.so.1
 elastix_binary = "/home/imaging/PycharmProjects/cmlite/external/elastix/build/bin/elastix"
@@ -113,36 +115,226 @@ def align_images(fixed_image_path, moving_image_path, affine_parameter_file, bsp
     return output_dir
 
 
-def apply_transform(moving_image_path, transform_parameters_paths, output_dir, output_file_name):
-    # Read the moving image
-    moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
+def transform_file(result_directory):
+    """Finds and returns the transformation parameter file.
 
-    # Ensure the output directory exists
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    Arguments
+    ---------
+    result_directory : str
+      Path to directory of elastix results.
 
-    # Apply each transformation sequentially
-    for i, parameter_path in enumerate(transform_parameters_paths):
-        # Read the transformation parameters
-        parameter_map = sitk.ReadParameterFile(parameter_path)
+    Returns
+    -------
+    filename : str
+      File name of the first transformation parameter file.
 
-        # Set up the TransformixImageFilter with the current moving image and parameter map
-        transformix_image_filter = sitk.TransformixImageFilter()
-        transformix_image_filter.SetMovingImage(moving_image)
-        transformix_image_filter.SetTransformParameterMap(parameter_map)
+    Notes
+    -----
+    In case of multiple transformation parameter files the top level file is
+    returned.
+    """
 
-        # Apply the transformation
-        transformix_image_filter.Execute()
+    files = os.listdir(result_directory)
+    files = [x for x in files if re.match('TransformParameters.\d.txt', x)]
+    files.sort()
 
-        # Get the result image, which will be the input for the next transformation
-        moving_image = transformix_image_filter.GetResultImage()
+    if not files:
+        raise RuntimeError('Cannot find a valid transformation file in %r!' % result_directory)
 
-        # Optionally, save the intermediate result image (useful for debugging)
-        intermediate_output_file_name = f"intermediate_result_{i}.nii"
-        sitk.WriteImage(moving_image, os.path.join(output_dir, intermediate_output_file_name))
+    return os.path.join(result_directory, files[-1])
 
-    # Save the final result image
-    sitk.WriteImage(moving_image, os.path.join(output_dir, output_file_name))
+
+def transform_directory_and_file(transform_parameter_file=None, transform_directory=None):
+    """Determines transformation directory and file from either.
+
+    Arguments
+    ---------
+    transform_parameter_file : str or None
+      File name of the transformation parameter file.
+    transform_directory : str or None
+      Directory to the transformation parameter.
+
+    Returns
+    -------
+    transform_parameter_file : str
+      File name of the transformation parameter file.
+    transform_directory : str
+      Directory to the transformation parameter.
+
+    Notes
+    -----
+    Only one of the two arguments need to be specified.
+    """
+
+    if not transform_parameter_file:
+        if not transform_directory:
+            raise ValueError('Neither the alignment directory nor the transformation parameter file is specified!')
+        transform_parameter_dir = transform_directory
+        transform_parameter_file = transform_file(transform_parameter_dir)
+    else:
+        transform_parameter_dir = os.path.split(transform_parameter_file)
+        transform_parameter_dir = transform_parameter_dir[0]
+        transform_parameter_file = transform_parameter_file
+
+    return transform_parameter_dir, transform_parameter_file
+
+
+def set_path_transform_files(result_directory):
+    """Replaces relative with absolute path in the parameter files in the result directory.
+
+    Arguments
+    ---------
+    result_directory : str
+      Path to directory of elastix results.
+
+    Notes
+    -----
+    When elastix is not run in the directory of the transformation files
+    the aboslute path needs to be given in each transformation file
+    to point to the subsequent transformation files. This is done via this
+    routine.
+    """
+
+    files = os.listdir(result_directory)
+    files = [x for x in files if re.match('TransformParameters.\d.txt', x)]
+    files.sort()
+
+    if not files:
+        raise RuntimeError('Cannot find a valid transformation file in %r!' % result_directory)
+
+    rec = re.compile("\(InitialTransformParametersFileName \"(?P<parname>.*)\"\)")
+
+    for f in files:
+        fh, tmpfn = tempfile.mkstemp()
+        ff = os.path.join(result_directory, f)
+
+        with open(tmpfn, 'w') as newfile, open(ff) as parfile:
+            for line in parfile:
+                m = rec.match(line)
+                if m != None:
+                    pn = m.group('parname')
+                    if pn != 'NoInitialTransform':
+                        pathn, filen = os.path.split(pn)
+                        filen = os.path.join(result_directory, filen)
+                        newfile.write(line.replace(pn, filen))
+                    else:
+                        newfile.write(line)
+                else:
+                    newfile.write(line)
+
+        os.close(fh)
+        os.remove(ff)
+        shutil.move(tmpfn, ff)
+
+
+def result_data_file(result_directory):
+    """Returns the mhd result file in a result directory.
+
+    Arguments
+    ---------
+    result_directory : str
+      Path to elastix result directory.
+
+    Returns
+    -------
+    result_file : str
+      The mhd file in the result directory.
+    """
+    files = os.listdir(result_directory)
+    files = [x for x in files if re.match('.*.mhd', x)]
+    files.sort()
+
+    if not files:
+        raise RuntimeError('Cannot find a valid result data file in ' + result_directory)
+
+    return os.path.join(result_directory, files[0])
+
+
+def transform_images(source, sink=[], transform_parameter_file=None, transform_directory=None, result_directory=None):
+    """Transform a raw data set to reference using the elastix alignment results.
+
+    Arguments
+    ---------
+    source : str or array
+      Image source to be transformed.
+    sink : str, [] or None
+      Image sink to save transformed image to. If [] return the default name
+      of the data file generated by transformix.
+    transform_parameter_file : str or None
+      Parameter file for the primary transformation.
+      If None, the file is determined from the transform_directory.
+    transform_directory : str or None
+      Result directory of elastix alignment.
+      If None the transform_parameter_file has to be given.
+    result_directory : str or None
+      The directorty for the transformix results.
+
+    Returns
+    -------
+    transformed : array or st
+      Array or file name of the transformed data.
+
+    Note
+    ----
+    If the map determined by elastix is
+    :math:`T: \\mathrm{fixed} \\rightarrow \\mathrm{moving}`,
+    transformix on data works as :math:`T^{-1}(\\mathrm{data})`.
+    """
+
+    # image
+    source = io.as_source(source)
+    if isinstance(source, io.tif.Source):
+        imgname = source.location
+        delete_image = None
+    else:
+        imgname = os.path.join(tempfile.gettempdir(), 'elastix_input.tif')
+        io.write(source, imgname)
+        delete_image = imgname
+
+    # result directory
+    delete_result_directory = None
+    if result_directory == None:
+        resultdirname = os.path.join(tempfile.gettempdir(), 'elastix_output')
+        delete_result_directory = resultdirname
+    else:
+        resultdirname = result_directory
+
+    if not os.path.exists(resultdirname):
+        os.makedirs(resultdirname)
+
+    # tranformation parameter
+    transform_parameter_dir, transform_parameter_file = transform_directory_and_file(
+        transform_parameter_file=transform_parameter_file, transform_directory=transform_directory)
+
+    set_path_transform_files(transform_parameter_dir)
+
+    # transformix -in inputImage.ext -out outputDirectory -tp TransformParameters.txx
+    cmd = '%s -in %s -out %s -tp %s' % (transformix_binary, imgname, resultdirname, transform_parameter_file)
+
+    res = os.system(cmd)
+
+    if res != 0:
+        raise RuntimeError('transform_data: failed executing: ' + cmd)
+
+    # read data and clean up
+    if delete_image is not None:
+        os.remove(delete_image)
+
+    if sink == []:
+        return result_data_file(resultdirname)
+    elif sink is None:
+        resultfile = result_data_file(resultdirname)
+        result = io.read(resultfile)
+    elif isinstance(sink, str):
+        resultfile = result_data_file(resultdirname)
+        result = io.convert(resultfile, sink)
+    else:
+        raise RuntimeError('transform_data: sink not valid!')
+
+    if delete_result_directory is not None:
+        shutil.rmtree(delete_result_directory)
+
+    return result
 
 
 def write_points(filename, points, indices=False, binary=True):
@@ -350,17 +542,14 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         # 2.3 TRANSFORM SIGNAL TO REFERENCE
         ################################################################################################################
 
-        signal_to_reference_directory = os.path.join(sample_directory, f"signal_to_template_{channel}")
+        signal_to_reference_directory = os.path.join(sample_directory, f"signal_to_reference_{channel}")
         transform_atlas_parameter = dict(
-            moving_image_path=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
-            output_dir=signal_to_reference_directory,
-            output_file_name="result_1.mhd",
-            transform_parameters_paths=[os.path.join(auto_to_reference_directory,
-                                                     f"transform_params_{i}.txt")
-                                        for i in range(2)])
+            source=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
+            result_directory=signal_to_reference_directory,
+            transform_parameter_file=os.path.join(auto_to_reference_directory, f"TransformParameters.1.txt"))
         if not os.path.exists(signal_to_reference_directory):
             ut.print_c(f"[INFO {sample_name}] Running signal to reference transform for channel {channel}!")
-            apply_transform(**transform_atlas_parameter)
+            transform_images(**transform_atlas_parameter)
         else:
             ut.print_c(f"[WARNING {sample_name}] Transforming: signal to reference skipped for channel {channel}: "
                        f"signal_to_template_{channel} folder already exists!")
@@ -391,15 +580,12 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
             file.write(data)
 
         transform_atlas_parameter = dict(
-            moving_image_path=annotation_file,
-            output_dir=atlas_to_auto_directory,
-            output_file_name="result_1.mhd",
-            transform_parameters_paths=[os.path.join(reference_to_auto_directory, f"TransformParameters_ni.0.txt"),
-                                        os.path.join(reference_to_auto_directory, f"TransformParameters_ni.1.txt")])
-
+            source=annotation_file,
+            result_directory=atlas_to_auto_directory,
+            transform_parameter_file=os.path.join(reference_to_auto_directory, f"TransformParameters_ni.1.txt"))
         if not os.path.exists(atlas_to_auto_directory):
             ut.print_c(f"[INFO {sample_name}] Running atlas to auto transform for channel {channel}!")
-            apply_transform(**transform_atlas_parameter)
+            transform_images(**transform_atlas_parameter)
         else:
             ut.print_c(f"[WARNING {sample_name}] Transforming: atlas to auto skipped for channel {channel}: "
                        f"atlas_to_auto_{channel} folder already exists!")
