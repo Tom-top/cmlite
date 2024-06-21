@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import distance_transform_edt
 
+import settings
+
 import IO.IO as io
 import IO.file_utils as fu
 
@@ -41,8 +43,7 @@ def decompress_lzma_to_tiff(lzma_file_path, output_tiff_path):
             out_file.write(compressed_file.read())
     print(f"Decompressed {lzma_file_path} to {output_tiff_path}")
 
-atlas_base_name = "resources/atlas"
-compressed_files = [os.path.join(atlas_base_name, i) for i in os.listdir(atlas_base_name) if i.endswith('lzma')]
+compressed_files = [os.path.join(settings.atlas_base_name, i) for i in os.listdir(settings.atlas_base_name) if i.endswith('lzma')]
 for i in compressed_files:
     output_file = ".".join(i.split(".")[:-1])
     if not os.path.exists(output_file):
@@ -640,14 +641,6 @@ def prepare_annotation_files(slicing=None, orientation=None, directory=None, pos
     distance_to_surface_file : str
         The distance cropped file.
     """
-    # if annotation_file is None:
-    #     annotation_file = default_annotation_file
-    # if hemispheres_file is None:
-    #     hemispheres_file = default_hemispheres_file
-    # if reference_file is None:
-    #     reference_file = default_reference_file
-    # if distance_to_surface_file is None:
-    #     distance_to_surface_file = default_distance_to_surface_file
 
     files = [annotation_file, reference_file]
     if hemispheres:
