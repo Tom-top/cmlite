@@ -43,7 +43,8 @@ def decompress_lzma_to_tiff(lzma_file_path, output_tiff_path):
             out_file.write(compressed_file.read())
     print(f"Decompressed {lzma_file_path} to {output_tiff_path}")
 
-compressed_files = [os.path.join(settings.atlas_base_name, i) for i in os.listdir(settings.atlas_base_name) if i.endswith('lzma')]
+compressed_files = [os.path.join(settings.atlas_path, i) for i in os.listdir(settings.atlas_path) if
+                    i.endswith('lzma')]
 for i in compressed_files:
     output_file = ".".join(i.split(".")[:-1])
     if not os.path.exists(output_file):
