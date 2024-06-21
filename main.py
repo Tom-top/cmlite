@@ -122,18 +122,18 @@ for sample_name in sample_names:
 ########################################################################################################################
 # 5.0 STATISTICS
 ########################################################################################################################
-#
-# groups = dict(Grp1=["cfosbrain1", "cfosbrain2", "cfosbrain3"],
-#               Grp2=["cfosbrain4", "cfosbrain5", "cfosbrain6", "cfosbrain7", "cfosbrain8", "cfosbrain9"],
-#               Grp3=["cfosbrain10", "cfosbrain11", "cfosbrain12", "cfosbrain13", "cfosbrain14", "cfosbrain15"])
-#
-# if parameters["statistics"]["run_statistics"]:
-#
-#     for group_name, group in groups.items():
-#         group_paths = [os.path.join(data_dir, f'{x}/density_counts.tif') for x in os.listdir(data_dir) if x in group and
-#                        os.path.exists(os.path.join(data_dir, f'{x}/density_counts.tif'))]
-#
-#         group_data = stats.read_data_group(group_paths)
-#         group_mean = np.mean(group_data, axis=0)
-#         io.write(os.path.join(data_dir, f'{group_name}.tif'),
-#                      horizontal_to_coronal(group_mean, bulbs_down=True, ventral_first=True))
+
+groups = dict(Grp1=["cfosbrain1", "cfosbrain2", "cfosbrain3"],
+              Grp2=["cfosbrain4", "cfosbrain5", "cfosbrain6", "cfosbrain7", "cfosbrain8", "cfosbrain9"],
+              Grp3=["cfosbrain10", "cfosbrain11", "cfosbrain12", "cfosbrain13", "cfosbrain14", "cfosbrain15"])
+
+if parameters["statistics"]["run_statistics"]:
+
+    for group_name, group in groups.items():
+        group_paths = [os.path.join(data_dir, f'{x}/density_counts.tif') for x in os.listdir(data_dir) if x in group and
+                       os.path.exists(os.path.join(data_dir, f'{x}/density_counts.tif'))]
+
+        group_data = stats.read_data_group(group_paths)
+        group_mean = np.mean(group_data, axis=0)
+        io.write(os.path.join(data_dir, f'{group_name}.tif'),
+                     horizontal_to_coronal(group_mean, bulbs_down=True, ventral_first=True))
