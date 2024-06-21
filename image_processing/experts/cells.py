@@ -1,6 +1,7 @@
 import os
 import shutil
 import multiprocessing
+import tempfile
 
 import numpy as np
 import numpy.lib.recfunctions as rfn
@@ -78,7 +79,6 @@ default_cell_detection_processing_parameter = dict(
     processes=4,
 )
 
-
 # Fixme: Missing IDs in atlas -> probably background and ventricles but worth chercking
 extra_labels = [(5576, 0, 'No label', 'NoL'),
                 (5577, 0, 'No label', 'NoL'),
@@ -101,6 +101,7 @@ extra_labels = [(5576, 0, 'No label', 'NoL'),
                 (5880, 0, 'No label', 'NoL'),
                 (5912, 0, 'No label', 'NoL'),
                 ]
+
 
 def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detection_parameter,
                  processing_parameter=default_cell_detection_processing_parameter, workspace=None):
@@ -465,8 +466,6 @@ def remove_background(source, shape, form='Disk'):
     selem = np.array(selem).astype('uint8')
     removed = np.empty(source.shape, dtype=source.dtype)
     for z in range(source.shape[2]):
-        # img[:,:,z] = img[:,:,z] - grey_opening(img[:,:,z], structure=structureElement('Disk', (30,30)))
-        # img[:,:,z] = img[:,:,z] - morph.grey_opening(img[:,:,z], structure=structureElement('Disk', (150,150)))
         removed[:, :, z] = source[:, :, z] - np.minimum(source[:, :, z],
                                                         cv2.morphologyEx(source[:, :, z], cv2.MORPH_OPEN, selem))
     return removed
@@ -499,20 +498,33 @@ def detect_maxima(source, h_max=None, shape=5, threshold=None, verbose=False):  
 def transformation(sample_directory, channel, coordinates):
     coordinates = res.resample_points(coordinates, sink=None, orientation=None,
                                       source_shape=io.shape(os.path.join(sample_directory, f"stitched_{channel}.npy")),
-                                      sink_shape=io.shape(os.path.join(sample_directory, f"resampled_25um_{channel}.tif")),
+                                      sink_shape=io.shape(
+                                          os.path.join(sample_directory, f"resampled_25um_{channel}.tif")),
                                       )
-    signal_to_auto_directory = os.path.join(sample_directory, f'signal_to_auto_{channel}')
-    coordinates = elx.transform_points(
-        coordinates, sink=None,
-        transform_parameter_files=[os.path.join(signal_to_auto_directory, "transform_params_0.txt"),
-                                   ],
-        binary=True, indices=False)
-    # auto_to_reference_directory = os.path.join(sample_directory, f'auto_to_reference_{channel}')
-    # coordinates = elx.transform_points(
-    #     coordinates, sink=None,
-    #     transform_directory=[os.path.join(auto_to_reference_directory, "transform_params_0.txt"),
-    #                          os.path.join(auto_to_reference_directory, "transform_params_1.txt"),],
-    #     binary=True, indices=False)
+    elx.write_points(os.path.join(elx.elastix_output_folder, "outputpoints.txt"), coordinates, indices=False, binary=False)
+
+    auto_to_signal_directory = os.path.join(sample_directory, f'auto_to_signal_{channel}')
+    coordinates, _ = elx.transform_points_with_transformix(
+        os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
+        elx.elastix_output_folder,
+        os.path.join(auto_to_signal_directory, "TransformParameters.0.txt"),
+        transformix_input=False,
+    )
+
+    reference_to_auto_directory = os.path.join(sample_directory, f'reference_to_auto_{channel}')
+    coordinates, _ = elx.transform_points_with_transformix(
+        os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
+        elx.elastix_output_folder,
+        os.path.join(reference_to_auto_directory, "TransformParameters.0.txt"),
+        transformix_input=True,
+    )
+    coordinates, _ = elx.transform_points_with_transformix(
+        os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
+        elx.elastix_output_folder,
+        os.path.join(reference_to_auto_directory, "TransformParameters.1.txt"),
+        transformix_input=True,
+    )
+
     return coordinates
 
 
@@ -553,7 +565,9 @@ def filter_cells(source, sink, thresholds):
     return io.write(sink, cells_filtered)
 
 
-def segment_cells(sample_name, sample_directory, annotation, save_segmented_cells=True, **kwargs):
+def segment_cells(sample_name, sample_directory, annotation, reference, analysis_data_size_directory,
+                  save_segmented_cells=True,
+                  **kwargs):
     print("")
     for channel in kwargs["channels_to_segment"]:
         p = kwargs["cell_detection"]
@@ -591,11 +605,13 @@ def segment_cells(sample_name, sample_directory, annotation, save_segmented_cell
         else:
             ut.print_c(f"[WARNING {sample_name}] Skipping cell filtering for channel {channel}: "
                        f"cells_filtered_{channel}.npy file already exists!")
-        # sample_analysis_directory = os.path.join(shape_detection_directory, sample_name)
-        # if not os.path.exists(sample_analysis_directory):
-        #     os.mkdir(sample_analysis_directory)
-        # shutil.copyfile(cells_filtered_path,
-        #                 os.path.join(sample_analysis_directory, f"cells_filtered_{channel}.npy"))
+
+        analysis_sample_directory = os.path.join(analysis_data_size_directory, sample_name)
+        if not os.path.exists(analysis_sample_directory):
+            os.mkdir(analysis_sample_directory)
+        shutil.copyfile(cells_filtered_path,
+                        os.path.join(analysis_sample_directory, f"cells_filtered_{channel}.npy"))
+
         cells_filtered = io.as_source(cells_filtered_path)
         filetered_cell_coordinates = np.array([cells_filtered[c] for c in 'xyz']).T
 
@@ -608,18 +624,17 @@ def segment_cells(sample_name, sample_directory, annotation, save_segmented_cell
             if not os.path.exists(labeled_cells_10um_path):
                 ut.print_c(f"[INFO {sample_name}] Drawing segmented cells for channel {channel}!")
                 resampled_signal_10um_path = os.path.join(sample_directory, f"resampled_10um_{channel}.tif")
-                if not os.path.exists(labeled_cells_10um_path):
-                    filetered_cell_coordinates_10um = res.resample_points(
-                        filetered_cell_coordinates, sink=None, orientation=None,
-                        source_shape=io.shape(os.path.join(sample_directory, f"stitched_{channel}.npy")),
-                        sink_shape=io.shape(resampled_signal_10um_path)
-                    )
-                    resampled_signal_10um = tifffile.imread(resampled_signal_10um_path)
-                    resampled_signal_10um = np.repeat(resampled_signal_10um[..., np.newaxis], 3, axis=-1)
-                    filetered_cell_coordinates_10um[:, [0, 2]] = filetered_cell_coordinates_10um[:, [2, 0]]
-                    for x, y, z in filetered_cell_coordinates_10um.astype(int):
-                        resampled_signal_10um[x, y, z] = [2 ** 16 - 1, 0, 0]
-                    tifffile.imwrite(labeled_cells_10um_path, resampled_signal_10um)
+                filetered_cell_coordinates_10um = res.resample_points(
+                    filetered_cell_coordinates, sink=None, orientation=None,
+                    source_shape=io.shape(os.path.join(sample_directory, f"stitched_{channel}.npy")),
+                    sink_shape=io.shape(resampled_signal_10um_path)
+                )
+                resampled_signal_10um = tifffile.imread(resampled_signal_10um_path)
+                resampled_signal_10um = np.repeat(resampled_signal_10um[..., np.newaxis], 3, axis=-1)
+                filetered_cell_coordinates_10um[:, [0, 2]] = filetered_cell_coordinates_10um[:, [2, 0]]
+                for x, y, z in filetered_cell_coordinates_10um.astype(int):
+                    resampled_signal_10um[x, y, z] = [2 ** 16 - 1, 0, 0]
+                tifffile.imwrite(labeled_cells_10um_path, resampled_signal_10um)
             else:
                 ut.print_c(f"[WARNING {sample_name}] Skipping drawing of segmented cells for channel {channel}: "
                            f"labeled_cells_10um_{channel}.tif file already exists!")
@@ -629,29 +644,36 @@ def segment_cells(sample_name, sample_directory, annotation, save_segmented_cell
         ################################################################################################################
 
         cells_transformed_path = os.path.join(shape_detection_directory, f"cells_transformed_{channel}.npy")
-        if not os.path.exists(cells_transformed_path):
-            ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
-            transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates)
-            if kwargs["atlas_to_use"] == "gubra":
-                ano.set_annotation_file(annotation,
-                                        label_file=f"resources/atlas/{kwargs['atlas_to_use']}_annotation.json",
-                                        extra_label=extra_labels)
-            else:
-                ano.set_annotation_file(f"resources/atlas/{kwargs['atlas_to_use']}_annotation.json")
-
-            label = ano.label_points(transformed_cell_coordinates, key='order')
-            names = ano.convert_label(label, key='order', value='name')
-            transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
-            label = np.array(label, dtype=[('order', int)])
-            names = np.array(names, dtype=[('name', 'U256')])
-            cells_data = rfn.merge_arrays([cells_filtered, transformed_cell_coordinates, label, names],
-                                          flatten=True, usemask=False)
-            io.write(cells_transformed_path, cells_data)
-            # shutil.copyfile(cells_transformed_path,
-            #                 os.path.join(sample_analysis_directory, f"cells_transformed_{channel}.npy"))
+        # if not os.path.exists(cells_transformed_path) or kwargs["overwrite_results"]:
+        ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
+        transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates)
+        if kwargs["atlas_to_use"] == "gubra":
+            ano.set_annotation_file(annotation,
+                                    label_file=f"resources/atlas/{kwargs['atlas_to_use']}_annotation_"
+                                               f"{kwargs['animal_species']}.json",
+                                    extra_label=extra_labels)
         else:
-            ut.print_c(f"[WARNING {sample_name}] Skipping transform cells for channel {channel}: "
-                       f"cells_transformed_{channel}.npy file already exists!")
+            ano.set_annotation_file(f"resources/atlas/{kwargs['atlas_to_use']}_annotation.json")
+        label = ano.label_points(transformed_cell_coordinates, key='order')
+        names = ano.convert_label(label, key='order', value='name')
+        transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
+        label = np.array(label, dtype=[('order', int)])
+        names = np.array(names, dtype=[('name', 'U256')])
+
+        print(f"cells_filtered shape: {cells_filtered.shape}, dtype: {cells_filtered.dtype}")
+        print(
+            f"transformed_cell_coordinates shape: {transformed_cell_coordinates.shape}, dtype: {transformed_cell_coordinates.dtype}")
+        print(f"label shape: {label.shape}, dtype: {label.dtype}")
+        print(f"names shape: {names.shape}, dtype: {names.dtype}")
+
+        cells_data = rfn.merge_arrays([cells_filtered[:], transformed_cell_coordinates, label, names],
+                                      flatten=True, usemask=False)
+        io.write(cells_transformed_path, cells_data)
+        shutil.copyfile(cells_transformed_path,
+                        os.path.join(analysis_sample_directory, f"cells_transformed_{channel}.npy"))
+        # else:
+        #     ut.print_c(f"[WARNING {sample_name}] Skipping transform cells for channel {channel}: "
+        #                f"cells_transformed_{channel}.npy file already exists!")
 
         ################################################################################################################
         # 3.4 WRITE RESULT
@@ -659,22 +681,21 @@ def segment_cells(sample_name, sample_directory, annotation, save_segmented_cell
 
         cells_transformed_csv_path = os.path.join(shape_detection_directory, f"cells_transformed_{channel}.csv")
         cells_transformed = io.as_source(cells_transformed_path)
-        if not os.path.exists(cells_transformed_csv_path):
+        if not os.path.exists(cells_transformed_csv_path) or kwargs["overwrite_results"]:
             ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
             delimiter = ";"
-            header = f'{delimiter} '.join([h[0] for h in cells_transformed.dtype.names])
+            header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
             np.savetxt(cells_transformed_csv_path, cells_transformed[:], header=header,
                        delimiter=delimiter,
                        fmt='%s')
-            # shutil.copyfile(cells_transformed_csv_path,
-            #                 os.path.join(sample_analysis_directory, f"cells_transformed_{channel}.csv"))
+            shutil.copyfile(cells_transformed_csv_path,
+                            os.path.join(analysis_sample_directory, f"cells_transformed_{channel}.csv"))
         else:
             ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
                        f"cells_transformed_{channel}.csv file already exists!")
 
         # ClearMap 1.0 export
         cells_cm1_path = os.path.join(shape_detection_directory, f"cells_transformed_cm1_{channel}.npy")
-        cells_cm1 = io.as_source(cells_cm1_path)
         clearmap1_format = {'points': ['x', 'y', 'z'],
                             'points_transformed': ['xt', 'yt', 'zt'],
                             'intensities': ['source', 'dog', 'background', 'size']}
@@ -684,6 +705,6 @@ def segment_cells(sample_name, sample_directory, annotation, save_segmented_cell
                 [cells_transformed[name] if name in cells_transformed.dtype.names
                  else np.full(cells_transformed.shape[0], np.nan) for name in
                  names])
-            io.write(cells_cm1, data)
-            # shutil.copyfile(cells_cm1,
-            #                 os.path.join(sample_analysis_directory, f"cells_transformed_cm1_{channel}.npy"))
+            io.write(cells_cm1_path, data)
+            shutil.copyfile(cells_cm1_path,
+                            os.path.join(analysis_sample_directory, f"cells_transformed_cm1_{channel}.npy"))

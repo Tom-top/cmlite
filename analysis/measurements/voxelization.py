@@ -144,7 +144,11 @@ def search_indices_rectangle(radius, kernel=None):
     return indices, kernel
 
 
-def generate_heatmap(sample_directory, weighed=False, **kwargs):
+def generate_heatmap(sample_directory, analysis_data_size_directory, annotation_file, weighed=False, **kwargs):
+    shape_detection_directory = os.path.join(sample_directory,
+                                             f"shape_detection_{kwargs['cell_detection']['shape_detection']}")
+    if not os.path.exists(shape_detection_directory):
+        os.mkdir(shape_detection_directory)
     for channel in kwargs['channels_to_segment']:
         cd_p = kwargs["cell_detection"]
         vox_p = kwargs["voxelization"]
@@ -159,8 +163,9 @@ def generate_heatmap(sample_directory, weighed=False, **kwargs):
         else:
             weights = None
 
+        annotation_shape = io.shape(annotation_file)
         voxelization_parameter = dict(
-            shape=io.shape(f"resources/atlas/annotation_{kwargs['atlas_to_use']}.tif"),
+            shape=annotation_shape,
             dtype=None,
             weights=weights,
             method='sphere',
@@ -171,12 +176,17 @@ def generate_heatmap(sample_directory, weighed=False, **kwargs):
         )
 
         if weighed:
-            heatmap_path = os.path.join(sample_directory, "density_counts.tif")
+            heatmap_name = "density_intensities.tif"
         else:
-            heatmap_path = os.path.join(sample_directory, "density_intensities.tif")
+            heatmap_name = "density_counts.tif"
 
+        heatmap_path = os.path.join(shape_detection_directory, heatmap_name)
         if os.path.exists(heatmap_path):
             os.remove(heatmap_path)
+
+        # coordinates = np.flip(coordinates)
+        # coordinates[:, (1, 2)] = coordinates[:, (2, 1)]
+
         voxelize(coordinates, sink=heatmap_path, **voxelization_parameter)
-        # shutil.copyfile(heatmap_path,
-        #                 os.path.join(analysis_dir_animal, f"density_counts.tif"))
+        shutil.copyfile(heatmap_path,
+                        os.path.join(analysis_data_size_directory, heatmap_name))

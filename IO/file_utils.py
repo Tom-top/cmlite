@@ -263,7 +263,6 @@ def uncompress(file_path, extension='zip', check=True, verbose=False):
         if extension == 'auto':
             for algo in ('zip', 'bz2', 'gzip', 'lzma'):
                 f_path_w_ext = f'{file_path}.{algo}'
-                print(f_path_w_ext)
                 if os.path.exists(f_path_w_ext):
                     extension = algo
                     break

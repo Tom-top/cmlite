@@ -1,5 +1,6 @@
 import os
 import collections
+import lzma
 
 import json
 
@@ -23,17 +24,7 @@ from alignment.utils import create_label_table
 # ## Atlas Structures
 ###############################################################################
 
-def decompress_atlases(atlas_base_name):
-    paths = []
-    atlas_component_names = ('annotation', 'reference')
-    for atlas_type in atlas_component_names:
-        f_path = os.path.join("resources/atlas", f'{atlas_base_name}_{atlas_type}.tif')
-        fu.uncompress(f_path, extension='auto')
-        paths.append(f_path)
-    return paths
 
-
-atlas_base_name = 'gubra'  # FIXME: change if different atlas
 """
 Default volumetric annotated image file.
 
@@ -43,9 +34,21 @@ Note
   isotropic resolution.
 """
 
-default_annotation_file, default_reference_file = decompress_atlases(atlas_base_name)
+def decompress_lzma_to_tiff(lzma_file_path, output_tiff_path):
+    # Decompress the LZMA file
+    with lzma.open(lzma_file_path, 'rb') as compressed_file:
+        with open(output_tiff_path, 'wb') as out_file:
+            out_file.write(compressed_file.read())
+    print(f"Decompressed {lzma_file_path} to {output_tiff_path}")
 
-default_label_file = os.path.join("resources/atlas", 'gubra_annotation.json')
+atlas_base_name = "resources/atlas"
+compressed_files = [os.path.join(atlas_base_name, i) for i in os.listdir(atlas_base_name) if i.endswith('lzma')]
+for i in compressed_files:
+    output_file = ".".join(i.split(".")[:-1])
+    if not os.path.exists(output_file):
+        decompress_lzma_to_tiff(i, ".".join(i.split(".")[:-1]))
+
+default_label_file = os.path.join("resources/atlas", 'gubra_annotation_mouse.json')
 
 """Default list of labels and region names in the annotated image.
 
@@ -194,8 +197,8 @@ class Annotation(object):
         # read json file
         if label_file is None:
             label_file = default_label_file
-        if annotation_file is None:
-            annotation_file = default_annotation_file
+        # if annotation_file is None:
+        #     annotation_file = default_annotation_file
         if extra_label is None:
             extra_label = default_extra_label
         if extra_label in ['None', '', False]:  # add nodes for missing labels
@@ -461,14 +464,14 @@ class Annotation(object):
 ##########################################################################################
 
 
-annotation = Annotation(extra_label=default_extra_label)
+# annotation = Annotation(extra_label=default_extra_label)
 """Information on the annotated regions"""
 
-n_structures = annotation.n_structures  # remove
-get_dictionary = annotation.get_dictionary  # remove
-get_list = annotation.get_list  # remove
-get_map = annotation.get_map  # remove
-find = annotation.find  # Find and replace
+# n_structures = annotation.n_structures  # remove
+# get_dictionary = annotation.get_dictionary  # remove
+# get_list = annotation.get_list  # remove
+# get_map = annotation.get_map  # remove
+# find = annotation.find  # Find and replace
 initialized = False
 
 
@@ -637,12 +640,12 @@ def prepare_annotation_files(slicing=None, orientation=None, directory=None, pos
     distance_to_surface_file : str
         The distance cropped file.
     """
-    if annotation_file is None:
-        annotation_file = default_annotation_file
+    # if annotation_file is None:
+    #     annotation_file = default_annotation_file
     # if hemispheres_file is None:
     #     hemispheres_file = default_hemispheres_file
-    if reference_file is None:
-        reference_file = default_reference_file
+    # if reference_file is None:
+    #     reference_file = default_reference_file
     # if distance_to_surface_file is None:
     #     distance_to_surface_file = default_distance_to_surface_file
 
