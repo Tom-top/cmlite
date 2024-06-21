@@ -1276,11 +1276,13 @@ def stitch_sample(sample_directory, **kwargs):
     sample_name = os.path.basename(sample_directory)
     for channel_to_stitch in kwargs["channels_to_stitch"]:
         processed_folder = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
+        processed_files_expression = "_".join([i for i in os.listdir(processed_folder) if
+                                               i.endswith(".tif")][0].split("_")[:-2])
         stitched_folder = os.path.join(sample_directory, f"stitched_{channel_to_stitch}")
         if os.path.exists(processed_folder) and not os.path.exists(stitched_folder):
             ut.print_c(f"[INFO {sample_name}] Channel {channel_to_stitch}: Starting stitching!")
             processed_directory = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
-            expression_raw = rf"{os.path.basename(sample_directory)}_\[(?P<row>\d{{2}})\ x (?P<col>\d{{2}})\]_{channel_to_stitch}.tif"
+            expression_raw = rf"{processed_files_expression}_\[(?P<row>\d{{2}})\ x (?P<col>\d{{2}})\]_{channel_to_stitch}.tif"
 
             metadata_file = os.path.join(sample_directory, "scan_metadata.json")
             if not os.path.exists(metadata_file):
@@ -1307,9 +1309,9 @@ def stitch_sample(sample_directory, **kwargs):
 
             align_file = align_data(import_file,
                                     overlap=overlap.astype(int),
-                                    search=kwargs["search_params"],
+                                    search=kwargs["stitching"]["search_params"],
                                     xml_result_file=os.path.join(processed_directory, 'terastitcher_align.xml'),
-                                    sub_region=((all, all), (all, all), kwargs["z_subreg_alignment"]),
+                                    sub_region=((all, all), (all, all), kwargs["stitching"]["z_subreg_alignment"]),
                                     algorithm="MIPNCC",
                                     verbose=False)
 

@@ -9,6 +9,9 @@ dependencies:
   - opencv
   - pip
   - python
+  - natsort
+  - tifffile
+  - pyyaml
   - pip:
       - aicsimageio
       - aicspylibczi
