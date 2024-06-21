@@ -28,7 +28,7 @@ run_statistics = False
 
 # SAMPLE PARAMETERS
 parameters = dict(samples_to_process=["sample_0"],
-                  re_process=False,
+                  re_process=True,
                   scanning_system="zeiss",
                   scanning_pattern="z",
                   channels_to_stitch=[0, 1],

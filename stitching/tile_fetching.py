@@ -131,7 +131,11 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
             ut.print_c(f"[WARNING {sample_name}] No .czi file was found for sample {sample_name}: skipping!")
             return
 
-        file_name = file_names[0]
+        if len(file_names) > 1:
+            raise ut.CmliteError(f"More than one .czi file available for {sample_name} is ambiguous!")
+        else:
+            file_name = file_names[0]
+
         data_path = os.path.join(sample_directory, file_name)
         reader = CziReader(data_path)
 
