@@ -24,8 +24,26 @@ cell_detection:
   thresholds:
     source: None
     size: [20, 500]
+
 voxelization:
   radius: [7, 7, 7]
+
 statistics:
   run_statistics: True
-  non_parametric: False
+  inter_hemispherical_comparison: True
+
+  groups:
+    group_1: ["brain_1"]
+    group_2: ["brain_2"]
+
+  group_comparisons: [
+  ["group_1", "group_2"],
+  ]
+
+  region_wise:
+      non_parametric: True
+      pval_cutoff: 1.0e-10
+
+  voxel_wise:
+      non_parametric: False
+      pval_cutoff: 1.0e-10

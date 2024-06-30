@@ -565,7 +565,7 @@ def filter_cells(source, sink, thresholds):
     return io.write(sink, cells_filtered)
 
 
-def segment_cells(sample_name, sample_directory, annotation, reference, analysis_data_size_directory,
+def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_directory,
                   save_segmented_cells=True,
                   **kwargs):
     print("")
@@ -696,17 +696,17 @@ def segment_cells(sample_name, sample_directory, annotation, reference, analysis
             ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
                        f"cells_transformed_{channel}.csv file already exists!")
 
-        # ClearMap 1.0 export
-        cells_cm1_path = os.path.join(shape_detection_directory, f"cells_transformed_cm1_{channel}.npy")
-        clearmap1_format = {'points': ['x', 'y', 'z'],
-                            'points_transformed': ['xt', 'yt', 'zt'],
-                            'intensities': ['source', 'dog', 'background', 'size']}
-
-        for filename, names in clearmap1_format.items():
-            data = np.array(
-                [cells_transformed[name] if name in cells_transformed.dtype.names
-                 else np.full(cells_transformed.shape[0], np.nan) for name in
-                 names])
-            io.write(cells_cm1_path, data)
-            shutil.copyfile(cells_cm1_path,
-                            os.path.join(analysis_sample_directory, f"cells_transformed_cm1_{channel}.npy"))
+        # # ClearMap 1.0 export
+        # cells_cm1_path = os.path.join(shape_detection_directory, f"cells_transformed_cm1_{channel}.npy")
+        # clearmap1_format = {'points': ['x', 'y', 'z'],
+        #                     'points_transformed': ['xt', 'yt', 'zt'],
+        #                     'intensities': ['source', 'dog', 'background', 'size']}
+        #
+        # for filename, names in clearmap1_format.items():
+        #     data = np.array(
+        #         [cells_transformed[name] if name in cells_transformed.dtype.names
+        #          else np.full(cells_transformed.shape[0], np.nan) for name in
+        #          names])
+        #     io.write(cells_cm1_path, data)
+        #     shutil.copyfile(cells_cm1_path,
+        #                     os.path.join(analysis_sample_directory, f"cells_transformed_cm1_{channel}.npy"))

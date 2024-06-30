@@ -117,7 +117,7 @@ def find_first_file(filename):
         fnsp.pop(0)
     else:  # relative path
         # if absolute:
-        #  fn = os.path.abspath(os.curdir);
+        #  fn = os.path.abspath(os.curdir)
         # else:
         fn = '.'
     # no group info
@@ -160,28 +160,28 @@ def find_file_info(filename):
         Dict = {}
         for m, n in zip(i.tag.keys(), i.tag.values()):
             Dict[m] = n
-        # info = i.tag.as_dict();
+        # info = i.tag.as_dict()
         for tag, value in Dict.items():
             decoded = TAGS.get(tag)
             ret[decoded] = value
         return ret
 
-    imginfo = ome_info(filename);
-    keys = imginfo.keys();
+    imginfo = ome_info(filename)
+    keys = imginfo.keys()
 
-    finfo = {'resolution': None, 'overlap': None, 'size': None};
+    finfo = {'resolution': None, 'overlap': None, 'size': None}
 
     # get image sizes
     if ('ImageHeight' in keys) and ('ImageWidth' in keys):
-        finfo['size'] = (imginfo['ImageWidth'], imginfo['ImageHeight']);
+        finfo['size'] = (imginfo['ImageWidth'], imginfo['ImageHeight'])
     else:
         finfo['size'] = io.data_size(filename)
 
     if 'ImageDescription' in keys:
-        imgxml = imginfo['ImageDescription'];
+        imgxml = imginfo['ImageDescription']
 
         if isinstance(imgxml, tuple):
-            imgxml = imgxml[0];
+            imgxml = imgxml[0]
 
         # print(imgxml[0])
         # imgxml.encode('ascii')
@@ -201,27 +201,27 @@ def find_file_info(filename):
         #    text_file.close()
 
         try:
-            imgxml = etree.fromstring(imgxml.encode("utf-8"));  # "ascii"
+            imgxml = etree.fromstring(imgxml.encode("utf-8"))  # "ascii"
         except:
             imgxml = _cleanXML(
-                imgxml);  # for large images the TileConfiguration entry is huge and can cause a AttValue error in the xml parser
-            imgxml = etree.fromstring(imgxml.encode("utf-8"));
+                imgxml)  # for large images the TileConfiguration entry is huge and can cause a AttValue error in the xml parser
+            imgxml = etree.fromstring(imgxml.encode("utf-8"))
 
         # get resolution
-        pix = [x for x in imgxml.iter('{*}Pixels')];
+        pix = [x for x in imgxml.iter('{*}Pixels')]
         if len(pix) > 0:
-            pix = pix[0].attrib;
-            keys = pix.keys();
+            pix = pix[0].attrib
+            keys = pix.keys()
             if 'PhysicalSizeX' in keys and 'PhysicalSizeY' in keys and 'PhysicalSizeZ' in keys:
                 finfo['resolution'] = (
                     float(pix['PhysicalSizeX']), float(pix['PhysicalSizeY']), float(pix['PhysicalSizeZ']))
 
-        # overlapX = [x.attrib["Value"] for x in imgxml.iter('{*}prop') if x.attrib["label"]=="xyz-Table X Overlap"];
+        # overlapX = [x.attrib["Value"] for x in imgxml.iter('{*}prop') if x.attrib["label"]=="xyz-Table X Overlap"]
         overlapX = [x.attrib["Value"] for x in imgxml.iter('{*}xyz-Table_X_Overlap')]
-        # overlapY = [x.attrib["Value"] for x in imgxml.iter('{*}prop') if x.attrib["label"]=="xyz-Table Y Overlap"];
+        # overlapY = [x.attrib["Value"] for x in imgxml.iter('{*}prop') if x.attrib["label"]=="xyz-Table Y Overlap"]
         overlapY = [x.attrib["Value"] for x in imgxml.iter('{*}xyz-Table_Y_Overlap')]
 
-        finfo['overlap'] = (float(overlapX[0]), float(overlapY[0]));
+        finfo['overlap'] = (float(overlapX[0]), float(overlapY[0]))
 
     return finfo
 
@@ -255,38 +255,38 @@ def find_file_list(filename, sort=True, groups=None, absolute=True):
         def list_dir(path):
             for f in natsorted(os.listdir(path)):
                 if not f.startswith('.'):
-                    yield f;
+                    yield f
     else:
         def list_dir(path):
             for f in os.listdir(path):
                 if not f.startswith('.'):
-                    yield f;
+                    yield f
 
     # split full paths in case path contains regular expression
-    fnsp = filename.split(os.path.sep);
+    fnsp = filename.split(os.path.sep)
 
     # handle absolute path
     if fnsp[0] == '':  # aboslute path
-        files = [os.path.sep];
-        fnsp.pop(0);
+        files = [os.path.sep]
+        fnsp.pop(0)
     else:  # relative path
         if absolute:
-            files = [os.path.abspath(os.curdir)];
+            files = [os.path.abspath(os.curdir)]
         else:
-            files = ['.'];
+            files = ['.']
 
     # handle pure directory expression -> all files
     if len(fnsp) > 0 and fnsp[-1] == '':
-        fnsp[-1] = '.*';
+        fnsp[-1] = '.*'
 
     if groups is None:
         # no group info
         for n in fnsp:
-            search = re.compile(n).search;
-            newfiles = [];
+            search = re.compile(n).search
+            newfiles = []
             for f in files:
-                matches = map(search, list_dir(f));
-                matches = [x for x in matches if x];
+                matches = map(search, list_dir(f))
+                matches = [x for x in matches if x]
                 for m in matches:
                     if f.endswith(os.path.sep):
                         newfiles.append(f + m.string)
@@ -792,13 +792,13 @@ def import_data(xml_import_file=None, base_directory=None, resolution=None, orie
     global terastitcher_binary
 
     if base_directory is None and xml_import_file is None:
-        raise RuntimeError('importData requires baseDirectory or xmlImportFile!');
+        raise RuntimeError('importData requires baseDirectory or xmlImportFile!')
 
     if xml_import_file is None:
         if resolution is None:
-            resolution = (1.0, 1.0, 1.0);
+            resolution = (1.0, 1.0, 1.0)
         if orientation is None:
-            orientation = (1, 2, 3);
+            orientation = (1, 2, 3)
 
     cmd = terastitcher_binary + ' --import '
 
@@ -806,24 +806,24 @@ def import_data(xml_import_file=None, base_directory=None, resolution=None, orie
         cmd = cmd + ' --volin="' + base_directory + '" '
 
     if xml_import_file is not None:
-        cmd = cmd + ' --projin="' + xml_import_file + '" ';
+        cmd = cmd + ' --projin="' + xml_import_file + '" '
 
     # voxel size / resolution
     if resolution is not None:
-        vsize = ['--vxl1=', '--vxl2=', '--vxl3='];
+        vsize = ['--vxl1=', '--vxl2=', '--vxl3=']
         for i in range(3):
-            cmd = cmd + vsize[i] + str(resolution[i]) + ' ';
+            cmd = cmd + vsize[i] + str(resolution[i]) + ' '
 
     # reference orientation1
     if orientation is not None:
-        ref = ['--ref1=', '--ref2=', '--ref3='];
-        # refnames = ['x', 'y', 'z'];
+        ref = ['--ref1=', '--ref2=', '--ref3=']
+        # refnames = ['x', 'y', 'z']
         for i in range(3):
             # if orientation[i] < 0:
             #  rn = '-'
             # else:
-            #  rn = '';
-            # rn = rn + refnames[orientation[abs(i)]];
+            #  rn = ''
+            # rn = rn + refnames[orientation[abs(i)]]
             rn = str(orientation[i])
             cmd = cmd + ref[i] + rn + ' '
 
@@ -839,7 +839,7 @@ def import_data(xml_import_file=None, base_directory=None, resolution=None, orie
     if form is not None:
         cmd = cmd + '--volin_plugin="' + form + '" '
     # else:
-    #  cmd = cmd + '--volin_plugin="TiledXY|2Dseries" ';
+    #  cmd = cmd + '--volin_plugin="TiledXY|2Dseries" '
 
     if rescan is True:
         cmd = cmd + '--rescan '
@@ -940,7 +940,7 @@ def align_data(xml_import_file: object, slices: object = None, sub_region: objec
         if silent_mode:
             cmd = cmd + ("2>&1 | "
                          "grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
-                         "awk '{ printf \"\\r%s\", $0; fflush(); } END { print \"\" }'")
+                         "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
 
         ut.print_c("[INFO] Running pairwise displacement computation")
     else:
@@ -1088,7 +1088,7 @@ def place_tiles(xml_threshold_file, algorithm=None, xml_result_file=None, verbos
 
 def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=None, form=None, channel=None,
                 sub_region=None,
-                bit_depth=None, block_size=None, cleanup=True, compress=False, silent_mode=True):
+                bit_depth=None, block_size=None, compress=False, silent_mode=True):
     """Runs the final stiching step of TeraSticher
 
     Arguments:
@@ -1171,7 +1171,7 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
 
     if silent_mode:
         cmd = cmd + ("2>&1 | grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
-                     "awk '{ printf \"\\r%s\", $0; fflush(); } END { print \"\" }'")
+                     "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
 
     res = os.system(cmd)
 
@@ -1184,11 +1184,8 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
         if fu.is_file_expression(filename, check=False):  # convert list of files in TeraSticher from
             # TODO: multiple resolutions
             basedir = max(glob.glob(os.path.join(result_path, '*')), key=os.path.getmtime)
-            if cleanup:
-                move_tera_stitcher_stack_to_file_list(basedir, os.path.join(result_path, filename),
-                                                      delete_directory=True, verbose=False)
-            else:
-                copy_tera_stitcher_stack_to_file_list(basedir, os.path.join(result_path, filename), verbose=False)
+            move_tera_stitcher_stack_to_file_list(basedir, os.path.join(result_path, filename),
+                                                  delete_directory=True, verbose=False)
 
         else:  # single file in TeraSticher folder
             # get most recent created file
@@ -1196,9 +1193,8 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
             img_file = max(glob.glob(os.path.join(result_path, '*/*/*/*')), key=os.path.getmtime)
             filename = os.path.join(result_path, filename)
             os.rename(img_file, filename)
-            if cleanup:
-                img_path = os.path.sep.join(img_file.split(os.path.sep)[:-3])
-                shutil.rmtree(img_path)
+            img_path = os.path.sep.join(img_file.split(os.path.sep)[:-3])
+            shutil.rmtree(img_path)
             return filename
 
     else:
@@ -1236,37 +1232,12 @@ def move_tera_stitcher_stack_to_file_list(source, sink, delete_directory=True, v
     return sink
 
 
-def copy_tera_stitcher_stack_to_file_list(source, sink, verbose=True):
-    """Copies image files from TeraSticher file structure to a list of files
-
-    Arguments:
-      source (str): base directory of the TeraStitcher files
-      sink (str): regular expression of the files to copy to
-      verbose (bool): show progress
-    Returns:
-      str: sink regular expression
-    """
-    # TODO: multiple tiles !
-    fns = glob.glob(os.path.join(source, '*/*/*'))
-    fns = natsorted(fns)
-
-    file_utils.create_directory(sink)
-    for i, f in enumerate(fns):
-        fn = file_list.file_expression_to_file_name(sink, i)
-        if verbose:
-            print('%s -> %s' % (f, fn))
-        shutil.copyfile(f, fn)
-
-    return sink
-
-
 def stitch_samples(raw_directory, **kwargs):
     if len(os.listdir(raw_directory)) == 0:
         ut.CmliteError(f"No samples were found in: {raw_directory}")
 
-    sample_names = natsorted(kwargs["study_params"]["samples_to_process"]) \
-        if kwargs["study_params"]["samples_to_process"] else os.listdir(
-        raw_directory)
+    sample_names = ut.get_sample_names(raw_directory, **kwargs)
+
     for sample_name in sample_names:
         sample_directory = os.path.join(raw_directory, sample_name)
         stitch_sample(sample_directory, **kwargs)

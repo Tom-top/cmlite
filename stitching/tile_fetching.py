@@ -111,9 +111,8 @@ def prepare_samples(raw_directory, **kwargs):
         if len(os.listdir(raw_directory)) == 0:
             ut.CmliteError(f"No samples were found in: {raw_directory}")
 
-        sample_names = natsorted(kwargs["study_params"]["samples_to_process"]) \
-            if kwargs["study_params"]["samples_to_process"] else os.listdir(
-            raw_directory)
+        sample_names = ut.get_sample_names(raw_directory, **kwargs)
+
         for sample_name in sample_names:
             sample_directory = os.path.join(raw_directory, sample_name)
             prepare_sample(raw_directory, sample_name, **kwargs)
