@@ -107,11 +107,12 @@ def save_scan_metadata(metadata, output_directory, filename="scan_metadata.json"
 
 
 def prepare_samples(raw_directory, **kwargs):
-    if kwargs["re_process"]:
+    if kwargs["study_params"]["re_process"]:
         if len(os.listdir(raw_directory)) == 0:
             ut.CmliteError(f"No samples were found in: {raw_directory}")
 
-        sample_names = natsorted(kwargs["samples_to_process"]) if kwargs["samples_to_process"] else os.listdir(
+        sample_names = natsorted(kwargs["study_params"]["samples_to_process"]) \
+            if kwargs["study_params"]["samples_to_process"] else os.listdir(
             raw_directory)
         for sample_name in sample_names:
             sample_directory = os.path.join(raw_directory, sample_name)
@@ -124,7 +125,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
     print("")
     sample_directory = os.path.join(raw_directory, sample_name)
 
-    if kwargs["scanning_system"] == "zeiss":
+    if kwargs["study_params"]["scanning_system"] == "zeiss":
         ut.print_c(f"[INFO {sample_name}] Starting fetching tiles!")
         file_names = [x for x in os.listdir(sample_directory) if x.endswith(".czi")]
         if not file_names:
@@ -176,7 +177,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
         params["c_tile"] = get_center_tile(params["n_cols"])
         params["temp_directory"] = ut.create_dir(os.path.join(params["sample_directory"], "temp"), verbose=False)
 
-        for channel in kwargs["channels_to_stitch"]:
+        for channel in kwargs["study_params"]["channels_to_stitch"]:
             saving_directory = os.path.join(sample_directory, f"processed_tiles_{channel}")
             if not os.path.exists(saving_directory):
                 ut.create_dir(saving_directory, verbose=False)
@@ -205,7 +206,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
                     f"[WARNING {sample_name}] Skipping tile fetching for channel {channel}: processed_tiles_{channel}"
                     f" folder already exists!")
 
-    elif kwargs["scanning_system"] == "3i":
+    elif kwargs["study_params"]["scanning_system"] == "3i":
         image_record = os.path.join(sample_directory, "ImageRecord.yaml")
         with open(image_record, 'r') as yaml_file:
             yaml_data = yaml_file.read()

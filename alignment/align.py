@@ -451,7 +451,7 @@ def read_transformix_output_file(input_file, output_file):
 
 def run_alignments(sample_name, sample_directory, annotation_file, reference_file, **kwargs):
     print("")
-    for channel in kwargs["channels_to_segment"]:
+    for channel in kwargs["study_params"]["channels_to_segment"]:
 
         ################################################################################################################
         # 2.1 ALIGN SIGNAL TO AUTO
@@ -460,7 +460,7 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         signal_to_auto_directory = os.path.join(sample_directory, f"signal_to_auto_{channel}")
         align_signal_to_auto_affine = dict(fixed_image_path=os.path.join(sample_directory,
                                                                          f"resampled_25um_"
-                                                                         f"{kwargs['autofluorescence_channel']}.tif"),
+                                                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
                                            moving_image_path=os.path.join(sample_directory,
                                                                           f"resampled_25um_{channel}.tif"),
                                            affine_parameter_file="resources/alignment/align_affine.txt",
@@ -484,7 +484,7 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
                                                                          f"resampled_25um_{channel}.tif"),
                                            moving_image_path=os.path.join(sample_directory,
                                                                           f"resampled_25um_"
-                                                                          f"{kwargs['autofluorescence_channel']}.tif"),
+                                                                          f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
                                            affine_parameter_file="resources/alignment/align_affine.txt",
                                            bspline_parameter_file=None,
                                            output_dir=auto_to_signal_directory,
@@ -504,7 +504,7 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         align_auto_to_reference = dict(fixed_image_path=reference_file,
                                        moving_image_path=os.path.join(sample_directory,
                                                                       f"resampled_25um_"
-                                                                      f"{kwargs['autofluorescence_channel']}.tif"),
+                                                                      f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
                                        affine_parameter_file="resources/alignment/align_affine.txt",
                                        bspline_parameter_file="resources/alignment/align_bspline.txt",
                                        output_dir=auto_to_reference_directory,
@@ -524,7 +524,7 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         reference_to_auto_directory = os.path.join(sample_directory, f"reference_to_auto_{channel}")
         align_reference_to_auto = dict(fixed_image_path=os.path.join(sample_directory,
                                                                      f"resampled_25um_"
-                                                                     f"{kwargs['autofluorescence_channel']}.tif"),
+                                                                     f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
                                        moving_image_path=reference_file,
                                        affine_parameter_file="resources/alignment/align_affine.txt",
                                        bspline_parameter_file="resources/alignment/align_bspline.txt",

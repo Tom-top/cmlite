@@ -9,7 +9,7 @@ study_params:
   channels_to_segment: [1]  # Channels to be segmented
   autofluorescence_channel: 0  # Autofluorescence channel
   atlas_to_use: "mouse_gubra"  # Options: mouse_gubra; mouse_aba; rat_waxholm.
-  sample_permutation: (3, -2, -1)  # Default is (1, 2, 3) = (Horizontal, Coronal, Sagittal)
+  sample_permutation: [3, -2, -1]  # Default is [1, 2, 3] = (Horizontal, Coronal, Sagittal)
   # Default is Ventral to the right, Rostral to the top, Right is high (of the image stack)
 
   re_process: True  # Fixme: Used to skip processing if the sttiching is already done
@@ -23,9 +23,9 @@ cell_detection:
   shape_detection: 700
   thresholds:
     source: None
-    size: (20, 500)
+    size: [20, 500]
 voxelization:
-  radius: (7, 7, 7)
+  radius: [7, 7, 7]
 statistics:
   run_statistics: True
   non_parametric: False

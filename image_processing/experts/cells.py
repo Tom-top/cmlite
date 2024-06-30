@@ -569,7 +569,7 @@ def segment_cells(sample_name, sample_directory, annotation, reference, analysis
                   save_segmented_cells=True,
                   **kwargs):
     print("")
-    for channel in kwargs["channels_to_segment"]:
+    for channel in kwargs["study_params"]["channels_to_segment"]:
         p = kwargs["cell_detection"]
         shape_detection_directory = os.path.join(sample_directory, f"shape_detection_{p['shape_detection']}")
         if not os.path.exists(shape_detection_directory):
@@ -647,13 +647,15 @@ def segment_cells(sample_name, sample_directory, annotation, reference, analysis
         # if not os.path.exists(cells_transformed_path) or kwargs["overwrite_results"]:
         ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
         transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates)
-        if kwargs["atlas_to_use"] == "gubra":
+        atlas_name = kwargs['study_params']['atlas_to_use'].split('_')[-1]
+        animal_species = kwargs['study_params']['atlas_to_use'].split('_')[0]
+        if atlas_name == "gubra":
             ano.set_annotation_file(annotation,
-                                    label_file=f"resources/atlas/{kwargs['atlas_to_use']}_annotation_"
-                                               f"{kwargs['animal_species']}.json",
+                                    label_file=f"resources/atlas/{atlas_name}_annotation_"
+                                               f"{animal_species}.json",
                                     extra_label=extra_labels)
         else:
-            ano.set_annotation_file(f"resources/atlas/{kwargs['atlas_to_use']}_annotation.json")
+            ano.set_annotation_file(f"resources/atlas/{atlas_name}_annotation_{animal_species}.json")
         label = ano.label_points(transformed_cell_coordinates, key='order')
         names = ano.convert_label(label, key='order', value='name')
         transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
@@ -681,7 +683,7 @@ def segment_cells(sample_name, sample_directory, annotation, reference, analysis
 
         cells_transformed_csv_path = os.path.join(shape_detection_directory, f"cells_transformed_{channel}.csv")
         cells_transformed = io.as_source(cells_transformed_path)
-        if not os.path.exists(cells_transformed_csv_path) or kwargs["overwrite_results"]:
+        if not os.path.exists(cells_transformed_csv_path) or kwargs['study_params']['overwrite_results']:
             ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
             delimiter = ";"
             header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
