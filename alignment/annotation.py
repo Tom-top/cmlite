@@ -600,9 +600,8 @@ def __get_module_annotation_file(annotation_file):
 
 # FIXME: add use_default kwarg to signature to make explicit and make orientation necessary
 # FIXME: + replace defaults with currently computed
-def prepare_annotation_files(slicing=None, orientation=None, directory=None, postfix=None, annotation_file=None,
-                             hemispheres_file=None, reference_file=None, distance_to_surface_file=None,
-                             hemispheres=False, overwrite=False, verbose=False):
+def prepare_annotation_files(slicing=None, directory=None, postfix=None,
+                             hemispheres_file=None, hemispheres=False, overwrite=False, verbose=False, **kwargs):
     """
     Crop the annotation, reference and distance files to match the data.
 
@@ -642,6 +641,14 @@ def prepare_annotation_files(slicing=None, orientation=None, directory=None, pos
     distance_to_surface_file : str
         The distance cropped file.
     """
+
+    atlas_name = kwargs["study_params"]["atlas_to_use"].split("_")[1]
+    atlas_species = kwargs["study_params"]["atlas_to_use"].split("_")[0]
+    annotation_file = os.path.join("resources/atlas",
+                                   f"{atlas_name}_annotation_{atlas_species}.tif")
+    reference_file = os.path.join("resources/atlas",
+                                   f"{atlas_name}_reference_{atlas_species}.tif")
+    orientation = kwargs["study_params"]["sample_permutation"]
 
     files = [annotation_file, reference_file]
     if hemispheres:

@@ -3,7 +3,6 @@ import requests
 
 import utils.utils as ut
 
-
 ###############################################################################
 # cmlite paths
 ###############################################################################
@@ -67,6 +66,7 @@ external_path = os.path.join(cmlite_path, 'external')
 """str: Absolute path to the ClearMap external program folder"""
 
 atlas_path = os.path.join(resources_path, "atlas")
+config_path = os.path.join(cmlite_path, "config.yml")
 
 # aba_annotation_mouse = ("https://www.dropbox.com/scl/fi/1p5gagdxj5l1izb8tgcc5/ABA_annotation_mouse.tif.lzma?rlkey=o2pf9n"
 #                         "0qcniteqyunka54vmgm&st=zm8nl5lx&dl=1")

@@ -1,0 +1,31 @@
+general_params:
+  user: "Thomas"  # Username: name of the folder in the working directory
+
+study_params:
+  study_name: "exp_1"  # Name of the study
+  scanning_system: "zeiss"  # Options: zeiss; 3i.
+  samples_to_process: []  # List of samples to be processed. If empty, runs on all.
+  channels_to_stitch: [0, 1]  # Channels to be stitched
+  channels_to_segment: [1]  # Channels to be segmented
+  autofluorescence_channel: 0  # Autofluorescence channel
+  atlas_to_use: "mouse_gubra"  # Options: mouse_gubra; mouse_aba; rat_waxholm.
+  sample_permutation: (3, -2, -1)  # Default is (1, 2, 3) = (Horizontal, Coronal, Sagittal)
+  # Default is Ventral to the right, Rostral to the top, Right is high (of the image stack)
+
+  re_process: True  # Fixme: Used to skip processing if the sttiching is already done
+  overwrite_results: True
+
+stitching:
+  search_params: [20, 20, 5]
+  z_subreg_alignment: [550, 650]
+
+cell_detection:
+  shape_detection: 700
+  thresholds:
+    source: None
+    size: (20, 500)
+voxelization:
+  radius: (7, 7, 7)
+statistics:
+  run_statistics: True
+  non_parametric: False
