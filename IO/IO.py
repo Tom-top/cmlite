@@ -837,11 +837,12 @@ def write(sink, data, *args, **kwargs):
 
 def convert_stitched_files(raw_directory, **kwargs):
     print("")
-    sample_names = natsorted(kwargs["samples_to_process"]) if kwargs["samples_to_process"] else os.listdir(
+    sample_names = natsorted(kwargs["study_params"]["samples_to_process"]) \
+        if kwargs["study_params"]["samples_to_process"] else os.listdir(
         raw_directory)
     for sample_name in sample_names:
         sample_path = os.path.join(raw_directory, sample_name)
-        for channel in kwargs["channels_to_stitch"]:
+        for channel in kwargs["study_params"]["channels_to_stitch"]:
             stitched_folder = os.path.join(sample_path, f"stitched_{channel}")
             stitched_files = os.path.join(stitched_folder, 'Z<Z,4>.tif')
             stitched_npy = os.path.join(sample_path, f"stitched_{channel}.npy")

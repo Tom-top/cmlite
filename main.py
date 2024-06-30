@@ -1,6 +1,5 @@
 import os
 
-import yaml
 from natsort import natsorted
 import numpy as np
 
@@ -55,8 +54,8 @@ io.convert_stitched_files(raw_directory, **parameters)
 # START PROCESSING SAMPLES ONE BY ONE
 ########################################################################################################################
 
-sample_names = natsorted(parameters["samples_to_process"]
-                         if parameters["samples_to_process"] else os.listdir(raw_directory))
+sample_names = natsorted(parameters["study_params"]["samples_to_process"]
+                         if parameters["study_params"]["samples_to_process"] else os.listdir(raw_directory))
 
 for sample_name in sample_names:
     sample_directory = os.path.join(raw_directory, sample_name)

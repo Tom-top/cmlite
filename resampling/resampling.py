@@ -773,7 +773,7 @@ def resample(source, sink=None, orientation=None,
 
 def resample_files(sample_name, sample_directory, overwrite=False, **kwargs):
     print("")
-    for channel in kwargs["channels_to_stitch"]:
+    for channel in kwargs["study_params"]["channels_to_stitch"]:
         converted_file = os.path.join(sample_directory, f"stitched_{channel}.npy")
         resampled_25_path = os.path.join(sample_directory, f"resampled_25um_{channel}.tif")
         resampled_10_path = os.path.join(sample_directory, f"resampled_10um_{channel}.tif")
@@ -802,7 +802,7 @@ def resample_files(sample_name, sample_directory, overwrite=False, **kwargs):
                        f"resampled_25um_{channel}.tif file already exists!")
 
         if not os.path.exists(resampled_10_path) or overwrite:
-            if channel != kwargs["autofluorescence_channel"]:
+            if channel != kwargs["study_params"]["autofluorescence_channel"]:
                 ut.print_c(f"[INFO {sample_name}] Resampling channel {channel} to 10um isotropic!")
                 resample_10um_parameter = {
                     "source_resolution": resolution,

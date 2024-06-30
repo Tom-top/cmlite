@@ -149,7 +149,7 @@ def generate_heatmap(sample_directory, analysis_data_size_directory, annotation_
                                              f"shape_detection_{kwargs['cell_detection']['shape_detection']}")
     if not os.path.exists(shape_detection_directory):
         os.mkdir(shape_detection_directory)
-    for channel in kwargs['channels_to_segment']:
+    for channel in kwargs['study_params']['channels_to_segment']:
         cd_p = kwargs["cell_detection"]
         vox_p = kwargs["voxelization"]
         shape_detection_directory = os.path.join(sample_directory, f"shape_detection_{cd_p['shape_detection']}")
@@ -183,9 +183,6 @@ def generate_heatmap(sample_directory, analysis_data_size_directory, annotation_
         heatmap_path = os.path.join(shape_detection_directory, heatmap_name)
         if os.path.exists(heatmap_path):
             os.remove(heatmap_path)
-
-        # coordinates = np.flip(coordinates)
-        # coordinates[:, (1, 2)] = coordinates[:, (2, 1)]
 
         voxelize(coordinates, sink=heatmap_path, **voxelization_parameter)
         shutil.copyfile(heatmap_path,

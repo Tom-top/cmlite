@@ -1264,7 +1264,8 @@ def stitch_samples(raw_directory, **kwargs):
     if len(os.listdir(raw_directory)) == 0:
         ut.CmliteError(f"No samples were found in: {raw_directory}")
 
-    sample_names = natsorted(kwargs["samples_to_process"]) if kwargs["samples_to_process"] else os.listdir(
+    sample_names = natsorted(kwargs["study_params"]["samples_to_process"]) \
+        if kwargs["study_params"]["samples_to_process"] else os.listdir(
         raw_directory)
     for sample_name in sample_names:
         sample_directory = os.path.join(raw_directory, sample_name)
@@ -1274,7 +1275,7 @@ def stitch_samples(raw_directory, **kwargs):
 def stitch_sample(sample_directory, **kwargs):
     print("")
     sample_name = os.path.basename(sample_directory)
-    for channel_to_stitch in kwargs["channels_to_stitch"]:
+    for channel_to_stitch in kwargs["study_params"]["channels_to_stitch"]:
         processed_folder = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
         processed_files_expression = "_".join([i for i in os.listdir(processed_folder) if
                                                i.endswith(".tif")][0].split("_")[:-2])
