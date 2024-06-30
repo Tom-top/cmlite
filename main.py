@@ -1,5 +1,6 @@
 import os
 
+import yaml
 from natsort import natsorted
 import numpy as np
 
@@ -20,47 +21,17 @@ from image_processing.experts import cells
 import analysis.measurements.voxelization as vox
 import analysis.statistics as stats
 
-# PATH PARAMETERS
-user = "Thomas"
-experiment = "exp_1"
-run_statistics = False
+########################################################################################################################
+# LOAD PARAMETERS
+########################################################################################################################
 
-# SAMPLE PARAMETERS
-parameters = dict(samples_to_process=[],
-                  re_process=True,
-                  scanning_system="zeiss",
-                  scanning_pattern="z",
-                  channels_to_stitch=[0, 1],
-                  channels_to_segment=[1],
-                  autofluorescence_channel=0,
-                  animal_species="mouse",
-                  atlas_to_use="gubra",
-                  overwrite_results=False,
-                  stitching=dict(search_params=np.array([20, 20, 5]),
-                                 z_subreg_alignment=np.array([550, 650]),
-                                 ),
-                  cell_detection=dict(shape_detection=700,
-                                      thresholds=dict(source=None,
-                                                      size=(20, 500),
-                                                      ),
-                                      ),
-                  voxelization=dict(radius=(7, 7, 7)),
-                  statistics=dict(run_statistics=False,
-                                  non_parametric=False,
-                                  )
-                  )
+parameters = ut.load_config()
 
 # CREATE ESSENTIAL DIRECTORIES
-working_directory, raw_directory, analysis_directory = ut.create_ws(user, experiment)
+working_directory, raw_directory, analysis_directory = ut.create_ws(**parameters)
 
 # UNZIP AND GENERATE ATLAS/TEMPLATE FILES IN THE CORRECT ORIENTATION
-annotation_file, reference_file = ano.prepare_annotation_files(
-    annotation_file=os.path.join("resources/atlas",
-                                 f"{parameters['atlas_to_use']}_annotation_{parameters['animal_species']}.tif"),
-    reference_file=os.path.join("resources/atlas",
-                                f"{parameters['atlas_to_use']}_reference_{parameters['animal_species']}.tif"),
-    orientation=(3, -2, -1),
-)
+annotation_file, reference_file = ano.prepare_annotation_files(**parameters)
 
 ########################################################################################################################
 # [OPTIONAL] FETCH TILES FOR STITCHING
@@ -121,15 +92,16 @@ for sample_name in sample_names:
 # 5.0 STATISTICS
 ########################################################################################################################
 
-groups = dict(Grp1=["brain_1"],
-              Grp2=["brain_2"], )
+groups = dict(group_1=["brain_1"],
+              group_2=["brain_2"], )
 
 if parameters["statistics"]["run_statistics"]:
     for group_name, group in groups.items():
         group_sample_dirs = [os.path.join(raw_directory, i) for i in os.listdir(raw_directory) if i in group]
-        group_paths = [os.path.join(i, f'density_counts.tif') for i in group_sample_dirs]
+        group_paths = [os.path.join(i, f'shape_detection_{parameters["cell_detection"]["shape_detection"]}'
+                                       f'/density_counts.tif') for i in group_sample_dirs]
 
         group_data = stats.read_data_group(group_paths)
         group_mean = np.mean(group_data, axis=0)
-        io.write(os.path.join(data_dir, f'{group_name}.tif'),
-                 horizontal_to_coronal(group_mean, bulbs_down=True, ventral_first=True))
+        io.write(os.path.join(raw_directory, f'{group_name}_average.tif'),
+                 group_mean)

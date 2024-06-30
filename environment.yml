@@ -8,7 +8,7 @@ dependencies:
   - numpy
   - opencv
   - pip
-  - python
+  - python==3.11
   - natsort
   - tifffile
   - pyyaml

@@ -1,6 +1,8 @@
 import os
 
-import utils.utils
+import yaml
+
+import settings
 
 
 class CmliteError(Exception):
@@ -34,10 +36,11 @@ def create_dir(dir, verbose=True):
             raise CmliteError(f"'{dir}' is not a directory and its creation failed.")
 
 
-def create_ws(user, experiment):
+def create_ws(**kwargs):
     print("\n")
-    print_c(f"[INFO] User: {user}. Selected experiment: {experiment}")
-    working_directory = f"/mnt/data/{user}/{experiment}"
+    print_c(f"[INFO] User: {kwargs['general_params']['user']}. Selected experiment:"
+            f" {kwargs['study_params']['study_name']}")
+    working_directory = f"/mnt/data/{kwargs['general_params']['user']}/{kwargs['study_params']['study_name']}"
     if not os.path.exists(working_directory):
         raise CmliteError(f"The selected experiment does not exists: {working_directory}")
     raw_directory = create_dir(os.path.join(working_directory, "raw"))
@@ -56,3 +59,9 @@ def create_analysis_directories(analysis_directory, **params):
     if not os.path.exists(analysis_data_size_directory):
         os.mkdir(analysis_data_size_directory)
     return analysis_shape_detection_directory, analysis_data_size_directory
+
+
+def load_config():
+    with open(settings.config_path, "r") as stream:
+        config = yaml.safe_load(stream)
+    return config
