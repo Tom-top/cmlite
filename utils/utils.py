@@ -1,6 +1,7 @@
 import os
 
 import yaml
+from natsort import natsorted
 
 import settings
 
@@ -65,3 +66,10 @@ def load_config():
     with open(settings.config_path, "r") as stream:
         config = yaml.safe_load(stream)
     return config
+
+def get_sample_names(raw_directory, **kwargs):
+    if kwargs["study_params"]["samples_to_process"]:
+        sample_names = natsorted(kwargs["study_params"]["samples_to_process"])
+    else:
+        sample_names = [i for i in os.listdir(raw_directory) if os.path.isdir(os.path.join(raw_directory, i))]
+    return sample_names

@@ -648,11 +648,13 @@ def prepare_annotation_files(slicing=None, directory=None, postfix=None,
                                    f"{atlas_name}_annotation_{atlas_species}.tif")
     reference_file = os.path.join("resources/atlas",
                                    f"{atlas_name}_reference_{atlas_species}.tif")
+    metadata_file = os.path.join("resources/atlas",
+                                   f"{atlas_name}_annotation_{atlas_species}.json")
     orientation = kwargs["study_params"]["sample_permutation"]
 
     files = [annotation_file, reference_file]
-    if hemispheres:
-        files.insert(1, hemispheres_file)
+    # if hemispheres:
+    #     files.insert(1, hemispheres_file)
 
     results = []
     for f_path in files:
@@ -698,6 +700,8 @@ def prepare_annotation_files(slicing=None, directory=None, postfix=None,
             results.append(fn)
         else:
             results.append(None)
+
+    results.insert(2, metadata_file)
 
     return results
 

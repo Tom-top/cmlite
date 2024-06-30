@@ -12,6 +12,7 @@ dependencies:
   - natsort
   - tifffile
   - pyyaml
+  - pyqt
   - pip:
       - aicsimageio
       - aicspylibczi

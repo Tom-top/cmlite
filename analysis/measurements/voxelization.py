@@ -144,7 +144,8 @@ def search_indices_rectangle(radius, kernel=None):
     return indices, kernel
 
 
-def generate_heatmap(sample_directory, analysis_data_size_directory, annotation_file, weighed=False, **kwargs):
+def generate_heatmap(sample_name, sample_directory, analysis_data_size_directory, annotation_file, weighed=False,
+                     **kwargs):
     shape_detection_directory = os.path.join(sample_directory,
                                              f"shape_detection_{kwargs['cell_detection']['shape_detection']}")
     if not os.path.exists(shape_detection_directory):
@@ -176,14 +177,15 @@ def generate_heatmap(sample_directory, analysis_data_size_directory, annotation_
         )
 
         if weighed:
-            heatmap_name = "density_intensities.tif"
+            heatmap_name = f"density_intensities_{channel}.tif"
         else:
-            heatmap_name = "density_counts.tif"
+            heatmap_name = f"density_counts_{channel}.tif"
 
         heatmap_path = os.path.join(shape_detection_directory, heatmap_name)
         if os.path.exists(heatmap_path):
             os.remove(heatmap_path)
+        analysis_sample_directory = os.path.join(analysis_data_size_directory, sample_name)
 
         voxelize(coordinates, sink=heatmap_path, **voxelization_parameter)
         shutil.copyfile(heatmap_path,
-                        os.path.join(analysis_data_size_directory, heatmap_name))
+                        os.path.join(analysis_sample_directory, heatmap_name))
