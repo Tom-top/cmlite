@@ -3,6 +3,7 @@ import os
 import numpy as np
 from natsort import natsorted
 import importlib
+import h5py
 
 import IO.source as src
 import IO.slice as slc
@@ -789,6 +790,13 @@ def to_data_range(size, r=all):
     return r
 
 
+def convert_h5_to_npy(source, sink):
+    with h5py.File(source, "r") as f:
+        print(f'converting {source} -> {sink}')
+        data = f["Data"]
+        np.save(sink, data)
+
+
 def convert(source, sink, processes=None, verbose=False, **kwargs):
     """Transforms a source into another format.
 
@@ -806,7 +814,7 @@ def convert(source, sink, processes=None, verbose=False, **kwargs):
     """
     source = as_source(source)
     if verbose:
-        print('converting %s -> %s' % (source, sink))
+        print(f'converting {source} -> {sink}')
     mod = source_to_module(source)
     if hasattr(mod, 'convert'):
         return mod.convert(source, sink, processes=processes, verbose=verbose, **kwargs)
@@ -841,12 +849,49 @@ def convert_stitched_files(raw_directory, **kwargs):
     for sample_name in sample_names:
         sample_path = os.path.join(raw_directory, sample_name)
         for channel in kwargs["study_params"]["channels_to_stitch"]:
-            stitched_folder = os.path.join(sample_path, f"stitched_{channel}")
-            stitched_files = os.path.join(stitched_folder, 'Z<Z,4>.tif')
-            stitched_npy = os.path.join(sample_path, f"stitched_{channel}.npy")
-            if not os.path.exists(stitched_npy):
-                ut.print_c(f"[INFO {sample_name}] Converting stitched image (channel {channel}) to numpy format!")
-                convert(stitched_files, stitched_npy, processes=None, verbose=False)
+            if kwargs["study_params"]["scanning_system"] == "bruker":
+                _, merged_directory = get_bruker_directories(sample_path)
+                stitched_file = os.path.join(merged_directory, f"uni_tp-0_ch-{channel}_st-1-x00-y00-1-x00-y01_"
+                                                               f"obj-bottom-bottom_cam-bottom_etc.lux.h5")
+                stitched_npy = os.path.join(merged_directory, f"stitched_{channel}.npy")
+                if not os.path.exists(stitched_npy):
+                    ut.print_c(
+                        f"[INFO {sample_name}] Converting stitched image (channel {channel}) to numpy format!")
+                    convert_h5_to_npy(stitched_file, stitched_npy)
+                else:
+                    ut.print_c(
+                        f"[WARNING {sample_name}] Skipping stitched conversion to npy for channel {channel}: "
+                        f"stitched_{channel}.npy file already exists!")
             else:
-                ut.print_c(f"[WARNING {sample_name}] Skipping stitched conversion to npy for channel {channel}: "
-                           f"stitched_{channel}.npy file already exists!")
+                stitched_folder = os.path.join(sample_path, f"stitched_{channel}")
+                stitched_files = os.path.join(stitched_folder, 'Z<Z,4>.tif')
+                stitched_npy = os.path.join(sample_path, f"stitched_{channel}.npy")
+                if not os.path.exists(stitched_npy):
+                    ut.print_c(f"[INFO {sample_name}] Converting stitched image (channel {channel}) to numpy format!")
+                    convert(stitched_files, stitched_npy, processes=None, verbose=False)
+                else:
+                    ut.print_c(f"[WARNING {sample_name}] Skipping stitched conversion to npy for channel {channel}: "
+                               f"stitched_{channel}.npy file already exists!")
+
+
+def get_bruker_directories(sample_path):
+    resolution_directories = [os.path.join(sample_path, i) for i in os.listdir(sample_path)
+                              if i.startswith("xy")]
+    if len(resolution_directories) == 1:
+        resolution_directory = resolution_directories[0]
+        merged_directories = [os.path.join(resolution_directory, i) for i in os.listdir(resolution_directory)
+                              if i.endswith("merged")]
+        if len(merged_directories) == 1:
+            merged_directory = merged_directories[0]
+            return resolution_directory, merged_directory
+        else:
+            raise ut.CmliteError(f"More than one merged folder found in {resolution_directory}!")
+    else:
+        raise ut.CmliteError(f"More than one resolution folder found in {sample_path}!")
+
+
+def get_sample_directory(raw_directory, sample_name, **kwargs):
+    sample_directory = os.path.join(raw_directory, sample_name)
+    if kwargs["study_params"]["scanning_system"] == "bruker":
+        _, sample_directory = get_bruker_directories(sample_directory)
+    return sample_directory

@@ -794,6 +794,7 @@ def resample_files(sample_name, sample_directory, overwrite=False, **kwargs):
                 "sink_resolution": (25, 25, 25),
                 "processes": None,
                 "verbose": True,
+                "method": "memmap",
             }
             fu.delete_file(resampled_25_path)
             resample(converted_file, sink=resampled_25_path, **resample_25um_parameter)
@@ -809,6 +810,7 @@ def resample_files(sample_name, sample_directory, overwrite=False, **kwargs):
                     "sink_resolution": (10, 10, 10),
                     "processes": None,
                     "verbose": True,
+                    "method": "memmap",
                 }
                 resampled_10_path = os.path.join(sample_directory, f"resampled_10um_{channel}.tif")
                 fu.delete_file(resampled_10_path)

@@ -3,24 +3,24 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - cython
-  - matplotlib
-  - numpy
-  - opencv
+  - python=3.9  # constraining seems to speed up resolution
+  - cython<3
+  - ipython  # autoreload functions
   - pip
-  - python==3.11
-  - natsort
-  - tifffile
   - pyyaml
+  - requests
+  - psutil  # required for python < 3.9 for cancelable ProcessPoolExecutors
+  - natsort
+  - numpy
+  - pandas<2  # Groupby syntax changes
+  - scipy
+  - opencv
+  - tifffile<2020.9.22  # Adds "Use DimensionOrder to determine axes order in OmeXml." which breaks ClearMap.IO
+  - pillow
+  - matplotlib
   - pyqt
-  - ipython
   - pip:
+      - scikit-image
+      - h5py
       - aicsimageio
       - aicspylibczi
-      - pandas
-      - pillow
-      - psutil
-      - requests
-      - scikit-image
-      - scipy
-      - tifffile

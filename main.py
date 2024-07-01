@@ -56,7 +56,7 @@ sample_names = ut.get_sample_names(raw_directory, **parameters)
  analysis_data_size_directory) = ut.create_analysis_directories(analysis_directory, **parameters)
 
 for sample_name in sample_names:
-    sample_directory = os.path.join(raw_directory, sample_name)
+    sample_directory = io.get_sample_directory(raw_directory, sample_name, **parameters)
 
     ####################################################################################################################
     # 1.0 RESAMPLING

@@ -8,16 +8,25 @@ import platform
 import multiprocessing as mp
 
 import numpy as np
+import logging
 from io import UnsupportedOperation
 
+import settings
 import utils.utils as ut
 import utils.exceptions as excep
 
 import IO.IO as io
 
-elastix_lib_path = "/home/imaging/PycharmProjects/cmlite/external/elastix/build/bin"  # Change this to the directory containing libANNlib-4.9.so.1
-elastix_binary = "/home/imaging/PycharmProjects/cmlite/external/elastix/build/bin/elastix"
-transformix_binary = "/home/imaging/PycharmProjects/cmlite/external/elastix/build/bin/transformix"
+cmlite_env_path = os.getcwd()
+if settings.platform_name == "linux":
+    elastix_lib_path = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin")  # Change this to the directory containing libANNlib-4.9.so.1
+    elastix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin/elastix")
+    transformix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin/transformix")
+elif settings.platform_name == "windows":
+    elastix_lib_path = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}")  # Change this to the directory containing libANNlib-4.9.so.1
+    elastix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/elastix.exe")
+    transformix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/transformix.exe")
+
 
 tempdir = tempfile.gettempdir()
 elastix_output_folder = os.path.join(tempdir, "elastix_output")
@@ -51,8 +60,8 @@ initialize_elastix()
 
 
 def align_images(fixed_image_path, moving_image_path, affine_parameter_file, bspline_parameter_file=None,
-                 output_dir=None, processes=None,
-                 workspace=None, moving_landmarks_path=None, fixed_landmarks_path=None):
+                 output_dir=None, processes=None, workspace=None, moving_landmarks_path=None,
+                 fixed_landmarks_path=None):
     """
     Align images using elastix, estimates a transformation :math:`T:` fixed image :math:`\\rightarrow` moving image.
 
@@ -95,6 +104,9 @@ def align_images(fixed_image_path, moving_image_path, affine_parameter_file, bsp
     if moving_landmarks_path is not None or fixed_landmarks_path is not None:
         cmd.extend(['-mp', f'{moving_landmarks_path}', '-fp', f'{fixed_landmarks_path}'])
     cmd.extend(['-out', f'{output_dir}'])
+
+    if settings.platform_name == "windows":
+        cmd = [i.replace('/', '\\') for i in cmd]
 
     try:
         with subprocess.Popen(cmd, stdout=sys.stdout,
