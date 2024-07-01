@@ -31,6 +31,7 @@ If you don't have Git on your computer you can install it following this [link](
 
 Once cmlite has been cloned, make sure to activate your virtual environment (if you use one), and launch your favorite IDE.
 
+If you are on Windows make sure to download Microsoft Visual C++ 14.0 or greater: https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
 ## Authors
 

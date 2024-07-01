@@ -1,18 +1,21 @@
 import os
+import re
 import multiprocessing
 import shutil
 import json
 import yaml
-
 from functools import partial
 
 import yaml
 from natsort import natsorted
 import numpy as np
 import tifffile
+import h5py
 from aicsimageio.readers import CziReader
 
 import utils.utils as ut
+
+import IO.IO as io
 
 
 def get_center_tile(n_columns):
@@ -118,6 +121,18 @@ def prepare_samples(raw_directory, **kwargs):
             prepare_sample(raw_directory, sample_name, **kwargs)
             if os.path.exists(os.path.join(sample_directory, "temp")):
                 os.rmdir(os.path.join(sample_directory, "temp"))
+
+
+def extract_number(s):
+    # Use regular expression to find numeric parts
+    match = re.search(r'(\d+)[^\d]*(\d+)', s)
+    if match:
+        # Combine the two parts with a decimal point
+        number_str = f"{match.group(1)}.{match.group(2)}"
+        # Convert to float
+        return float(number_str)
+    else:
+        raise ValueError("No valid number found in the string")
 
 
 def prepare_sample(raw_directory, sample_name, **kwargs):
@@ -228,3 +243,28 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
         }
         with open(os.path.join(sample_directory, "scan_metadata.json"), 'w') as json_file:
             json.dump(scan_metadata, json_file, indent=4)
+
+    elif kwargs["study_params"]["scanning_system"] == "bruker":
+        sample_path = os.path.join(raw_directory, sample_name)
+        resolution_directory, merged_directory = io.get_bruker_directories(sample_path)
+        file_names = [os.path.join(merged_directory, i) for i in os.listdir(merged_directory)
+                      if i.endswith(".lux.h5")]
+        if not file_names:
+            raise ut.CmliteError(f"No .lux.h5 file was found for sample {sample_name}: skipping!")
+        else:
+            file_name = file_names[0]
+            with h5py.File(file_name, "r") as f:
+                data = f["Data"]
+                data_shape = data.shape
+            image_resolutions = os.path.basename(resolution_directory).split("_")
+            xy_res = extract_number(image_resolutions[0])
+            z_res = extract_number(image_resolutions[-1])
+            scan_metadata = {
+                "tile_x": data_shape[0],
+                "tile_y": data_shape[1],
+                "x_res": xy_res,
+                "y_res": xy_res,
+                "z_res": z_res,
+            }
+            with open(os.path.join(merged_directory, "scan_metadata.json"), 'w') as json_file:
+                json.dump(scan_metadata, json_file, indent=4)

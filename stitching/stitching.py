@@ -1233,14 +1233,17 @@ def move_tera_stitcher_stack_to_file_list(source, sink, delete_directory=True, v
 
 
 def stitch_samples(raw_directory, **kwargs):
-    if len(os.listdir(raw_directory)) == 0:
-        ut.CmliteError(f"No samples were found in: {raw_directory}")
+    if not kwargs["study_params"]["scanning_system"] == "bruker":
+        if len(os.listdir(raw_directory)) == 0:
+            ut.CmliteError(f"No samples were found in: {raw_directory}")
 
-    sample_names = ut.get_sample_names(raw_directory, **kwargs)
+        sample_names = ut.get_sample_names(raw_directory, **kwargs)
 
-    for sample_name in sample_names:
-        sample_directory = os.path.join(raw_directory, sample_name)
-        stitch_sample(sample_directory, **kwargs)
+        for sample_name in sample_names:
+            sample_directory = os.path.join(raw_directory, sample_name)
+            stitch_sample(sample_directory, **kwargs)
+    else:
+        ut.print_c(f"[WARNING] Scans were performed with Bruker SPIM, the data is already stitched!")
 
 
 def stitch_sample(sample_directory, **kwargs):
