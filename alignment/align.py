@@ -28,7 +28,7 @@ if not os.path.exists(elastix_output_folder):
 def initialize_elastix():
     global elastix_lib_path
     os_name = platform.system().lower()
-    if os_name.startswith('linux'):
+    if os_name.startswith('linux') or os_name.startswith('windows'):
         lib_var_name = 'LD_LIBRARY_PATH'
     elif os_name.startswith('darwin'):
         lib_var_name = 'DYLD_LIBRARY_PATH'
