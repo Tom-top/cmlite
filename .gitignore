@@ -1,4 +1,5 @@
 __pychache__/
 .idea/
 resources/atlas/*.tif
+resources/atlas/*.tif.lzma
 custom_config.yml
