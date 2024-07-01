@@ -13,6 +13,7 @@ dependencies:
   - tifffile
   - pyyaml
   - pyqt
+  - ipython
   - pip:
       - aicsimageio
       - aicspylibczi

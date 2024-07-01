@@ -41,7 +41,8 @@ def create_ws(**kwargs):
     print("\n")
     print_c(f"[INFO] User: {kwargs['general_params']['user']}. Selected experiment:"
             f" {kwargs['study_params']['study_name']}")
-    working_directory = f"/mnt/data/{kwargs['general_params']['user']}/{kwargs['study_params']['study_name']}"
+    working_directory = f"{kwargs['general_params']['data_directory']}" \
+                        f"/{kwargs['general_params']['user']}/{kwargs['study_params']['study_name']}"
     if not os.path.exists(working_directory):
         raise CmliteError(f"The selected experiment does not exists: {working_directory}")
     raw_directory = create_dir(os.path.join(working_directory, "raw"))
@@ -62,9 +63,13 @@ def create_analysis_directories(analysis_directory, **params):
     return analysis_shape_detection_directory, analysis_data_size_directory
 
 
-def load_config():
-    with open(settings.config_path, "r") as stream:
-        config = yaml.safe_load(stream)
+def load_config(config_file=None):
+    if config_file != None:
+        with open(config_file, "r") as stream:
+            config = yaml.safe_load(stream)
+    else:
+        with open(settings.config_path, "r") as stream:
+            config = yaml.safe_load(stream)
     return config
 
 def get_sample_names(raw_directory, **kwargs):
