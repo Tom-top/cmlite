@@ -21,7 +21,7 @@ import analysis.statistics as stats
 # LOAD PARAMETERS
 ########################################################################################################################
 
-parameters = ut.load_config()
+parameters = ut.load_config(config_file="custom_config.yml")
 
 # CREATE ESSENTIAL DIRECTORIES
 working_directory, raw_directory, analysis_directory = ut.create_ws(**parameters)
