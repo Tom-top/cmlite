@@ -102,201 +102,241 @@ extra_labels = [(5576, 0, 'No label', 'NoL'),
                 (5912, 0, 'No label', 'NoL'),
                 ]
 
+#
+# def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detection_parameter,
+#                  processing_parameter=default_cell_detection_processing_parameter, workspace=None):
+#     """Cell detection pipeline.
+#
+#     Arguments
+#     ---------
+#     source : source specification
+#         The source of the stitched raw data.
+#     sink : sink specification or None
+#         The sink to write the result to. If None, an array is returned.
+#     cell_detection_parameter : dict
+#         Parameter for the binarization. See below for details.
+#     processing_parameter : dict
+#         Parameter for the parallel processing.
+#         See :func:`ClearMap.ParallelProcessing.BlockProcessing.process` for
+#         description of all the parameter.
+#     workspace: Workspace
+#         The optional workspace object to have a handle to cancel the multiprocess
+#
+#     Returns
+#     -------
+#     sink : Source
+#         The result of the cell detection.
+#
+#     Notes
+#     -----
+#     Effectively this function performs the following steps:
+#         * illumination correction via :func:`~ClearMap.ImageProcessing.IlluminationCorrection.correct_illumination`
+#         * background removal
+#         * difference of Gaussians (DoG) filter
+#         * maxima detection via :func:`~ClearMap.Analysis.Measurements.MaximaDetection.find_extended_maxima`
+#         * cell shape detection via :func:`~ClearMap.Analysis.Measurements.ShapeDetection.detect_shape`
+#         * cell intensity and size measurements via: :func:`~ClearMap.ImageProcessing.Measurements.ShapeDetection.find_intensity`,
+#           :func:`~ClearMap.ImageProcessing.Measurements.ShapeDetection.find_size`.
+#
+#
+#     The parameters for each step are passed as sub-dictionaries to the
+#     cell_detection_parameter dictionary.
+#
+#     * If None is passed for one of the steps this step is skipped.
+#
+#     * Each step also has an additional parameter 'save' that enables saving of
+#     the result of that step to a file to inspect the pipeline.
+#
+#
+#     Illumination correction
+#     -----------------------
+#     illumination_correction : dict or None
+#         Illumination correction step parameter.
+#
+#         flatfield : array or str
+#             The flat field estimate for the image planes.
+#
+#         background : array or None
+#             A background level to assume for the flatfield correction.
+#
+#         scaling : float, 'max', 'mean' or None
+#             Optional scaling after the flat field correction.
+#
+#         save : str or None
+#             Save the result of this step to the specified file if not None.
+#
+#     See also :func:`ClearMap.ImageProcessing.IlluminationCorrection.correct_illumination`
+#
+#
+#     Background removal
+#     ------------------
+#     background_correction : dict or None
+#         Background removal step parameter.
+#
+#         shape : tuple
+#             The shape of the structure element to estimate the background.
+#             This should be larger than the typical cell size.
+#
+#         form : str
+#             The form of the structure element (e.g. 'Disk')
+#
+#         save : str or None
+#             Save the result of this step to the specified file if not None.
+#
+#     Equalization
+#     ------------
+#     equalization : dict or None
+#         Equalization step parameter.
+#         See also :func:`ClearMap.ImageProcessing.LocalStatistics.local_percentile`
+#
+#         precentile : tuple
+#             The lower and upper percentiles used to estimate the equalization.
+#             The lower percentile is used for normalization, the upper to limit the
+#             maximal boost to a maximal intensity above this percentile.
+#
+#         max_value : float
+#             The maximal intensity value in the equalized image.
+#
+#         selem : tuple
+#             The structural element size to estimate the percentiles.
+#             Should be larger than the larger vessels.
+#
+#         spacing : tuple
+#             The spacing used to move the structural elements.
+#             Larger spacings speed up processing but become locally less precise.
+#
+#         interpolate : int
+#             The order of the interpolation used in constructing the full
+#             background estimate in case a non-trivial spacing is used.
+#
+#         save : str or None
+#           Save the result of this step to the specified file if not None.
+#
+#
+#     DoG Filter
+#     ----------
+#     dog_filter : dict or None
+#         Difference of Gaussian filter step parameter.
+#
+#         shape : tuple
+#             The shape of the filter.
+#             This should be near the typical cell size.
+#
+#         sigma : tuple or None
+#              The std of the inner Gaussian.
+#              If None, determined automatically from shape.
+#
+#         sigma2 : tuple or None
+#              The std of the outer Gaussian.
+#              If None, determined automatically from shape.
+#
+#         save : str or None
+#             Save the result of this step to the specified file if not None.
+#
+#
+#     Maxima detection
+#     ----------------
+#     maxima_detection : dict or None
+#         Extended maxima detection step parameter.
+#
+#         h_max : float or None
+#             The 'height' for the extended maxima.
+#             If None, simple local maxima detection is used.
+#
+#         shape : tuple
+#             The shape of the structural element for extended maxima detection.
+#             This should be near the typical cell size.
+#
+#         threshold : float or None
+#             Only maxima above this threshold are detected. If None, all maxima
+#             are detected.
+#
+#         valid : bool
+#             If True, only detect cell centers in the valid range of the blocks with
+#             overlap.
+#
+#         save : str or None
+#           Save the result of this step to the specified file if not None.
+#
+#
+#     Shape detection
+#     ---------------
+#     shape_detection : dict or None
+#         Shape detection step parameter.
+#
+#         threshold : float
+#             Cell shape is expanded from maxima if pixels are above this threshold
+#             and not closer to another maxima.
+#
+#         save : str or None
+#           Save the result of this step to the specified file if not None.
+#
+#
+#     Intensity detection
+#     -------------------
+#     intensity_detection : dict or None
+#         Intensity detection step parameter.
+#
+#         method : {'max'|'min','mean'|'sum'}
+#             The method to use to measure the intensity of a cell.
+#
+#         shape : tuple or None
+#             If no cell shapes are detected a disk of this shape is used to measure
+#             the cell intensity.
+#
+#         save : str or None
+#             Save the result of this step to the specified file if not None.
+#
+#     References
+#     ----------
+#     [1] Renier, Adams, Kirst, Wu et al., "Mapping of Brain Activity by Automated Volume Analysis of Immediate Early Genes.", Cell 165, 1789 (2016)
+#     [1] Kirst et al., "Mapping the Fine-Scale Organization and Plasticity of the Brain Vasculature", Cell 180, 780 (2020)
+#     """
+#
+#     # initialize sink
+#     shape = io.shape(source)
+#     order = io.order(source)
+#     print(cell_detection_parameter, shape, order)
+#     initialize_sinks(cell_detection_parameter, shape, order)
+#
+#     cell_detection_parameter.update(verbose=processing_parameter.get('verbose', False))
+#
+#     n_processes = multiprocessing.cpu_count() if processing_parameter.get(
+#         'processes') is None else processing_parameter.get('processes')
+#     n_threads = int(multiprocessing.cpu_count() / n_processes)  # Number of threads so that * n_processes, fills CPUs
+#
+#     results, blocks = bp.process(detect_cells_block, source, sink=None, function_type='block', return_result=True,
+#                                  return_blocks=True, parameter=cell_detection_parameter, workspace=workspace,
+#                                  **{**processing_parameter, **{'n_threads': n_threads}})
+#
+#     # merge results
+#     results = np.vstack([np.hstack(r) for r in results])
+#
+#     # create column headers  # FIXME: use pd.DataFrame instead
+#     header = ['x', 'y', 'z']
+#     dtypes = [int, int, int]
+#     if cell_detection_parameter['shape_detection'] is not None:
+#         header += ['size']
+#         dtypes += [int]
+#     measures = cell_detection_parameter['intensity_detection']['measure']
+#     header += measures
+#     dtypes += [float] * len(measures)
+#
+#     dt = {'names': header, 'formats': dtypes}
+#     cells = np.zeros(len(results), dtype=dt)
+#     for i, h in enumerate(header):
+#         cells[h] = results[:, i]
+#
+#     # save results
+#     return io.write(sink, cells)
+
 
 def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detection_parameter,
                  processing_parameter=default_cell_detection_processing_parameter, workspace=None):
-    """Cell detection pipeline.
 
-    Arguments
-    ---------
-    source : source specification
-        The source of the stitched raw data.
-    sink : sink specification or None
-        The sink to write the result to. If None, an array is returned.
-    cell_detection_parameter : dict
-        Parameter for the binarization. See below for details.
-    processing_parameter : dict
-        Parameter for the parallel processing.
-        See :func:`ClearMap.ParallelProcessing.BlockProcessing.process` for
-        description of all the parameter.
-    workspace: Workspace
-        The optional workspace object to have a handle to cancel the multiprocess
-
-    Returns
-    -------
-    sink : Source
-        The result of the cell detection.
-
-    Notes
-    -----
-    Effectively this function performs the following steps:
-        * illumination correction via :func:`~ClearMap.ImageProcessing.IlluminationCorrection.correct_illumination`
-        * background removal
-        * difference of Gaussians (DoG) filter
-        * maxima detection via :func:`~ClearMap.Analysis.Measurements.MaximaDetection.find_extended_maxima`
-        * cell shape detection via :func:`~ClearMap.Analysis.Measurements.ShapeDetection.detect_shape`
-        * cell intensity and size measurements via: :func:`~ClearMap.ImageProcessing.Measurements.ShapeDetection.find_intensity`,
-          :func:`~ClearMap.ImageProcessing.Measurements.ShapeDetection.find_size`.
-
-
-    The parameters for each step are passed as sub-dictionaries to the
-    cell_detection_parameter dictionary.
-
-    * If None is passed for one of the steps this step is skipped.
-
-    * Each step also has an additional parameter 'save' that enables saving of
-    the result of that step to a file to inspect the pipeline.
-
-
-    Illumination correction
-    -----------------------
-    illumination_correction : dict or None
-        Illumination correction step parameter.
-
-        flatfield : array or str
-            The flat field estimate for the image planes.
-
-        background : array or None
-            A background level to assume for the flatfield correction.
-
-        scaling : float, 'max', 'mean' or None
-            Optional scaling after the flat field correction.
-
-        save : str or None
-            Save the result of this step to the specified file if not None.
-
-    See also :func:`ClearMap.ImageProcessing.IlluminationCorrection.correct_illumination`
-
-
-    Background removal
-    ------------------
-    background_correction : dict or None
-        Background removal step parameter.
-
-        shape : tuple
-            The shape of the structure element to estimate the background.
-            This should be larger than the typical cell size.
-
-        form : str
-            The form of the structure element (e.g. 'Disk')
-
-        save : str or None
-            Save the result of this step to the specified file if not None.
-
-    Equalization
-    ------------
-    equalization : dict or None
-        Equalization step parameter.
-        See also :func:`ClearMap.ImageProcessing.LocalStatistics.local_percentile`
-
-        precentile : tuple
-            The lower and upper percentiles used to estimate the equalization.
-            The lower percentile is used for normalization, the upper to limit the
-            maximal boost to a maximal intensity above this percentile.
-
-        max_value : float
-            The maximal intensity value in the equalized image.
-
-        selem : tuple
-            The structural element size to estimate the percentiles.
-            Should be larger than the larger vessels.
-
-        spacing : tuple
-            The spacing used to move the structural elements.
-            Larger spacings speed up processing but become locally less precise.
-
-        interpolate : int
-            The order of the interpolation used in constructing the full
-            background estimate in case a non-trivial spacing is used.
-
-        save : str or None
-          Save the result of this step to the specified file if not None.
-
-
-    DoG Filter
-    ----------
-    dog_filter : dict or None
-        Difference of Gaussian filter step parameter.
-
-        shape : tuple
-            The shape of the filter.
-            This should be near the typical cell size.
-
-        sigma : tuple or None
-             The std of the inner Gaussian.
-             If None, determined automatically from shape.
-
-        sigma2 : tuple or None
-             The std of the outer Gaussian.
-             If None, determined automatically from shape.
-
-        save : str or None
-            Save the result of this step to the specified file if not None.
-
-
-    Maxima detection
-    ----------------
-    maxima_detection : dict or None
-        Extended maxima detection step parameter.
-
-        h_max : float or None
-            The 'height' for the extended maxima.
-            If None, simple local maxima detection is used.
-
-        shape : tuple
-            The shape of the structural element for extended maxima detection.
-            This should be near the typical cell size.
-
-        threshold : float or None
-            Only maxima above this threshold are detected. If None, all maxima
-            are detected.
-
-        valid : bool
-            If True, only detect cell centers in the valid range of the blocks with
-            overlap.
-
-        save : str or None
-          Save the result of this step to the specified file if not None.
-
-
-    Shape detection
-    ---------------
-    shape_detection : dict or None
-        Shape detection step parameter.
-
-        threshold : float
-            Cell shape is expanded from maxima if pixels are above this threshold
-            and not closer to another maxima.
-
-        save : str or None
-          Save the result of this step to the specified file if not None.
-
-
-    Intensity detection
-    -------------------
-    intensity_detection : dict or None
-        Intensity detection step parameter.
-
-        method : {'max'|'min','mean'|'sum'}
-            The method to use to measure the intensity of a cell.
-
-        shape : tuple or None
-            If no cell shapes are detected a disk of this shape is used to measure
-            the cell intensity.
-
-        save : str or None
-            Save the result of this step to the specified file if not None.
-
-    References
-    ----------
-    [1] Renier, Adams, Kirst, Wu et al., "Mapping of Brain Activity by Automated Volume Analysis of Immediate Early Genes.", Cell 165, 1789 (2016)
-    [1] Kirst et al., "Mapping the Fine-Scale Organization and Plasticity of the Brain Vasculature", Cell 180, 780 (2020)
-    """
-
-    # initialize sink
     shape = io.shape(source)
     order = io.order(source)
-
+    print(cell_detection_parameter, shape, order)
     initialize_sinks(cell_detection_parameter, shape, order)
 
     cell_detection_parameter.update(verbose=processing_parameter.get('verbose', False))
@@ -309,10 +349,8 @@ def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detect
                                  return_blocks=True, parameter=cell_detection_parameter, workspace=workspace,
                                  **{**processing_parameter, **{'n_threads': n_threads}})
 
-    # merge results
     results = np.vstack([np.hstack(r) for r in results])
 
-    # create column headers  # FIXME: use pd.DataFrame instead
     header = ['x', 'y', 'z']
     dtypes = [int, int, int]
     if cell_detection_parameter['shape_detection'] is not None:
@@ -327,7 +365,6 @@ def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detect
     for i, h in enumerate(header):
         cells[h] = results[:, i]
 
-    # save results
     return io.write(sink, cells)
 
 

@@ -59,7 +59,7 @@ def initialize_elastix():
 initialize_elastix()
 
 
-def align_images(fixed_image_path, moving_image_path, affine_parameter_file, bspline_parameter_file=None,
+def align_images(fixed_image_path, moving_image_path, affine_parameter_file=None, bspline_parameter_file=None,
                  output_dir=None, processes=None, workspace=None, moving_landmarks_path=None,
                  fixed_landmarks_path=None):
     """
@@ -107,6 +107,8 @@ def align_images(fixed_image_path, moving_image_path, affine_parameter_file, bsp
 
     if settings.platform_name == "windows":
         cmd = [i.replace('/', '\\') for i in cmd]
+
+    print(" ".join(cmd))
 
     try:
         with subprocess.Popen(cmd, stdout=sys.stdout,
