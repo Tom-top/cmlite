@@ -1,12 +1,12 @@
-//Affine Transformation
+// Affine Transformation
 
-//ImageTypes
+// ImageTypes
 (FixedInternalImagePixelType "float")
 (FixedImageDimension 3)
 (MovingInternalImagePixelType "float")
 (MovingImageDimension 3)
 
-//Components
+// Components
 (Registration "MultiResolutionRegistration")
 (FixedImagePyramid "FixedSmoothingImagePyramid")
 (MovingImagePyramid "MovingSmoothingImagePyramid")
@@ -31,17 +31,17 @@
 (WriteResultImageAfterEachResolution "false") 
 (ShowExactMetricValue "false")
 
-//Maximum number of iterations in each resolution level:
+// Maximum number of iterations in each resolution level:
 (MaximumNumberOfIterations 500 ) 
 
-//Number of grey level bins in each resolution level:
+// Number of grey level bins in each resolution level:
 (NumberOfHistogramBins 32 )
 (FixedLimitRangeRatio 0.0)
 (MovingLimitRangeRatio 0.0)
 (FixedKernelBSplineOrder 3)
 (MovingKernelBSplineOrder 3)
 
-//Number of spatial samples used to compute the mutual information in each resolution level:
+// Number of spatial samples used to compute the mutual information in each resolution level:
 (ImageSampler "RandomCoordinate")
 (FixedImageBSplineInterpolationOrder 3)
 (UseRandomSampleRegion "false")
@@ -50,16 +50,16 @@
 (CheckNumberOfSamples "true")
 (MaximumNumberOfSamplingAttempts 10)
 
-//Order of B-Spline interpolation used in each resolution level:
+// Order of B-Spline interpolation used in each resolution level:
 (BSplineInterpolationOrder 3)
 
-//Order of B-Spline interpolation used for applying the final deformation:
+// Order of B-Spline interpolation used for applying the final deformation:
 (FinalBSplineInterpolationOrder 3)
 
-//Default pixel value for pixels that come from outside the picture:
+// Default pixel value for pixels that come from outside the picture:
 (DefaultPixelValue 0)
 
-//SP: Param_A in each resolution level. a_k = a/(A+k+1)^alpha
+// SP: Param_A in each resolution level. a_k = a/(A+k+1)^alpha
 (SP_A 20.0 )
 
 
