@@ -40,7 +40,7 @@ default_cell_detection_parameter = dict(
     # background removal
     background_correction=dict(shape=(10, 10),
                                form='Disk',
-                               save=False),
+                               save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\background_removal.tif"),
 
     # equalization
     equalization=None,
@@ -53,14 +53,14 @@ default_cell_detection_parameter = dict(
 
     # extended maxima detection
     maxima_detection=dict(h_max=None,
-                          shape=30,
+                          shape=7,  # Neurons: 20; Microglia: 10
                           threshold=0,
                           valid=True,
-                          save=False),
+                          save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\maxima_detection.tif"),
 
     # cell shape detection
     shape_detection=dict(threshold=700,
-                         save=False),
+                         save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\shape_detection.tif"),
 
     # cell intensity detection
     intensity_detection=dict(method='max',
@@ -76,7 +76,7 @@ default_cell_detection_processing_parameter = dict(
     optimization=True,
     optimization_fix='all',
     verbose=True,
-    processes=4,
+    processes=1,
 )
 
 # Fixme: Missing IDs in atlas -> probably background and ventricles but worth chercking
@@ -336,7 +336,6 @@ def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detect
 
     shape = io.shape(source)
     order = io.order(source)
-    print(cell_detection_parameter, shape, order)
     initialize_sinks(cell_detection_parameter, shape, order)
 
     cell_detection_parameter.update(verbose=processing_parameter.get('verbose', False))
@@ -370,6 +369,17 @@ def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detect
 
 def detect_cells_block(source, parameter=default_cell_detection_parameter, n_threads=None):
     """Detect cells in a Block."""
+
+    def initialize_worker():
+        global md, sd, me, equalize, wrap_step, print_params, ic
+        import analysis.measurements.maxima_detection as md
+        import analysis.measurements.shape_detection as sd
+        import analysis.measurements.measure_expression as me
+        from image_processing.experts.utils import equalize, wrap_step, print_params
+        import image_processing.illumination_correction as ic
+
+    # Initialize worker-specific imports
+    initialize_worker()
 
     # initialize parameter and slicing
     if parameter.get('verbose'):
@@ -432,7 +442,11 @@ def detect_cells_block(source, parameter=default_cell_detection_parameter, n_thr
         if parameter_maxima['h_max']:  # FIXME: check if source or dog
             centers = md.find_center_of_maxima(source, maxima=maxima, verbose=parameter.get('verbose'))
         else:
-            centers = ap.where(maxima, processes=n_threads).array  # WARNING: prange
+            centers = ap.where(maxima, processes=n_threads, cutoff=10**10).array  # WARNING: prange
+        print(f"Maxima: {maxima}")
+        print(np.sum(maxima))
+        print(f"Centers: {len(centers)}")
+        print(centers)
         del maxima
 
         # correct for valid region
@@ -445,6 +459,7 @@ def detect_cells_block(source, parameter=default_cell_detection_parameter, n_thr
         results = (centers,)
     else:
         results = ()
+    # print(f"Centers filt: {centers}")
 
     # WARNING: sd.detect_shape uses prange
     # cell shape detection  # FIXME: may use centers without assignment
@@ -590,6 +605,7 @@ def filter_cells(source, sink, thresholds):
 
     ids = np.ones(source.shape[0], dtype=bool)
     for filter_name, thrsh in thresholds.items():
+        print(ids, thrsh, source[filter_name], filter_name)
         if thrsh:
             if not isinstance(thrsh, (tuple, list)):
                 thrsh = (thrsh, None)
@@ -603,7 +619,7 @@ def filter_cells(source, sink, thresholds):
 
 
 def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_directory,
-                  save_segmented_cells=True,
+                  data_to_segment=None, save_segmented_cells=True,
                   **kwargs):
     print("")
     for channel in kwargs["study_params"]["channels_to_segment"]:
@@ -613,7 +629,7 @@ def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_
             os.mkdir(shape_detection_directory)
 
         cell_detection_parameter = default_cell_detection_parameter.copy()
-        cell_detection_parameter['shape_detection'] = dict(threshold=p['shape_detection'])
+        cell_detection_parameter['shape_detection']['threshold'] = p['shape_detection']
 
         ################################################################################################################
         # 3.1 DETECT CELLS
@@ -621,10 +637,16 @@ def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_
         cells_raw_path = os.path.join(shape_detection_directory, f"cells_raw_{channel}.npy")
         if not os.path.exists(cells_raw_path):
             ut.print_c(f"[INFO {sample_name}] Running cell detection for channel {channel}!")
-            detect_cells(os.path.join(sample_directory, f"stitched_{channel}.npy"),
-                         cells_raw_path,
-                         cell_detection_parameter=cell_detection_parameter,
-                         processing_parameter=default_cell_detection_processing_parameter)
+            if data_to_segment is None:
+                detect_cells(os.path.join(sample_directory, f"stitched_{channel}.npy"),
+                             cells_raw_path,
+                             cell_detection_parameter=cell_detection_parameter,
+                             processing_parameter=default_cell_detection_processing_parameter)
+            else:
+                detect_cells(data_to_segment,
+                             cells_raw_path,
+                             cell_detection_parameter=cell_detection_parameter,
+                             processing_parameter=default_cell_detection_processing_parameter)
         else:
             ut.print_c(f"[WARNING {sample_name}] Skipping cell detection for channel {channel}: "
                        f"cells_raw_{channel}.npy file already exists!")
@@ -732,18 +754,3 @@ def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_
         else:
             ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
                        f"cells_transformed_{channel}.csv file already exists!")
-
-        # # ClearMap 1.0 export
-        # cells_cm1_path = os.path.join(shape_detection_directory, f"cells_transformed_cm1_{channel}.npy")
-        # clearmap1_format = {'points': ['x', 'y', 'z'],
-        #                     'points_transformed': ['xt', 'yt', 'zt'],
-        #                     'intensities': ['source', 'dog', 'background', 'size']}
-        #
-        # for filename, names in clearmap1_format.items():
-        #     data = np.array(
-        #         [cells_transformed[name] if name in cells_transformed.dtype.names
-        #          else np.full(cells_transformed.shape[0], np.nan) for name in
-        #          names])
-        #     io.write(cells_cm1_path, data)
-        #     shutil.copyfile(cells_cm1_path,
-        #                     os.path.join(analysis_sample_directory, f"cells_transformed_cm1_{channel}.npy"))

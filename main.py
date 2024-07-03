@@ -1,5 +1,7 @@
 import os
 
+import tifffile
+
 import utils.utils as ut
 
 import IO.IO as io
@@ -73,8 +75,16 @@ for sample_name in sample_names:
     ####################################################################################################################
     # 3.0 SEGMENT
     ####################################################################################################################
-
+    # import numpy as np
+    # x_s, y_s, z_s = 150, 300, 300
+    # delta = 200
+    # io.generate_npy_chunk(r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\stitched_5.npy",
+    #                       np.array([[x_s*2, (x_s+delta)*2],
+    #                                 [y_s*2, (y_s+delta)*2],
+    #                                 [z_s*2, (z_s+delta)*2]]),
+    #                       r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy")
     cells.segment_cells(sample_name, sample_directory, annotation_file, analysis_data_size_directory,
+                        data_to_segment=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy",
                         save_segmented_cells=True, **parameters)
 
     ####################################################################################################################

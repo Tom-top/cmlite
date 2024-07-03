@@ -58,7 +58,7 @@
 (SampleRegionSize 50.0 50.0 50.0)
 (NumberOfSpatialSamples 10000)
 (NewSamplesEveryIteration "true")
-(CheckNumberOfSamples "true")
+(CheckNumberOfSamples "false")  // This is false to avoid crashing if optimal overlap is not found
 (MaximumNumberOfSamplingAttempts 5) // 10
 
 // BSpline interpolation order

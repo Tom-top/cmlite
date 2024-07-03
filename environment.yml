@@ -24,3 +24,5 @@ dependencies:
       - h5py
       - aicsimageio
       - aicspylibczi
+      - SimpleITK
+      - tqdm
