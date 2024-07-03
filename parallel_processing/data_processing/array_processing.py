@@ -203,7 +203,7 @@ def where(source, sink=None, blocks=None, cutoff=None, processes=None, verbose=F
     blocks : int or None
       Number of blocks to split array into for parallel processing
     cutoff : int
-      Number of elements below whih to switch to numpy.where
+      Number of elements below which to switch to numpy.where
     processes : None or int
       Number of processes, if None use number of cpus.
 
@@ -228,8 +228,9 @@ def where(source, sink=None, blocks=None, cutoff=None, processes=None, verbose=F
 
     if cutoff is None:
         cutoff = 1
-    cutoff = min(1, cutoff)
+    # cutoff = min(1, cutoff)
 
+    print(f"Source buffer size = {source_buffer.size}; cutoff = {cutoff}")
     if source_buffer.size <= cutoff:
         result = np.vstack(np.where(source_buffer)).T
         if sink is None:
@@ -251,12 +252,22 @@ def where(source, sink=None, blocks=None, cutoff=None, processes=None, verbose=F
             sink_shape = (np.sum(sums), ndim)
         sink, sink_buffer = initialize_sink(sink=sink, shape=sink_shape, dtype=int)
 
+        # Ensure dtype is correct
+        if source_buffer is not None:
+            source_buffer = source_buffer.astype(np.intp)
+        if sink_buffer is not None:
+            sink_buffer = sink_buffer.astype(np.intp)
+
         if ndim == 1:
             code.where_1d(source_buffer, where=sink_buffer, sums=sums, blocks=blocks, processes=processes)
         elif ndim == 2:
             code.where_2d(source_buffer, where=sink_buffer, sums=sums, blocks=blocks, processes=processes)
         else:
-            code.where_3d(source_buffer, where=sink_buffer, sums=sums, blocks=blocks, processes=processes)
+            # print("Look here!")
+            # print(source_buffer.dtype, sink_buffer.dtype, type(sums), type(blocks), type(processes))
+            # print(source_buffer.shape, sink_buffer.shape)
+            # print(np.array(sums).dtype)
+            code.where_3d(source_buffer, where=sink_buffer, sums=np.array(sums), blocks=blocks, processes=processes)
 
     finalize_processing(verbose=verbose, function='where', timer=timer)
 

@@ -895,3 +895,11 @@ def get_sample_directory(raw_directory, sample_name, **kwargs):
     if kwargs["study_params"]["scanning_system"] == "bruker":
         _, sample_directory = get_bruker_directories(sample_directory)
     return sample_directory
+
+
+def generate_npy_chunk(img, range, saving_name):
+    img = np.load(img)
+    x_range, y_range, z_range = range
+    np.save(saving_name, img[x_range[0]:x_range[1],
+                         y_range[0]:y_range[1],
+                         z_range[0]:z_range[1], ])

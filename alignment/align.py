@@ -8,7 +8,6 @@ import platform
 import multiprocessing as mp
 
 import numpy as np
-import logging
 from io import UnsupportedOperation
 
 import settings
@@ -19,14 +18,16 @@ import IO.IO as io
 
 cmlite_env_path = os.getcwd()
 if settings.platform_name == "linux":
-    elastix_lib_path = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin")  # Change this to the directory containing libANNlib-4.9.so.1
+    elastix_lib_path = os.path.join(cmlite_env_path,
+                                    f"external/elastix/{settings.platform_name}/build/bin")  # Change this to the directory containing libANNlib-4.9.so.1
     elastix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin/elastix")
-    transformix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/build/bin/transformix")
+    transformix_binary = os.path.join(cmlite_env_path,
+                                      f"external/elastix/{settings.platform_name}/build/bin/transformix")
 elif settings.platform_name == "windows":
-    elastix_lib_path = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}")  # Change this to the directory containing libANNlib-4.9.so.1
+    elastix_lib_path = os.path.join(cmlite_env_path,
+                                    f"external/elastix/{settings.platform_name}")  # Change this to the directory containing libANNlib-4.9.so.1
     elastix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/elastix.exe")
     transformix_binary = os.path.join(cmlite_env_path, f"external/elastix/{settings.platform_name}/transformix.exe")
-
 
 tempdir = tempfile.gettempdir()
 elastix_output_folder = os.path.join(tempdir, "elastix_output")
@@ -485,6 +486,11 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         if not os.path.exists(signal_to_auto_directory):
             ut.print_c(f"[INFO {sample_name}] Running signal to auto (affine) alignment for channel {channel}!")
             align_images(**align_signal_to_auto_affine)
+            # generate_alignment_overlay(os.path.join(sample_directory,
+            #                                         f"resampled_25um_"
+            #                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+            #                            os.path.join(signal_to_auto_directory, "result.0.mhd"),
+            #                            os.path.join(signal_to_auto_directory, "signal_to_auto_affine.tif"))
         else:
             ut.print_c(f"[WARNING {sample_name}] Alignment: signal to auto skipped for channel {channel}: "
                        f"signal_to_auto_{channel} folder already exists!")
@@ -506,6 +512,10 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         if not os.path.exists(auto_to_signal_directory):
             ut.print_c(f"[INFO {sample_name}] Running auto to signal (affine) alignment for channel {channel}!")
             align_images(**align_auto_to_signal_affine)
+            # generate_alignment_overlay(os.path.join(sample_directory,
+            #                                         f"resampled_25um_{channel}.tif"),
+            #                            os.path.join(auto_to_signal_directory, "result.0.mhd"),
+            #                            os.path.join(auto_to_signal_directory, "auto_to_signal_affine.tif"))
         else:
             ut.print_c(f"[WARNING {sample_name}] Alignment: auto to signal skipped for channel {channel}: "
                        f"auto to signal_{channel} folder already exists!")
@@ -527,6 +537,12 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         if not os.path.exists(auto_to_reference_directory):
             ut.print_c(f"[INFO {sample_name}] Running auto to reference alignment for channel {channel}!")
             align_images(**align_auto_to_reference)
+            # generate_alignment_overlay(reference_file,
+            #                            os.path.join(auto_to_reference_directory, "result.0.mhd"),
+            #                            os.path.join(auto_to_reference_directory, "auto_to_reference_affine.tif"))
+            # generate_alignment_overlay(reference_file,
+            #                            os.path.join(auto_to_reference_directory, "result.1.mhd"),
+            #                            os.path.join(auto_to_reference_directory, "auto_to_reference_bspline.tif"))
         else:
             ut.print_c(f"[WARNING {sample_name}] Alignment: auto to reference skipped for channel {channel}: "
                        f"signal_to_auto_{channel} folder already exists!")
@@ -548,6 +564,16 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         if not os.path.exists(reference_to_auto_directory):
             ut.print_c(f"[INFO {sample_name}] Running reference to auto alignment for channel {channel}!")
             align_images(**align_reference_to_auto)
+            # generate_alignment_overlay(os.path.join(sample_directory,
+            #                                         f"resampled_25um_"
+            #                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+            #                            os.path.join(reference_to_auto_directory, "result.0.mhd"),
+            #                            os.path.join(reference_to_auto_directory, "reference_to_auto_affine.tif"))
+            # generate_alignment_overlay(os.path.join(sample_directory,
+            #                                         f"resampled_25um_"
+            #                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+            #                            os.path.join(reference_to_auto_directory, "result.1.mhd"),
+            #                            os.path.join(reference_to_auto_directory, "reference_to_auto_bspline.tif"))
         else:
             ut.print_c(f"[WARNING {sample_name}] Alignment: reference to auto skipped for channel {channel}: "
                        f"signal_to_auto_{channel} folder already exists!")
@@ -603,3 +629,20 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
         else:
             ut.print_c(f"[WARNING {sample_name}] Transforming: atlas to auto skipped for channel {channel}: "
                        f"atlas_to_auto_{channel} folder already exists!")
+
+
+# def permute_data(img, ):
+#     # permute
+#     per = res.orientation_to_permuation(orientation)
+#     img = img.transpose(per)
+#
+#     # reverse axes
+#     re_slice = False
+#     sl = [slice(None)] * img.ndim
+#     for d, o in enumerate(orientation):
+#         if o < 0:
+#             sl[d] = slice(None, None, -1)
+#             re_slice = True
+#     if re_slice:
+#         img = img[tuple(sl)]
+#     return img

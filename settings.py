@@ -1,8 +1,5 @@
 import os
-import requests
 import platform
-
-import utils.utils as ut
 
 platform_name = platform.system().lower()
 
