@@ -803,21 +803,21 @@ def resample_files(sample_name, sample_directory, overwrite=False, **kwargs):
                        f"resampled_25um_{channel}.tif file already exists!")
 
         if not os.path.exists(resampled_10_path) or overwrite:
-            if channel != kwargs["study_params"]["autofluorescence_channel"]:
-                ut.print_c(f"[INFO {sample_name}] Resampling channel {channel} to 10um isotropic!")
-                resample_10um_parameter = {
-                    "source_resolution": resolution,
-                    "sink_resolution": (10, 10, 10),
-                    "processes": None,
-                    "verbose": True,
-                    "method": "memmap",
-                }
-                resampled_10_path = os.path.join(sample_directory, f"resampled_10um_{channel}.tif")
-                fu.delete_file(resampled_10_path)
-                resample(converted_file, sink=resampled_10_path, **resample_10um_parameter)
+            # if channel != kwargs["study_params"]["autofluorescence_channel"]:
+            ut.print_c(f"[INFO {sample_name}] Resampling channel {channel} to 10um isotropic!")
+            resample_10um_parameter = {
+                "source_resolution": resolution,
+                "sink_resolution": (10, 10, 10),
+                "processes": None,
+                "verbose": True,
+                "method": "memmap",
+            }
+            resampled_10_path = os.path.join(sample_directory, f"resampled_10um_{channel}.tif")
+            fu.delete_file(resampled_10_path)
+            resample(converted_file, sink=resampled_10_path, **resample_10um_parameter)
         else:
             ut.print_c(f"[WARNING {sample_name}] Resampling (10um): skipped for channel {channel}: "
-                       f"resampled_25um_{channel}.tif file already exists!")
+                       f"resampled_10um_{channel}.tif file already exists!")
 
 def resample_points(source, sink=None, resample_source=None, resample_sink=None,
                     orientation=None, source_shape=None, sink_shape=None,

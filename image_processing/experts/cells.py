@@ -40,7 +40,7 @@ default_cell_detection_parameter = dict(
     # background removal
     background_correction=dict(shape=(10, 10),
                                form='Disk',
-                               save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\background_removal.tif"),
+                               save=None),
 
     # equalization
     equalization=None,
@@ -56,11 +56,11 @@ default_cell_detection_parameter = dict(
                           shape=7,  # Neurons: 20; Microglia: 10
                           threshold=0,
                           valid=True,
-                          save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\maxima_detection.tif"),
+                          save=None),
 
     # cell shape detection
     shape_detection=dict(threshold=700,
-                         save=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\shape_detection_500\shape_detection.tif"),
+                         save=None),
 
     # cell intensity detection
     intensity_detection=dict(method='max',
@@ -101,6 +101,7 @@ extra_labels = [(5576, 0, 'No label', 'NoL'),
                 (5880, 0, 'No label', 'NoL'),
                 (5912, 0, 'No label', 'NoL'),
                 ]
+
 
 #
 # def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detection_parameter,
@@ -333,7 +334,6 @@ extra_labels = [(5576, 0, 'No label', 'NoL'),
 
 def detect_cells(source, sink=None, cell_detection_parameter=default_cell_detection_parameter,
                  processing_parameter=default_cell_detection_processing_parameter, workspace=None):
-
     shape = io.shape(source)
     order = io.order(source)
     initialize_sinks(cell_detection_parameter, shape, order)
@@ -442,11 +442,8 @@ def detect_cells_block(source, parameter=default_cell_detection_parameter, n_thr
         if parameter_maxima['h_max']:  # FIXME: check if source or dog
             centers = md.find_center_of_maxima(source, maxima=maxima, verbose=parameter.get('verbose'))
         else:
-            centers = ap.where(maxima, processes=n_threads, cutoff=10**10).array  # WARNING: prange
-        print(f"Maxima: {maxima}")
-        print(np.sum(maxima))
-        print(f"Centers: {len(centers)}")
-        print(centers)
+            centers = ap.where(maxima, processes=n_threads,
+                               cutoff=np.inf).array  # Fixme: parallel processing is broken: np.inf to prevent error
         del maxima
 
         # correct for valid region
@@ -547,13 +544,14 @@ def detect_maxima(source, h_max=None, shape=5, threshold=None, verbose=False):  
     return centers
 
 
-def transformation(sample_directory, channel, coordinates):
+def transformation(sample_directory, channel, coordinates, atlas):
     coordinates = res.resample_points(coordinates, sink=None, orientation=None,
                                       source_shape=io.shape(os.path.join(sample_directory, f"stitched_{channel}.npy")),
                                       sink_shape=io.shape(
                                           os.path.join(sample_directory, f"resampled_25um_{channel}.tif")),
                                       )
-    elx.write_points(os.path.join(elx.elastix_output_folder, "outputpoints.txt"), coordinates, indices=False, binary=False)
+    elx.write_points(os.path.join(elx.elastix_output_folder, "outputpoints.txt"), coordinates, indices=False,
+                     binary=False)
 
     auto_to_signal_directory = os.path.join(sample_directory, f'auto_to_signal_{channel}')
     coordinates, _ = elx.transform_points_with_transformix(
@@ -563,7 +561,7 @@ def transformation(sample_directory, channel, coordinates):
         transformix_input=False,
     )
 
-    reference_to_auto_directory = os.path.join(sample_directory, f'reference_to_auto_{channel}')
+    reference_to_auto_directory = os.path.join(sample_directory, f'{atlas}_reference_to_auto_{channel}')
     coordinates, _ = elx.transform_points_with_transformix(
         os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
         elx.elastix_output_folder,
@@ -605,7 +603,6 @@ def filter_cells(source, sink, thresholds):
 
     ids = np.ones(source.shape[0], dtype=bool)
     for filter_name, thrsh in thresholds.items():
-        print(ids, thrsh, source[filter_name], filter_name)
         if thrsh:
             if not isinstance(thrsh, (tuple, list)):
                 thrsh = (thrsh, None)
@@ -618,7 +615,7 @@ def filter_cells(source, sink, thresholds):
     return io.write(sink, cells_filtered)
 
 
-def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_directory,
+def segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
                   data_to_segment=None, save_segmented_cells=True,
                   **kwargs):
     print("")
@@ -634,8 +631,22 @@ def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_
         ################################################################################################################
         # 3.1 DETECT CELLS
         ################################################################################################################
+
         cells_raw_path = os.path.join(shape_detection_directory, f"cells_raw_{channel}.npy")
         if not os.path.exists(cells_raw_path):
+            if p['save_int_results']:
+                cell_detection_parameter['background_correction']['save'] = os.path.join(shape_detection_directory,
+                                                                                         "background_removal.tif")
+                if os.path.exists(cell_detection_parameter['background_correction']['save']):
+                    os.remove(cell_detection_parameter['background_correction']['save'])
+                cell_detection_parameter['maxima_detection']['save'] = os.path.join(shape_detection_directory,
+                                                                                    "maxima_detection.tif")
+                if os.path.exists(cell_detection_parameter['maxima_detection']['save']):
+                    os.remove(cell_detection_parameter['maxima_detection']['save'])
+                cell_detection_parameter['shape_detection']['save'] = os.path.join(shape_detection_directory,
+                                                                                   "shape_detection.tif")
+                if os.path.exists(cell_detection_parameter['shape_detection']['save']):
+                    os.remove(cell_detection_parameter['shape_detection']['save'])
             ut.print_c(f"[INFO {sample_name}] Running cell detection for channel {channel}!")
             if data_to_segment is None:
                 detect_cells(os.path.join(sample_directory, f"stitched_{channel}.npy"),
@@ -698,59 +709,57 @@ def segment_cells(sample_name, sample_directory, annotation, analysis_data_size_
                 ut.print_c(f"[WARNING {sample_name}] Skipping drawing of segmented cells for channel {channel}: "
                            f"labeled_cells_10um_{channel}.tif file already exists!")
 
-        ################################################################################################################
-        # 3.3 TRANSFORM CELLS
-        ################################################################################################################
+        for atlas, annotation in zip(kwargs['study_params']['atlas_to_use'], annotation_files):
 
-        cells_transformed_path = os.path.join(shape_detection_directory, f"cells_transformed_{channel}.npy")
-        # if not os.path.exists(cells_transformed_path) or kwargs["overwrite_results"]:
-        ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
-        transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates)
-        atlas_name = kwargs['study_params']['atlas_to_use'].split('_')[-1]
-        animal_species = kwargs['study_params']['atlas_to_use'].split('_')[0]
-        if atlas_name == "gubra":
-            ano.set_annotation_file(annotation,
-                                    label_file=f"resources/atlas/{atlas_name}_annotation_"
-                                               f"{animal_species}.json",
-                                    extra_label=extra_labels)
-        else:
-            ano.set_annotation_file(f"resources/atlas/{atlas_name}_annotation_{animal_species}.json")
-        label = ano.label_points(transformed_cell_coordinates, key='order')
-        names = ano.convert_label(label, key='order', value='name')
-        transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
-        label = np.array(label, dtype=[('order', int)])
-        names = np.array(names, dtype=[('name', 'U256')])
+            ############################################################################################################
+            # 3.3 TRANSFORM CELLS
+            ############################################################################################################
 
-        print(f"cells_filtered shape: {cells_filtered.shape}, dtype: {cells_filtered.dtype}")
-        print(
-            f"transformed_cell_coordinates shape: {transformed_cell_coordinates.shape}, dtype: {transformed_cell_coordinates.dtype}")
-        print(f"label shape: {label.shape}, dtype: {label.dtype}")
-        print(f"names shape: {names.shape}, dtype: {names.dtype}")
+            atlas_name = atlas.split('_')[-1]
+            animal_species = atlas.split('_')[0]
 
-        cells_data = rfn.merge_arrays([cells_filtered[:], transformed_cell_coordinates, label, names],
-                                      flatten=True, usemask=False)
-        io.write(cells_transformed_path, cells_data)
-        shutil.copyfile(cells_transformed_path,
-                        os.path.join(analysis_sample_directory, f"cells_transformed_{channel}.npy"))
-        # else:
-        #     ut.print_c(f"[WARNING {sample_name}] Skipping transform cells for channel {channel}: "
-        #                f"cells_transformed_{channel}.npy file already exists!")
+            cells_transformed_path = os.path.join(shape_detection_directory, f"{atlas}_cells_transformed_{channel}.npy")
+            if not os.path.exists(cells_transformed_path) or kwargs["study_params"]["overwrite_results"]:
+                ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
+                transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates,
+                                                              atlas)
+                if atlas_name == "gubra":
+                    ano.set_annotation_file(annotation,
+                                            label_file=f"resources/atlas/{atlas_name}_annotation_"
+                                                       f"{animal_species}.json",
+                                            extra_label=extra_labels)
+                else:
+                    ano.set_annotation_file(f"resources/atlas/{atlas_name}_annotation_{animal_species}.json")
+                label = ano.label_points(transformed_cell_coordinates, key='order')
+                names = ano.convert_label(label, key='order', value='name')
+                transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
+                label = np.array(label, dtype=[('order', int)])
+                names = np.array(names, dtype=[('name', 'U256')])
 
-        ################################################################################################################
-        # 3.4 WRITE RESULT
-        ################################################################################################################
+                cells_data = rfn.merge_arrays([cells_filtered[:], transformed_cell_coordinates, label, names],
+                                              flatten=True, usemask=False)
+                io.write(cells_transformed_path, cells_data)
+                shutil.copyfile(cells_transformed_path,
+                                os.path.join(analysis_sample_directory, f"{atlas}_cells_transformed_{channel}.npy"))
+            else:
+                ut.print_c(f"[WARNING {sample_name}] Skipping transform cells for channel {channel}: "
+                           f"cells_transformed_{atlas_name}_{channel}.npy file already exists!")
 
-        cells_transformed_csv_path = os.path.join(shape_detection_directory, f"cells_transformed_{channel}.csv")
-        cells_transformed = io.as_source(cells_transformed_path)
-        if not os.path.exists(cells_transformed_csv_path) or kwargs['study_params']['overwrite_results']:
-            ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
-            delimiter = ";"
-            header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
-            np.savetxt(cells_transformed_csv_path, cells_transformed[:], header=header,
-                       delimiter=delimiter,
-                       fmt='%s')
-            shutil.copyfile(cells_transformed_csv_path,
-                            os.path.join(analysis_sample_directory, f"cells_transformed_{channel}.csv"))
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
-                       f"cells_transformed_{channel}.csv file already exists!")
+            ############################################################################################################
+            # 3.4 WRITE RESULT
+            ############################################################################################################
+
+            cells_transformed_csv_path = os.path.join(shape_detection_directory, f"{atlas}_cells_transformed_{channel}.csv")
+            cells_transformed = io.as_source(cells_transformed_path)
+            if not os.path.exists(cells_transformed_csv_path) or kwargs['study_params']['overwrite_results']:
+                ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
+                delimiter = ";"
+                header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
+                np.savetxt(cells_transformed_csv_path, cells_transformed[:], header=header,
+                           delimiter=delimiter,
+                           fmt='%s')
+                shutil.copyfile(cells_transformed_csv_path,
+                                os.path.join(analysis_sample_directory, f"{atlas}_cells_transformed_{channel}.csv"))
+            else:
+                ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
+                           f"{atlas}_cells_transformed_{channel}.csv file already exists!")

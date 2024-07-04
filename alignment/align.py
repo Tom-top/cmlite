@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import json
 import tempfile
 import shutil
 import subprocess
@@ -9,6 +10,14 @@ import multiprocessing as mp
 
 import numpy as np
 from io import UnsupportedOperation
+import ccf_streamlines.projection as ccfproj
+import nrrd
+import skimage.io as skio
+import matplotlib.pyplot as plt
+import matplotlib
+import tifffile
+
+matplotlib.use("Qt5Agg")  # Headless mode
 
 import settings
 import utils.utils as ut
@@ -464,7 +473,7 @@ def read_transformix_output_file(input_file, output_file):
         file.write('\n'.join(output_lines))
 
 
-def run_alignments(sample_name, sample_directory, annotation_file, reference_file, **kwargs):
+def run_alignments(sample_name, sample_directory, annotation_files, reference_files, **kwargs):
     print("")
     for channel in kwargs["study_params"]["channels_to_segment"]:
 
@@ -520,115 +529,300 @@ def run_alignments(sample_name, sample_directory, annotation_file, reference_fil
             ut.print_c(f"[WARNING {sample_name}] Alignment: auto to signal skipped for channel {channel}: "
                        f"auto to signal_{channel} folder already exists!")
 
-        ################################################################################################################
-        # 2.2 ALIGN AUTO TO REFERENCE
-        ################################################################################################################
+        for atlas, annotation, reference in zip(kwargs["study_params"]["atlas_to_use"],
+                                                annotation_files,
+                                                reference_files):
 
-        auto_to_reference_directory = os.path.join(sample_directory, f"auto_to_reference_{channel}")
-        align_auto_to_reference = dict(fixed_image_path=reference_file,
-                                       moving_image_path=os.path.join(sample_directory,
-                                                                      f"resampled_25um_"
-                                                                      f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
-                                       affine_parameter_file="resources/alignment/align_affine.txt",
-                                       bspline_parameter_file="resources/alignment/align_bspline.txt",
-                                       output_dir=auto_to_reference_directory,
-                                       )
+            ################################################################################################################
+            # 2.2 ALIGN AUTO TO REFERENCE
+            ################################################################################################################
 
-        if not os.path.exists(auto_to_reference_directory):
-            ut.print_c(f"[INFO {sample_name}] Running auto to reference alignment for channel {channel}!")
-            align_images(**align_auto_to_reference)
-            # generate_alignment_overlay(reference_file,
-            #                            os.path.join(auto_to_reference_directory, "result.0.mhd"),
-            #                            os.path.join(auto_to_reference_directory, "auto_to_reference_affine.tif"))
-            # generate_alignment_overlay(reference_file,
-            #                            os.path.join(auto_to_reference_directory, "result.1.mhd"),
-            #                            os.path.join(auto_to_reference_directory, "auto_to_reference_bspline.tif"))
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Alignment: auto to reference skipped for channel {channel}: "
-                       f"signal_to_auto_{channel} folder already exists!")
+            auto_to_reference_directory = os.path.join(sample_directory, f"{atlas}_auto_to_reference_{channel}")
+            align_auto_to_reference = dict(fixed_image_path=reference,
+                                           moving_image_path=os.path.join(sample_directory,
+                                                                          f"resampled_25um_"
+                                                                          f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+                                           affine_parameter_file="resources/alignment/align_affine.txt",
+                                           bspline_parameter_file="resources/alignment/align_bspline.txt",
+                                           output_dir=auto_to_reference_directory,
+                                           )
 
-        ################################################################################################################
-        # 2.4 ALIGN REFERENCE TO AUTO
-        ################################################################################################################
+            if not os.path.exists(auto_to_reference_directory):
+                ut.print_c(f"[INFO {sample_name}] Running auto to {atlas} reference alignment for channel {channel}!")
+                align_images(**align_auto_to_reference)
+            else:
+                ut.print_c(
+                    f"[WARNING {sample_name}] Alignment: auto to {atlas} reference skipped for channel {channel}: "
+                    f"signal_to_auto_{channel} folder already exists!")
 
-        reference_to_auto_directory = os.path.join(sample_directory, f"reference_to_auto_{channel}")
-        align_reference_to_auto = dict(fixed_image_path=os.path.join(sample_directory,
-                                                                     f"resampled_25um_"
-                                                                     f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
-                                       moving_image_path=reference_file,
-                                       affine_parameter_file="resources/alignment/align_affine.txt",
-                                       bspline_parameter_file="resources/alignment/align_bspline.txt",
-                                       output_dir=reference_to_auto_directory,
-                                       )
+            ################################################################################################################
+            # 2.4 ALIGN REFERENCE TO AUTO
+            ################################################################################################################
 
-        if not os.path.exists(reference_to_auto_directory):
-            ut.print_c(f"[INFO {sample_name}] Running reference to auto alignment for channel {channel}!")
-            align_images(**align_reference_to_auto)
-            # generate_alignment_overlay(os.path.join(sample_directory,
-            #                                         f"resampled_25um_"
-            #                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
-            #                            os.path.join(reference_to_auto_directory, "result.0.mhd"),
-            #                            os.path.join(reference_to_auto_directory, "reference_to_auto_affine.tif"))
-            # generate_alignment_overlay(os.path.join(sample_directory,
-            #                                         f"resampled_25um_"
-            #                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
-            #                            os.path.join(reference_to_auto_directory, "result.1.mhd"),
-            #                            os.path.join(reference_to_auto_directory, "reference_to_auto_bspline.tif"))
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Alignment: reference to auto skipped for channel {channel}: "
-                       f"signal_to_auto_{channel} folder already exists!")
+            reference_to_auto_directory = os.path.join(sample_directory, f"{atlas}_reference_to_auto_{channel}")
+            align_reference_to_auto = dict(fixed_image_path=os.path.join(sample_directory,
+                                                                         f"resampled_25um_"
+                                                                         f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+                                           moving_image_path=reference,
+                                           affine_parameter_file="resources/alignment/align_affine.txt",
+                                           bspline_parameter_file="resources/alignment/align_bspline.txt",
+                                           output_dir=reference_to_auto_directory,
+                                           )
 
-        ################################################################################################################
-        # 2.3 TRANSFORM SIGNAL TO REFERENCE
-        ################################################################################################################
+            if not os.path.exists(reference_to_auto_directory):
+                ut.print_c(f"[INFO {sample_name}] Running {atlas} reference to auto alignment for channel {channel}!")
+                align_images(**align_reference_to_auto)
+            else:
+                ut.print_c(
+                    f"[WARNING {sample_name}] Alignment: {atlas} reference to auto skipped for channel {channel}: "
+                    f"signal_to_auto_{channel} folder already exists!")
 
-        signal_to_reference_directory = os.path.join(sample_directory, f"signal_to_reference_{channel}")
-        transform_atlas_parameter = dict(
-            source=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
-            result_directory=signal_to_reference_directory,
-            transform_parameter_file=os.path.join(auto_to_reference_directory, f"TransformParameters.1.txt"))
-        if not os.path.exists(signal_to_reference_directory):
-            ut.print_c(f"[INFO {sample_name}] Running signal to reference transform for channel {channel}!")
-            transform_images(**transform_atlas_parameter)
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Transforming: signal to reference skipped for channel {channel}: "
-                       f"signal_to_template_{channel} folder already exists!")
+            ################################################################################################################
+            # 2.3 TRANSFORM SIGNAL TO REFERENCE
+            ################################################################################################################
 
-        ################################################################################################################
-        # 2.5 TRANSFORM ATLAS TO AUTO
-        ################################################################################################################
+            signal_to_reference_directory = os.path.join(sample_directory, f"{atlas}_signal_to_reference_{channel}")
+            transform_atlas_parameter = dict(
+                source=os.path.join(sample_directory, f"resampled_25um_{channel}.tif"),
+                result_directory=signal_to_reference_directory,
+                transform_parameter_file=os.path.join(auto_to_reference_directory, f"TransformParameters.1.txt"))
+            if not os.path.exists(signal_to_reference_directory):
+                ut.print_c(f"[INFO {sample_name}] Running signal to {atlas} reference transform for channel {channel}!")
+                transform_images(**transform_atlas_parameter)
+            else:
+                ut.print_c(
+                    f"[WARNING {sample_name}] Transforming: signal to {atlas} reference skipped for channel {channel}: "
+                    f"signal_to_template_{channel} folder already exists!")
 
-        # Toggling pixel interpolation off during transform
-        atlas_to_auto_directory = os.path.join(sample_directory, f"atlas_to_auto_{channel}")
+            ################################################################################################################
+            # 2.5 TRANSFORM ATLAS TO AUTO
+            ################################################################################################################
 
-        with open(os.path.join(reference_to_auto_directory, "TransformParameters.0.txt"), 'r') \
-                as file:
-            data = file.read()
-            data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
-                                "(FinalBSplineInterpolationOrder 0.000000)")
-        with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.0.txt"),
-                  'w') as file:
-            file.write(data)
+            # Toggling pixel interpolation off during transform
+            atlas_to_auto_directory = os.path.join(sample_directory, f"{atlas}_atlas_to_auto_{channel}")
 
-        with open(os.path.join(reference_to_auto_directory, "TransformParameters.1.txt"), 'r') \
-                as file:
-            data = file.read()
-            data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
-                                "(FinalBSplineInterpolationOrder 0.000000)")
-        with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.1.txt"),
-                  'w') as file:
-            file.write(data)
+            with open(os.path.join(reference_to_auto_directory, "TransformParameters.0.txt"), 'r') \
+                    as file:
+                data = file.read()
+                data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
+                                    "(FinalBSplineInterpolationOrder 0.000000)")
+            with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.0.txt"),
+                      'w') as file:
+                file.write(data)
 
-        transform_atlas_parameter = dict(
-            source=annotation_file,
-            result_directory=atlas_to_auto_directory,
-            transform_parameter_file=os.path.join(reference_to_auto_directory, f"TransformParameters_ni.1.txt"))
-        if not os.path.exists(atlas_to_auto_directory):
-            ut.print_c(f"[INFO {sample_name}] Running atlas to auto transform for channel {channel}!")
-            transform_images(**transform_atlas_parameter)
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Transforming: atlas to auto skipped for channel {channel}: "
-                       f"atlas_to_auto_{channel} folder already exists!")
+            with open(os.path.join(reference_to_auto_directory, "TransformParameters.1.txt"), 'r') \
+                    as file:
+                data = file.read()
+                data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
+                                    "(FinalBSplineInterpolationOrder 0.000000)")
+            with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.1.txt"),
+                      'w') as file:
+                file.write(data)
+
+            transform_atlas_parameter = dict(
+                source=annotation,
+                result_directory=atlas_to_auto_directory,
+                transform_parameter_file=os.path.join(reference_to_auto_directory, f"TransformParameters_ni.1.txt"))
+            if not os.path.exists(atlas_to_auto_directory):
+                ut.print_c(f"[INFO {sample_name}] Running {atlas} atlas to auto transform for channel {channel}!")
+                transform_images(**transform_atlas_parameter)
+            else:
+                ut.print_c(
+                    f"[WARNING {sample_name}] Transforming: {atlas} atlas to auto skipped for channel {channel}: "
+                    f"atlas_to_auto_{channel} folder already exists!")
+
+            ############################################################################################################
+            # 2.6 [OPTIONAL] TRANSFORM SIGNAL TO REFERENCE (ABA) AT 10um: FLATMAP GENERATION
+            ############################################################################################################
+
+            if atlas == "mouse_aba":
+
+                ########################################################################################################
+                # 2.6.1 ALIGN AUTO TO REFERENCE (ABA)
+                ########################################################################################################
+
+                reference_split = reference.split(".")
+                auto_to_reference_aba_directory = os.path.join(sample_directory,
+                                                               f"{atlas}_auto_to_reference_10um_{channel}")
+                align_auto_to_reference_10um = dict(fixed_image_path=reference_split[0] + "_10um." + reference_split[-1],
+                                                    moving_image_path=os.path.join(sample_directory,
+                                                                                   f"resampled_10um_"
+                                                                                   f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
+                                                    affine_parameter_file="resources/alignment/align_affine_10um.txt",
+                                                    bspline_parameter_file="resources/alignment/align_bspline.txt",
+                                                    output_dir=auto_to_reference_aba_directory,
+                                                    )
+
+                if not os.path.exists(auto_to_reference_aba_directory):
+                    ut.print_c(
+                        f"[INFO {sample_name}] Running auto to {atlas} reference (10um) alignment for channel {channel}!")
+                    align_images(**align_auto_to_reference_10um)
+                else:
+                    ut.print_c(
+                        f"[WARNING {sample_name}] Alignment: auto to {atlas} reference (10um) skipped for channel {channel}: "
+                        f"auto_to_reference_10um_{channel} folder already exists!")
+
+                ########################################################################################################
+                # 2.6.2 TRANSFORM SIGNAL TO REFERENCE
+                ########################################################################################################
+
+                signal_to_reference_10um_directory = os.path.join(sample_directory, f"{atlas}_signal_to_reference_10um_{channel}")
+                transform_atlas_parameter = dict(
+                    source=os.path.join(sample_directory, f"resampled_10um_{channel}.tif"),
+                    result_directory=signal_to_reference_10um_directory,
+                    transform_parameter_file=os.path.join(auto_to_reference_aba_directory, f"TransformParameters.1.txt"))
+                if not os.path.exists(signal_to_reference_10um_directory):
+                    ut.print_c(
+                        f"[INFO {sample_name}] Running signal to {atlas} reference (10um) transform for channel {channel}!")
+                    transform_images(**transform_atlas_parameter)
+                else:
+                    ut.print_c(
+                        f"[WARNING {sample_name}] Transforming: signal to {atlas} reference (10um) skipped for channel {channel}: "
+                        f"signal_to_reference_10um_{channel} folder already exists!")
+
+                ########################################################################################################
+                # 2.6.3 GENERATE FLATMAPS
+                ########################################################################################################
+
+                cortical_flatmaps_directory = r"resources\cortical_flatmaps"
+
+                proj_bf = ccfproj.Isocortex2dProjector(
+                    os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
+                    os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
+                    hemisphere="both",
+                    view_space_for_other_hemisphere='flatmap_butterfly',
+                )
+
+                bf_boundary_finder = ccfproj.BoundaryFinder(
+                    projected_atlas_file=os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.nrrd"),
+                    labels_file=os.path.join(cortical_flatmaps_directory, "labelDescription_ITKSNAPColor.txt"),
+                )
+
+                bf_left_boundaries = bf_boundary_finder.region_boundaries()
+
+                bf_right_boundaries = bf_boundary_finder.region_boundaries(
+                    hemisphere='right_for_both',
+                    view_space_for_other_hemisphere='flatmap_butterfly',
+                )
+
+                with open(os.path.join(cortical_flatmaps_directory, "avg_layer_depths.json"), "r") as f:
+                    layer_tops = json.load(f)
+
+                layer_thicknesses = {
+                    'Isocortex layer 1': layer_tops['2/3'],
+                    'Isocortex layer 2/3': layer_tops['4'] - layer_tops['2/3'],
+                    'Isocortex layer 4': layer_tops['5'] - layer_tops['4'],
+                    'Isocortex layer 5': layer_tops['6a'] - layer_tops['5'],
+                    'Isocortex layer 6a': layer_tops['6b'] - layer_tops['6a'],
+                    'Isocortex layer 6b': layer_tops['wm'] - layer_tops['6b'],
+                }
+
+                proj_butterfly_slab = ccfproj.Isocortex3dProjector(
+                    os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
+                    os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
+                    hemisphere="both",
+                    view_space_for_other_hemisphere='flatmap_butterfly',
+                    thickness_type="normalized_layers",  # each layer will have the same thickness everwhere
+                    layer_thicknesses=layer_thicknesses,
+                    streamline_layer_thickness_file=os.path.join(cortical_flatmaps_directory, "cortical_layers_10_v2.h5"),
+                )
+
+                # auto_to_ABA_10um_path = os.path.join(signal_to_reference_10um_directory, "result.mhd")
+                # auto_to_ABA_10um = skio.imread(auto_to_ABA_10um_path, plugin='simpleitk')
+                # auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 0, 2)
+                # auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 0, 1)
+
+                auto_to_ABA_10um_path = os.path.join(signal_to_reference_10um_directory, "result.nrrd")
+                auto_to_ABA_10um, _ = nrrd.read(auto_to_ABA_10um_path)
+                # auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 0, 2)
+
+                # Normalize the array to the range 0-1
+                auto_to_ABA_10um_min = auto_to_ABA_10um.min()
+                auto_to_ABA_10um_max = auto_to_ABA_10um.max()
+                auto_to_ABA_10um_norm = (auto_to_ABA_10um - auto_to_ABA_10um_min) / (auto_to_ABA_10um_max - auto_to_ABA_10um_min)
+
+                normalized_layers = proj_butterfly_slab.project_volume(auto_to_ABA_10um_norm)
+
+                main_max = normalized_layers.max(axis=2).T
+                top_max = normalized_layers.max(axis=1).T
+                left_max = normalized_layers.max(axis=0)
+
+                main_shape = main_max.shape
+                top_shape = top_max.shape
+                left_shape = left_max.shape
+
+                # PLOT ALL LAYERS
+
+                # Set up a figure to plot them together
+                fig, axes = plt.subplots(2, 2,
+                                         gridspec_kw=dict(
+                                             width_ratios=(left_shape[1], main_shape[1]),
+                                             height_ratios=(top_shape[0], main_shape[0]),
+                                             hspace=0.01,
+                                             wspace=0.01),
+                                         figsize=(19.4, 12))
+
+                vmin = 0.5
+                vmax = 0.6
+                # Plot the surface view
+                axes[1, 1].imshow(main_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+
+                # plot our region boundaries
+                for k, boundary_coords in bf_left_boundaries.items():
+                    axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
+                for k, boundary_coords in bf_right_boundaries.items():
+                    axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
+
+                axes[1, 1].set(xticks=[], yticks=[], anchor="NW")
+
+                # Plot the top view
+                axes[0, 1].imshow(top_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+                axes[0, 1].set(xticks=[], yticks=[], anchor="SW")
+
+                # Plot the side view
+                axes[1, 0].imshow(left_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+                axes[1, 0].set(xticks=[], yticks=[], anchor="NE")
+
+                # Remove axes from unused plot area
+                axes[0, 0].set(xticks=[], yticks=[])
+                plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_all_layers.png"), dpi=300)
+
+                # PLOT LAYER BY LAYER
+
+                # # LAYER 2/3
+                # plt.figure()
+                # plt.imshow(
+                #     normalized_layers[:, :, top_l23:top_l4].max(axis=2).T,
+                #     vmin=0, vmax=1,
+                #     cmap="magma",
+                #     interpolation=None
+                # )
+                # # plot region boundaries
+                # for k, boundary_coords in bf_left_boundaries.items():
+                #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                # for k, boundary_coords in bf_right_boundaries.items():
+                #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                # plt.title("Layer 2/3")
+                # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_2-3.png"), dpi=300)
+                #
+                # # LAYER 4
+                # plt.figure()
+                # plt.imshow(
+                #     normalized_layers[:, :, top_l4:top_l5].max(axis=2).T,
+                #     vmin=0, vmax=1,
+                #     cmap="magma",
+                #     interpolation=None
+                # )
+                # # plot region boundaries
+                # for k, boundary_coords in bf_left_boundaries.items():
+                #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                # for k, boundary_coords in bf_right_boundaries.items():
+                #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                # plt.title("Layer 4")
+                # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_4.png"), dpi=300)
+
+
+
 
 
 # def permute_data(img, ):

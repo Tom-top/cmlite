@@ -263,10 +263,6 @@ def where(source, sink=None, blocks=None, cutoff=None, processes=None, verbose=F
         elif ndim == 2:
             code.where_2d(source_buffer, where=sink_buffer, sums=sums, blocks=blocks, processes=processes)
         else:
-            # print("Look here!")
-            # print(source_buffer.dtype, sink_buffer.dtype, type(sums), type(blocks), type(processes))
-            # print(source_buffer.shape, sink_buffer.shape)
-            # print(np.array(sums).dtype)
             code.where_3d(source_buffer, where=sink_buffer, sums=np.array(sums), blocks=blocks, processes=processes)
 
     finalize_processing(verbose=verbose, function='where', timer=timer)
