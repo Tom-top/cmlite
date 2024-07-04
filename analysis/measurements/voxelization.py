@@ -144,7 +144,7 @@ def search_indices_rectangle(radius, kernel=None):
     return indices, kernel
 
 
-def generate_heatmap(sample_name, sample_directory, analysis_data_size_directory, annotation_file, weighed=False,
+def generate_heatmap(sample_name, sample_directory, analysis_data_size_directory, annotation_files, weighed=False,
                      **kwargs):
     shape_detection_directory = os.path.join(sample_directory,
                                              f"shape_detection_{kwargs['cell_detection']['shape_detection']}")
@@ -153,39 +153,40 @@ def generate_heatmap(sample_name, sample_directory, analysis_data_size_directory
     for channel in kwargs['study_params']['channels_to_segment']:
         cd_p = kwargs["cell_detection"]
         vox_p = kwargs["voxelization"]
-        shape_detection_directory = os.path.join(sample_directory, f"shape_detection_{cd_p['shape_detection']}")
-        cells_transformed_path = os.path.join(shape_detection_directory, f"cells_transformed_"
-                                                                         f"{channel}.npy")
-        cells_transformed = io.as_source(cells_transformed_path)
-        coordinates = np.array([cells_transformed[n] for n in ['xt', 'yt', 'zt']]).T
+        for atlas_name, annotation_file in zip(kwargs["study_params"]["atlas_to_use"], annotation_files):
+            shape_detection_directory = os.path.join(sample_directory, f"shape_detection_{cd_p['shape_detection']}")
+            cells_transformed_path = os.path.join(shape_detection_directory, f"{atlas_name}_cells_transformed_"
+                                                                             f"{channel}.npy")
+            cells_transformed = io.as_source(cells_transformed_path)
+            coordinates = np.array([cells_transformed[n] for n in ['xt', 'yt', 'zt']]).T
 
-        if weighed:
-            weights = cells_transformed['source']
-        else:
-            weights = None
+            if weighed:
+                weights = cells_transformed['source']
+            else:
+                weights = None
 
-        annotation_shape = io.shape(annotation_file)
-        voxelization_parameter = dict(
-            shape=annotation_shape,
-            dtype=None,
-            weights=weights,
-            method='sphere',
-            radius=vox_p["radius"],
-            kernel=None,
-            processes=None,
-            verbose=True,
-        )
+            annotation_shape = io.shape(annotation_file)
+            voxelization_parameter = dict(
+                shape=annotation_shape,
+                dtype=None,
+                weights=weights,
+                method='sphere',
+                radius=vox_p["radius"],
+                kernel=None,
+                processes=None,
+                verbose=True,
+            )
 
-        if weighed:
-            heatmap_name = f"density_intensities_{channel}.tif"
-        else:
-            heatmap_name = f"density_counts_{channel}.tif"
+            if weighed:
+                heatmap_name = f"{atlas_name}_density_intensities_{channel}.tif"
+            else:
+                heatmap_name = f"{atlas_name}_density_counts_{channel}.tif"
 
-        heatmap_path = os.path.join(shape_detection_directory, heatmap_name)
-        if os.path.exists(heatmap_path):
-            os.remove(heatmap_path)
-        analysis_sample_directory = os.path.join(analysis_data_size_directory, sample_name)
+            heatmap_path = os.path.join(shape_detection_directory, heatmap_name)
+            if os.path.exists(heatmap_path):
+                os.remove(heatmap_path)
+            analysis_sample_directory = os.path.join(analysis_data_size_directory, sample_name)
 
-        voxelize(coordinates, sink=heatmap_path, **voxelization_parameter)
-        shutil.copyfile(heatmap_path,
-                        os.path.join(analysis_sample_directory, heatmap_name))
+            voxelize(coordinates, sink=heatmap_path, **voxelization_parameter)
+            shutil.copyfile(heatmap_path,
+                            os.path.join(analysis_sample_directory, heatmap_name))

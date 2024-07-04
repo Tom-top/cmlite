@@ -1,6 +1,8 @@
 import os
 
 import tifffile
+import matplotlib
+matplotlib.use("Qt5Agg")  # Headless mode
 
 import utils.utils as ut
 
@@ -29,7 +31,7 @@ parameters = ut.load_config(config_file="custom_config.yml")
 working_directory, raw_directory, analysis_directory = ut.create_ws(**parameters)
 
 # UNZIP AND GENERATE ATLAS/TEMPLATE FILES IN THE CORRECT ORIENTATION
-annotation_file, reference_file, metadata = ano.prepare_annotation_files(**parameters)
+annotation_files, reference_files, metadata_files = ano.prepare_annotation_files(**parameters)
 
 ########################################################################################################################
 # [OPTIONAL] FETCH TILES FOR STITCHING
@@ -70,7 +72,7 @@ for sample_name in sample_names:
     # 2.0 ALIGNMENTS
     ####################################################################################################################
 
-    elx.run_alignments(sample_name, sample_directory, annotation_file, reference_file, **parameters)
+    elx.run_alignments(sample_name, sample_directory, annotation_files, reference_files, **parameters)
 
     ####################################################################################################################
     # 3.0 SEGMENT
@@ -83,21 +85,22 @@ for sample_name in sample_names:
     #                                 [y_s*2, (y_s+delta)*2],
     #                                 [z_s*2, (z_s+delta)*2]]),
     #                       r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy")
-    cells.segment_cells(sample_name, sample_directory, annotation_file, analysis_data_size_directory,
-                        data_to_segment=r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy",
+    cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
+                        data_to_segment=None,  # r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy"
                         save_segmented_cells=True, **parameters)
 
     ####################################################################################################################
     # 4.0 VOXELIZE
     ####################################################################################################################
 
-    vox.generate_heatmap(sample_name, sample_directory, analysis_data_size_directory, annotation_file, weighed=False, **parameters)
+    vox.generate_heatmap(sample_name, sample_directory, analysis_data_size_directory, annotation_files, weighed=False,
+                         **parameters)
 
 ########################################################################################################################
 # 5.0 STATISTICS
 ########################################################################################################################
 
-stats.run_region_wise_statistics(metadata, analysis_data_size_directory, **parameters)
+stats.run_region_wise_statistics(metadata_files, analysis_data_size_directory, **parameters)  # Fixme: metadata_files
 
 stats.generate_average_maps(analysis_data_size_directory, **parameters)
 stats.generate_pval_maps(analysis_data_size_directory, **parameters)

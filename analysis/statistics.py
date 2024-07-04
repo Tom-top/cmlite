@@ -291,7 +291,7 @@ def extract_data(node, atlas_id, ids=None, names=None, acronyms=None, colors=Non
     return ids, names, acronyms, colors
 
 
-def run_region_wise_statistics(metadata, analysis_data_size_directory, **kwargs):
+def run_region_wise_statistics(metadata_files, analysis_data_size_directory, **kwargs):
     stat_params = kwargs["statistics"]
     # Parse the JSON data
     with open(metadata, 'r') as file:

@@ -52,8 +52,6 @@ def detect_shape(source, seeds, threshold=None, verbose=False, processes=None):
         shapes = skimage.morphology.watershed(-source, peaks, mask=mask)
     except AttributeError:
         shapes = skimage.segmentation.watershed(-source, peaks, mask=mask)
-    # shapes = watershed_ift(-source.astype('uint16'), peaks)
-    # shapes[numpy.logical_not(mask)] = 0
 
     if verbose:
         timer.print_elapsed_time('Shape detection')

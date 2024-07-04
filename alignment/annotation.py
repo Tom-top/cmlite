@@ -600,8 +600,7 @@ def __get_module_annotation_file(annotation_file):
 
 # FIXME: add use_default kwarg to signature to make explicit and make orientation necessary
 # FIXME: + replace defaults with currently computed
-def prepare_annotation_files(slicing=None, directory=None, postfix=None,
-                             hemispheres_file=None, hemispheres=False, overwrite=False, verbose=False, **kwargs):
+def prepare_annotation_files(slicing=None, directory=None, postfix=None, overwrite=False, verbose=False, **kwargs):
     """
     Crop the annotation, reference and distance files to match the data.
 
@@ -642,68 +641,71 @@ def prepare_annotation_files(slicing=None, directory=None, postfix=None,
         The distance cropped file.
     """
 
-    atlas_name = kwargs["study_params"]["atlas_to_use"].split("_")[1]
-    atlas_species = kwargs["study_params"]["atlas_to_use"].split("_")[0]
-    annotation_file = os.path.join("resources/atlas",
-                                   f"{atlas_name}_annotation_{atlas_species}.tif")
-    reference_file = os.path.join("resources/atlas",
-                                   f"{atlas_name}_reference_{atlas_species}.tif")
-    metadata_file = os.path.join("resources/atlas",
-                                   f"{atlas_name}_annotation_{atlas_species}.json")
-    orientation = kwargs["study_params"]["sample_permutation"]
+    annotations = []
+    references = []
+    metadatas = []
+    for atlas in kwargs["study_params"]["atlas_to_use"]:
 
-    files = [annotation_file, reference_file]
-    # if hemispheres:
-    #     files.insert(1, hemispheres_file)
+        atlas_name = atlas.split("_")[1]
+        atlas_species = atlas.split("_")[0]
+        annotation_file = os.path.join("resources/atlas",
+                                       f"{atlas_name}_annotation_{atlas_species}.tif")
+        reference_file = os.path.join("resources/atlas",
+                                       f"{atlas_name}_reference_{atlas_species}.tif")
+        metadata_file = os.path.join("resources/atlas",
+                                       f"{atlas_name}_annotation_{atlas_species}.json")
+        orientation = kwargs["study_params"]["sample_permutation"]
 
-    results = []
-    for f_path in files:
-        if f_path is not None:
-            fn = __format_annotation_filename(f_path, orientation=orientation, slicing=slicing, postfix=postfix,
-                                              directory=directory)
-            if verbose:
-                print('Preparing: %r' % fn)
+        files = [annotation_file, reference_file]
+        results = [annotations, references]
 
-            if not overwrite and fu.is_file(fn):
+        for f_path, result in zip(files, results):
+            if f_path is not None:
+                fn = __format_annotation_filename(f_path, orientation=orientation, slicing=slicing, postfix=postfix,
+                                                  directory=directory)
                 if verbose:
-                    print('Atlas file exists, skipping')
-                results.append(fn)
-                continue
+                    print('Preparing: %r' % fn)
 
-            if not fu.is_file(f_path):
-                raise ValueError(f'Cannot find annotation file: {f_path}')
+                if not overwrite and fu.is_file(fn):
+                    if verbose:
+                        print('Atlas file exists, skipping')
+                    result.append(fn)
+                    continue
 
-            s = io.as_source(f_path)
-            if verbose:
-                print('Preparing: from source %r' % s)
+                if not fu.is_file(f_path):
+                    raise ValueError(f'Cannot find annotation file: {f_path}')
 
-            data = np.array(s.array)
+                s = io.as_source(f_path)
+                if verbose:
+                    print('Preparing: from source %r' % s)
 
-            if orientation is not None:
-                # permute
-                per = res.orientation_to_permuation(orientation)
-                data = data.transpose(per)
+                data = np.array(s.array)
 
-                # reverse axes
-                re_slice = False
-                sl = [slice(None)] * data.ndim
-                for d, o in enumerate(orientation):
-                    if o < 0:
-                        sl[d] = slice(None, None, -1)
-                        re_slice = True
-                if re_slice:
-                    data = data[tuple(sl)]
+                if orientation is not None:
+                    # permute
+                    per = res.orientation_to_permuation(orientation)
+                    data = data.transpose(per)
 
-            if slicing is not None:
-                data = data[slicing]
-            io.write(fn, data)
-            results.append(fn)
-        else:
-            results.append(None)
+                    # reverse axes
+                    re_slice = False
+                    sl = [slice(None)] * data.ndim
+                    for d, o in enumerate(orientation):
+                        if o < 0:
+                            sl[d] = slice(None, None, -1)
+                            re_slice = True
+                    if re_slice:
+                        data = data[tuple(sl)]
 
-    results.insert(2, metadata_file)
+                if slicing is not None:
+                    data = data[slicing]
+                io.write(fn, data)
+                result.append(fn)
+            else:
+                result.append(None)
 
-    return results
+        metadatas.append(metadata_file)
+
+    return annotations, references, metadatas
 
 
 def __substitute_chars(s):
