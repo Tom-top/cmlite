@@ -858,6 +858,16 @@ def convert_stitched_files(raw_directory, **kwargs):
                     ut.print_c(
                         f"[INFO {sample_name}] Converting stitched image (channel {channel}) to numpy format!")
                     convert_h5_to_npy(stitched_file, stitched_npy)
+                    bounding_box_path = os.path.join(merged_directory, "bounding_box.npy")
+                    if os.path.exists(bounding_box_path):
+                        ut.print_c(f"[INFO {sample_name}] Bounding box file detected! Applying crop")
+                        stitched_npy_data = np.load(stitched_npy)
+                        bounding_box = np.load(bounding_box_path)
+                        stitched_npy_clipped = stitched_npy_data[
+                                               bounding_box[0][0]: bounding_box[0][1],
+                                               bounding_box[1][0]: bounding_box[1][1],
+                                               bounding_box[2][0]: bounding_box[2][1]]
+                        np.save(stitched_npy, stitched_npy_clipped)
                 else:
                     ut.print_c(
                         f"[WARNING {sample_name}] Skipping stitched conversion to npy for channel {channel}: "
@@ -869,6 +879,16 @@ def convert_stitched_files(raw_directory, **kwargs):
                 if not os.path.exists(stitched_npy):
                     ut.print_c(f"[INFO {sample_name}] Converting stitched image (channel {channel}) to numpy format!")
                     convert(stitched_files, stitched_npy, processes=None, verbose=False)
+                    bounding_box_path = os.path.join(sample_path, "bounding_box.npy")
+                    if os.path.exists(bounding_box_path):
+                        ut.print_c(f"[INFO {sample_name}] Bounding box file detected! Applying crop")
+                        stitched_npy_data = np.load(stitched_npy)
+                        bounding_box = np.load(bounding_box_path)
+                        stitched_npy_clipped = stitched_npy_data[
+                                               bounding_box[0][0]: bounding_box[0][1],
+                                               bounding_box[1][0]: bounding_box[1][1],
+                                               bounding_box[2][0]: bounding_box[2][1]]
+                        np.save(stitched_npy, stitched_npy_clipped)
                 else:
                     ut.print_c(f"[WARNING {sample_name}] Skipping stitched conversion to npy for channel {channel}: "
                                f"stitched_{channel}.npy file already exists!")

@@ -250,7 +250,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
         file_names = [os.path.join(merged_directory, i) for i in os.listdir(merged_directory)
                       if i.endswith(".lux.h5")]
         if not file_names:
-            raise ut.CmliteError(f"No .lux.h5 file was found for sample {sample_name}: skipping!")
+            ut.print_c(f"[INFO] No .lux.h5 file was found for sample {sample_name}: skipping!")
         else:
             file_name = file_names[0]
             with h5py.File(file_name, "r") as f:

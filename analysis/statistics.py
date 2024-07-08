@@ -292,121 +292,122 @@ def extract_data(node, atlas_id, ids=None, names=None, acronyms=None, colors=Non
 
 
 def run_region_wise_statistics(metadata_files, analysis_data_size_directory, **kwargs):
-    stat_params = kwargs["statistics"]
-    # Parse the JSON data
-    with open(metadata, 'r') as file:
-        data = json.load(file)
-    # Process the data
-    res_d = {}
-    for msg in data['msg']:
-        res_d["ids"], res_d["names"], res_d["acronyms"], res_d["colors"] = (extract_data(msg, msg['atlas_id']))
+    for metadata in metadata_files:
+        stat_params = kwargs["statistics"]
+        # Parse the JSON data
+        with open(metadata, 'r') as file:
+            data = json.load(file)
+        # Process the data
+        res_d = {}
+        for msg in data['msg']:
+            res_d["ids"], res_d["names"], res_d["acronyms"], res_d["colors"] = (extract_data(msg, msg['atlas_id']))
 
-    if stat_params["region_wise"]["non_parametric"]:
-        test_name = "mannwhitneyu"
-    else:
-        test_name = "ttest"
+        if stat_params["region_wise"]["non_parametric"]:
+            test_name = "mannwhitneyu"
+        else:
+            test_name = "ttest"
 
-    for channel in kwargs['study_params']['channels_to_segment']:
-        for comp in stat_params["group_comparisons"]:
-            res_df = pd.DataFrame(data=res_d)
-            res_df_shape = res_df.shape
+        for channel in kwargs['study_params']['channels_to_segment']:
+            for comp in stat_params["group_comparisons"]:
+                res_df = pd.DataFrame(data=res_d)
+                res_df_shape = res_df.shape
 
-            columns_to_create = [f"mean_grp_{comp[0]}", f"std_grp_{comp[0]}", f"sem_grp_{comp[0]}",
-                                 f"mean_grp_{comp[1]}", f"std_grp_{comp[1]}", f"sem_grp_{comp[1]}",
-                                 "pval"]
-            for c in columns_to_create:
-                res_df[c] = np.zeros(res_df_shape[0])
+                columns_to_create = [f"mean_grp_{comp[0]}", f"std_grp_{comp[0]}", f"sem_grp_{comp[0]}",
+                                     f"mean_grp_{comp[1]}", f"std_grp_{comp[1]}", f"sem_grp_{comp[1]}",
+                                     "pval"]
+                for c in columns_to_create:
+                    res_df[c] = np.zeros(res_df_shape[0])
 
-            all_group_occurences = []
-            for group in comp:
-                print(f"\nGetting region cell counts for group {group}!")
-                group_occurences = []
-                for animal in stat_params["groups"][group]:
-                    print(f"Getting region cell counts for: {animal}!")
-                    animal_directory = os.path.join(analysis_data_size_directory, animal)
-                    cells_file_path = os.path.join(animal_directory, f"cells_transformed_{channel}.csv")
-                    cells = pd.read_csv(cells_file_path, header=0, sep=';')
-                    animal_occurences = []
-                    for reg in res_df["names"]:
-                        reg_oc = np.sum(cells[" name"] == reg)
-                        animal_occurences.append(reg_oc)
-                    res_df[animal] = animal_occurences
-                    group_occurences.append(animal_occurences)
-                group_occurences = np.array(group_occurences)
-                all_group_occurences.append(group_occurences)
-                res_df[f"mean_grp_{group}"] = np.mean(group_occurences, axis=0)
-                res_df[f"std_grp_{group}"] = np.std(group_occurences, axis=0)
-                res_df[f"sem_grp_{group}"] = stats.sem(group_occurences, axis=0)
-            if stat_params["region_wise"]["non_parametric"]:
-                res_df[f"pval"] = stats.mannwhitneyu(all_group_occurences[0],
-                                                     all_group_occurences[1],
-                                                     alternative='two-sided').pvalue
-            else:
-                res_df[f"pval"] = stats.ttest_ind(all_group_occurences[0],
-                                                  all_group_occurences[1]).pvalue
-            res_df = res_df.sort_values('pval', ascending=True)
-            comparison_file_path = os.path.join(analysis_data_size_directory,
-                                                f"{comp[0]}_vs_{comp[1]}_{test_name}_{channel}.csv")
-            res_df.to_csv(comparison_file_path, index=False)
+                all_group_occurences = []
+                for group in comp:
+                    print(f"\nGetting region cell counts for group {group}!")
+                    group_occurences = []
+                    for animal in stat_params["groups"][group]:
+                        print(f"Getting region cell counts for: {animal}!")
+                        animal_directory = os.path.join(analysis_data_size_directory, animal)
+                        cells_file_path = os.path.join(animal_directory, f"cells_transformed_{channel}.csv")
+                        cells = pd.read_csv(cells_file_path, header=0, sep=';')
+                        animal_occurences = []
+                        for reg in res_df["names"]:
+                            reg_oc = np.sum(cells[" name"] == reg)
+                            animal_occurences.append(reg_oc)
+                        res_df[animal] = animal_occurences
+                        group_occurences.append(animal_occurences)
+                    group_occurences = np.array(group_occurences)
+                    all_group_occurences.append(group_occurences)
+                    res_df[f"mean_grp_{group}"] = np.mean(group_occurences, axis=0)
+                    res_df[f"std_grp_{group}"] = np.std(group_occurences, axis=0)
+                    res_df[f"sem_grp_{group}"] = stats.sem(group_occurences, axis=0)
+                if stat_params["region_wise"]["non_parametric"]:
+                    res_df[f"pval"] = stats.mannwhitneyu(all_group_occurences[0],
+                                                         all_group_occurences[1],
+                                                         alternative='two-sided').pvalue
+                else:
+                    res_df[f"pval"] = stats.ttest_ind(all_group_occurences[0],
+                                                      all_group_occurences[1]).pvalue
+                res_df = res_df.sort_values('pval', ascending=True)
+                comparison_file_path = os.path.join(analysis_data_size_directory,
+                                                    f"{comp[0]}_vs_{comp[1]}_{test_name}_{channel}.csv")
+                res_df.to_csv(comparison_file_path, index=False)
 
-            comparison_data = pd.read_csv(comparison_file_path)
-            acro = comparison_data["acronyms"]
-            colors = comparison_data["colors"]
+                comparison_data = pd.read_csv(comparison_file_path)
+                acro = comparison_data["acronyms"]
+                colors = comparison_data["colors"]
 
-            log_2_fc = np.log2(comparison_data[f"mean_grp_{comp[0]}"] / comparison_data[f"mean_grp_{comp[1]}"])
-            log_2_fc[log_2_fc == -np.inf] = 0
-            log_2_fc[log_2_fc == np.inf] = 0
-            log_pval = -np.log10(comparison_data["pval"])
-            log_pval[log_2_fc == 0] = 0
+                log_2_fc = np.log2(comparison_data[f"mean_grp_{comp[0]}"] / comparison_data[f"mean_grp_{comp[1]}"])
+                log_2_fc[log_2_fc == -np.inf] = 0
+                log_2_fc[log_2_fc == np.inf] = 0
+                log_pval = -np.log10(comparison_data["pval"])
+                log_pval[log_2_fc == 0] = 0
 
-            mask_up = np.logical_and(log_pval >= -np.log10(0.05), log_2_fc > 0)
-            x_sign_up, y_sign_up, acro_up, color_up = (log_2_fc[mask_up], log_pval[mask_up], acro[mask_up],
-                                                       colors[mask_up])
-            color_up = np.array(color_up)
-            color_up = np.array(['#' + color for color in color_up])
-            mask_down = np.logical_and(log_pval >= -np.log10(0.05), log_2_fc < 0)
-            x_sign_down, y_sign_down, acro_down, color_down = (log_2_fc[mask_down], log_pval[mask_down],
-                                                               acro[mask_down], colors[mask_down])
-            color_down = np.array(color_down)
-            color_down = np.array(['#' + color for color in color_down])
-            mask_ns = log_pval < -np.log10(0.05)
-            x_sign_ns, y_sign_ns, acro_ns = log_2_fc[mask_ns], log_pval[mask_ns], acro[mask_ns]
+                mask_up = np.logical_and(log_pval >= -np.log10(0.05), log_2_fc > 0)
+                x_sign_up, y_sign_up, acro_up, color_up = (log_2_fc[mask_up], log_pval[mask_up], acro[mask_up],
+                                                           colors[mask_up])
+                color_up = np.array(color_up)
+                color_up = np.array(['#' + color for color in color_up])
+                mask_down = np.logical_and(log_pval >= -np.log10(0.05), log_2_fc < 0)
+                x_sign_down, y_sign_down, acro_down, color_down = (log_2_fc[mask_down], log_pval[mask_down],
+                                                                   acro[mask_down], colors[mask_down])
+                color_down = np.array(color_down)
+                color_down = np.array(['#' + color for color in color_down])
+                mask_ns = log_pval < -np.log10(0.05)
+                x_sign_ns, y_sign_ns, acro_ns = log_2_fc[mask_ns], log_pval[mask_ns], acro[mask_ns]
 
-            xlim = np.max(np.abs(log_2_fc))
-            xlim = xlim + xlim * 0.1
-            ylims = np.array([np.min(log_pval), np.max(log_pval)])
-            ylim_range = np.abs(ylims[1] - ylims[0])
+                xlim = np.max(np.abs(log_2_fc))
+                xlim = xlim + xlim * 0.1
+                ylims = np.array([np.min(log_pval), np.max(log_pval)])
+                ylim_range = np.abs(ylims[1] - ylims[0])
 
-            # Volcano plots
-            for i in range(2):
-                fig = plt.figure()
-                ax = plt.subplot(111)
-                # ax.scatter(x_sign_up, y_sign_up, s=10, color="#FF5733") #one color
-                ax.scatter(x_sign_up, y_sign_up, s=10, color=color_up)  # brain atlas color code
-                # ax.scatter(x_sign_down, y_sign_down, s=10, color="#A7C7E7") #one color
-                ax.scatter(x_sign_down, y_sign_down, s=10, color=color_down)  # brain atlas color code
-                ax.scatter(x_sign_ns, y_sign_ns, s=10, color="gray")
-                if i == 0:
-                    for x, y, acro in zip(x_sign_up, y_sign_up, acro_up):
-                        ax.text(x, y, acro, fontsize=7)
-                    for x, y, acro in zip(x_sign_down, y_sign_down, acro_down):
-                        ax.text(x, y, acro, fontsize=7)
-                # ax.vlines(0, ylims[0] - ylim_range * 0.02, 3.5, color="black", linestyles="dashed")
-                ax.vlines(0, ylims[0] - ylim_range * 0.02, ylims[1] + ylim_range * 0.1, color="black",
-                          linestyles="dashed")
-                # ax.set_xlim(-8, 8)
-                ax.set_xlim(-xlim, xlim)
-                # ax.set_ylim(ylims[0] - ylim_range * 0.02, 3.5)
-                ax.set_ylim(ylims[0] - ylim_range * 0.02, ylims[1] + ylim_range * 0.1)
-                ax.set_xlabel("log2(fold-change)", fontsize=12)
-                ax.set_ylabel("-log10(pvalue)", fontsize=12)
-                ax.set_title(f"{comp[0]} vs {comp[1]}", fontsize=12)
-                plt.show()
-                for ext in ["svg", "png"]:
+                # Volcano plots
+                for i in range(2):
+                    fig = plt.figure()
+                    ax = plt.subplot(111)
+                    # ax.scatter(x_sign_up, y_sign_up, s=10, color="#FF5733") #one color
+                    ax.scatter(x_sign_up, y_sign_up, s=10, color=color_up)  # brain atlas color code
+                    # ax.scatter(x_sign_down, y_sign_down, s=10, color="#A7C7E7") #one color
+                    ax.scatter(x_sign_down, y_sign_down, s=10, color=color_down)  # brain atlas color code
+                    ax.scatter(x_sign_ns, y_sign_ns, s=10, color="gray")
                     if i == 0:
-                        plt.savefig(os.path.join(analysis_data_size_directory,
-                                                 f"{comp[0]}_vs_{comp[1]}_acro_{test_name}.{ext}"),
-                                    dpi=300)
-                    else:
-                        plt.savefig(os.path.join(analysis_data_size_directory,
-                                                 f"{comp[0]}_vs_{comp[1]}_{test_name}.{ext}"), dpi=300)
+                        for x, y, acro in zip(x_sign_up, y_sign_up, acro_up):
+                            ax.text(x, y, acro, fontsize=7)
+                        for x, y, acro in zip(x_sign_down, y_sign_down, acro_down):
+                            ax.text(x, y, acro, fontsize=7)
+                    # ax.vlines(0, ylims[0] - ylim_range * 0.02, 3.5, color="black", linestyles="dashed")
+                    ax.vlines(0, ylims[0] - ylim_range * 0.02, ylims[1] + ylim_range * 0.1, color="black",
+                              linestyles="dashed")
+                    # ax.set_xlim(-8, 8)
+                    ax.set_xlim(-xlim, xlim)
+                    # ax.set_ylim(ylims[0] - ylim_range * 0.02, 3.5)
+                    ax.set_ylim(ylims[0] - ylim_range * 0.02, ylims[1] + ylim_range * 0.1)
+                    ax.set_xlabel("log2(fold-change)", fontsize=12)
+                    ax.set_ylabel("-log10(pvalue)", fontsize=12)
+                    ax.set_title(f"{comp[0]} vs {comp[1]}", fontsize=12)
+                    plt.show()
+                    for ext in ["svg", "png"]:
+                        if i == 0:
+                            plt.savefig(os.path.join(analysis_data_size_directory,
+                                                     f"{comp[0]}_vs_{comp[1]}_acro_{test_name}.{ext}"),
+                                        dpi=300)
+                        else:
+                            plt.savefig(os.path.join(analysis_data_size_directory,
+                                                     f"{comp[0]}_vs_{comp[1]}_{test_name}.{ext}"), dpi=300)

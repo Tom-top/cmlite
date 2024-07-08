@@ -80,27 +80,27 @@ default_cell_detection_processing_parameter = dict(
 )
 
 # Fixme: Missing IDs in atlas -> probably background and ventricles but worth chercking
-extra_labels = [(5576, 0, 'No label', 'NoL'),
-                (5577, 0, 'No label', 'NoL'),
-                (5767, 0, 'No label', 'NoL'),
-                (5768, 0, 'No label', 'NoL'),
-                (5769, 0, 'No label', 'NoL'),
-                (5770, 0, 'No label', 'NoL'),
-                (5771, 0, 'No label', 'NoL'),
-                (5822, 0, 'No label', 'NoL'),
-                (5826, 0, 'No label', 'NoL'),
-                (5844, 0, 'No label', 'NoL'),
-                (5860, 0, 'No label', 'NoL'),
-                (5873, 0, 'No label', 'NoL'),
-                (5874, 0, 'No label', 'NoL'),
-                (5875, 0, 'No label', 'NoL'),
-                (5876, 0, 'No label', 'NoL'),
-                (5877, 0, 'No label', 'NoL'),
-                (5878, 0, 'No label', 'NoL'),
-                (5879, 0, 'No label', 'NoL'),
-                (5880, 0, 'No label', 'NoL'),
-                (5912, 0, 'No label', 'NoL'),
-                ]
+mouse_gubra_extra_labels = [(5576, 0, 'No label', 'NoL'),
+                            (5577, 0, 'No label', 'NoL'),
+                            (5767, 0, 'No label', 'NoL'),
+                            (5768, 0, 'No label', 'NoL'),
+                            (5769, 0, 'No label', 'NoL'),
+                            (5770, 0, 'No label', 'NoL'),
+                            (5771, 0, 'No label', 'NoL'),
+                            (5822, 0, 'No label', 'NoL'),
+                            (5826, 0, 'No label', 'NoL'),
+                            (5844, 0, 'No label', 'NoL'),
+                            (5860, 0, 'No label', 'NoL'),
+                            (5873, 0, 'No label', 'NoL'),
+                            (5874, 0, 'No label', 'NoL'),
+                            (5875, 0, 'No label', 'NoL'),
+                            (5876, 0, 'No label', 'NoL'),
+                            (5877, 0, 'No label', 'NoL'),
+                            (5878, 0, 'No label', 'NoL'),
+                            (5879, 0, 'No label', 'NoL'),
+                            (5880, 0, 'No label', 'NoL'),
+                            (5912, 0, 'No label', 'NoL'),
+                            ]
 
 
 #
@@ -718,8 +718,9 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
             atlas_name = atlas.split('_')[-1]
             animal_species = atlas.split('_')[0]
 
-            cells_transformed_path = os.path.join(shape_detection_directory, f"{atlas}_cells_transformed_{channel}.npy")
-            if not os.path.exists(cells_transformed_path) or kwargs["study_params"]["overwrite_results"]:
+            cells_transformed_path = os.path.join(shape_detection_directory,
+                                                  f"{atlas}_cells_transformed_{channel}.npy")
+            if not os.path.exists(cells_transformed_path):
                 ut.print_c(f"[INFO {sample_name}] Transforming cells for channel {channel}!")
                 transformed_cell_coordinates = transformation(sample_directory, channel, filetered_cell_coordinates,
                                                               atlas)
@@ -727,9 +728,10 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
                     ano.set_annotation_file(annotation,
                                             label_file=f"resources/atlas/{atlas_name}_annotation_"
                                                        f"{animal_species}.json",
-                                            extra_label=extra_labels)
+                                            extra_label=mouse_gubra_extra_labels)
                 else:
-                    ano.set_annotation_file(f"resources/atlas/{atlas_name}_annotation_{animal_species}.json")
+                    ano.set_annotation_file(annotation,
+                                            f"resources/atlas/{atlas_name}_annotation_{animal_species}.json")
                 label = ano.label_points(transformed_cell_coordinates, key='order')
                 names = ano.convert_label(label, key='order', value='name')
                 transformed_cell_coordinates.dtype = [(t, float) for t in ('xt', 'yt', 'zt')]
@@ -749,9 +751,10 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
             # 3.4 WRITE RESULT
             ############################################################################################################
 
-            cells_transformed_csv_path = os.path.join(shape_detection_directory, f"{atlas}_cells_transformed_{channel}.csv")
+            cells_transformed_csv_path = os.path.join(shape_detection_directory,
+                                                      f"{atlas}_cells_transformed_{channel}.csv")
             cells_transformed = io.as_source(cells_transformed_path)
-            if not os.path.exists(cells_transformed_csv_path) or kwargs['study_params']['overwrite_results']:
+            if not os.path.exists(cells_transformed_csv_path):
                 ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
                 delimiter = ";"
                 header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
