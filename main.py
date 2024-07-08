@@ -1,6 +1,3 @@
-import os
-
-import tifffile
 import matplotlib
 matplotlib.use("Qt5Agg")  # Headless mode
 
