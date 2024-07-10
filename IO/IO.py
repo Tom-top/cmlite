@@ -919,7 +919,8 @@ def get_sample_directory(raw_directory, sample_name, **kwargs):
 
 def generate_npy_chunk(img, range, saving_name):
     img = np.load(img)
+    print(img.shape)
     x_range, y_range, z_range = range
-    np.save(saving_name, img[x_range[0]:x_range[1],
-                         y_range[0]:y_range[1],
-                         z_range[0]:z_range[1], ])
+    np.save(saving_name, img[int(x_range[0]):int(x_range[1]),
+                         int(y_range[0]):int(y_range[1]),
+                         int(z_range[0]):int(z_range[1]), ])
