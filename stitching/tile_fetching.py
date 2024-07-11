@@ -52,14 +52,14 @@ def save_right_left_tiles(side, params, sample_name, kwargs, channel, file_name,
     center_tile_n = 1
 
     for r in range(params['n_rows']):
-        si = side_indices[::-1] if kwargs["scanning_pattern"] == "s" and r % 2 != 0 else side_indices
+        si = side_indices[::-1] if kwargs["study_params"]["scanning_pattern"] == "s" and r % 2 != 0 else side_indices
         for c, ci in zip(si, side_indices):
             c, ci = int(c), int(ci)
             # print_c(f"[INFO {sample_name}] Saving tile: [{str(r).zfill(2)} x {str(c).zfill(2)}] ({side[1]})")
             ut.print_c(f"[INFO {sample_name}] Channel {channel}: {side[1]}. Saving tile: {side_tile_n}/{n_tiles}",
                        end="\r")
             side_tile_n += 1
-            save_tile(params, side, r, side_indices, c, ci, kwargs["scanning_pattern"], channel,
+            save_tile(params, side, r, side_indices, c, ci, kwargs["study_params"]["scanning_pattern"], channel,
                       saving_directory, file_name.split(".")[0])
 
     for r in range(params['n_rows']):
