@@ -630,7 +630,7 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
             # 2.6 [OPTIONAL] TRANSFORM SIGNAL TO REFERENCE (ABA) AT 10um: FLATMAP GENERATION
             ############################################################################################################
 
-            if atlas == "mouse_aba":
+            if atlas in ["mouse_gubra", "mouse_aba"]:
 
                 ########################################################################################################
                 # 2.6.1 ALIGN AUTO TO REFERENCE (ABA)
@@ -675,163 +675,167 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                         f"[WARNING {sample_name}] Transforming: signal to {atlas} reference (10um) skipped for channel {channel}: "
                         f"signal_to_reference_10um_{channel} folder already exists!")
 
-                ########################################################################################################
-                # 2.6.3 GENERATE FLATMAPS
-                ########################################################################################################
+                if atlas == "mouse_aba":
 
-                flatmap_figures = [os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_all_layers.png"),
-                                   os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_all_layers_0_3000.png")]
+                    ####################################################################################################
+                    # 2.6.3 GENERATE FLATMAPS
+                    ####################################################################################################
 
-                if not all([os.path.exists(i) for i in flatmap_figures]):
-                    cortical_flatmaps_directory = r"resources\cortical_flatmaps"
+                    flatmap_figures = [os.path.join(signal_to_reference_10um_directory,
+                                                    "cortical_flatmap_all_layers.png"),
+                                       os.path.join(signal_to_reference_10um_directory,
+                                                    "cortical_flatmap_all_layers_0_3000.png")]
 
-                    proj_bf = ccfproj.Isocortex2dProjector(
-                        os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
-                        os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
-                        hemisphere="both",
-                        view_space_for_other_hemisphere='flatmap_butterfly',
-                    )
+                    if not all([os.path.exists(i) for i in flatmap_figures]):
+                        cortical_flatmaps_directory = r"resources\cortical_flatmaps"
 
-                    bf_boundary_finder = ccfproj.BoundaryFinder(
-                        projected_atlas_file=os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.nrrd"),
-                        labels_file=os.path.join(cortical_flatmaps_directory, "labelDescription_ITKSNAPColor.txt"),
-                    )
+                        proj_bf = ccfproj.Isocortex2dProjector(
+                            os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
+                            os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
+                            hemisphere="both",
+                            view_space_for_other_hemisphere='flatmap_butterfly',
+                        )
 
-                    bf_left_boundaries = bf_boundary_finder.region_boundaries()
+                        bf_boundary_finder = ccfproj.BoundaryFinder(
+                            projected_atlas_file=os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.nrrd"),
+                            labels_file=os.path.join(cortical_flatmaps_directory, "labelDescription_ITKSNAPColor.txt"),
+                        )
 
-                    bf_right_boundaries = bf_boundary_finder.region_boundaries(
-                        hemisphere='right_for_both',
-                        view_space_for_other_hemisphere='flatmap_butterfly',
-                    )
+                        bf_left_boundaries = bf_boundary_finder.region_boundaries()
 
-                    with open(os.path.join(cortical_flatmaps_directory, "avg_layer_depths.json"), "r") as f:
-                        layer_tops = json.load(f)
+                        bf_right_boundaries = bf_boundary_finder.region_boundaries(
+                            hemisphere='right_for_both',
+                            view_space_for_other_hemisphere='flatmap_butterfly',
+                        )
 
-                    layer_thicknesses = {
-                        'Isocortex layer 1': layer_tops['2/3'],
-                        'Isocortex layer 2/3': layer_tops['4'] - layer_tops['2/3'],
-                        'Isocortex layer 4': layer_tops['5'] - layer_tops['4'],
-                        'Isocortex layer 5': layer_tops['6a'] - layer_tops['5'],
-                        'Isocortex layer 6a': layer_tops['6b'] - layer_tops['6a'],
-                        'Isocortex layer 6b': layer_tops['wm'] - layer_tops['6b'],
-                    }
+                        with open(os.path.join(cortical_flatmaps_directory, "avg_layer_depths.json"), "r") as f:
+                            layer_tops = json.load(f)
 
-                    proj_butterfly_slab = ccfproj.Isocortex3dProjector(
-                        os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
-                        os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
-                        hemisphere="both",
-                        view_space_for_other_hemisphere='flatmap_butterfly',
-                        thickness_type="normalized_layers",  # each layer will have the same thickness everwhere
-                        layer_thicknesses=layer_thicknesses,
-                        streamline_layer_thickness_file=os.path.join(cortical_flatmaps_directory, "cortical_layers_10_v2.h5"),
-                    )
+                        layer_thicknesses = {
+                            'Isocortex layer 1': layer_tops['2/3'],
+                            'Isocortex layer 2/3': layer_tops['4'] - layer_tops['2/3'],
+                            'Isocortex layer 4': layer_tops['5'] - layer_tops['4'],
+                            'Isocortex layer 5': layer_tops['6a'] - layer_tops['5'],
+                            'Isocortex layer 6a': layer_tops['6b'] - layer_tops['6a'],
+                            'Isocortex layer 6b': layer_tops['wm'] - layer_tops['6b'],
+                        }
 
-                    auto_to_ABA_10um_path = os.path.join(signal_to_reference_10um_directory, "result.mhd")
-                    auto_to_ABA_10um = skio.imread(auto_to_ABA_10um_path, plugin='simpleitk')
-                    min_val = auto_to_ABA_10um.min()
-                    negative_mask = auto_to_ABA_10um < 0
-                    if min_val < 0:
-                        auto_to_ABA_10um[negative_mask] = auto_to_ABA_10um[negative_mask] * -1
+                        proj_butterfly_slab = ccfproj.Isocortex3dProjector(
+                            os.path.join(cortical_flatmaps_directory, "flatmap_butterfly.h5"),
+                            os.path.join(cortical_flatmaps_directory, "surface_paths_10_v3.h5"),
+                            hemisphere="both",
+                            view_space_for_other_hemisphere='flatmap_butterfly',
+                            thickness_type="normalized_layers",  # each layer will have the same thickness everwhere
+                            layer_thicknesses=layer_thicknesses,
+                            streamline_layer_thickness_file=os.path.join(cortical_flatmaps_directory, "cortical_layers_10_v2.h5"),
+                        )
 
-                    mins = [np.percentile(auto_to_ABA_10um, 0.001), 0]
-                    maxs = [np.percentile(auto_to_ABA_10um, 99.999), 3000]
-
-                    for min, max, fmf in zip(mins, maxs, flatmap_figures):
+                        auto_to_ABA_10um_path = os.path.join(signal_to_reference_10um_directory, "result.mhd")
                         auto_to_ABA_10um = skio.imread(auto_to_ABA_10um_path, plugin='simpleitk')
-                        auto_to_ABA_10um[auto_to_ABA_10um < min] = min
-                        auto_to_ABA_10um[auto_to_ABA_10um > max] = max
+                        min_val = auto_to_ABA_10um.min()
+                        negative_mask = auto_to_ABA_10um < 0
+                        if min_val < 0:
+                            auto_to_ABA_10um[negative_mask] = auto_to_ABA_10um[negative_mask] * -1
 
-                        auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 0, 1)
-                        auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 2, 1)
-                        auto_to_ABA_10um = np.flip(auto_to_ABA_10um, 1)
-                        # tifffile.imwrite(os.path.join(signal_to_reference_10um_directory, "result.tif"), auto_to_ABA_10um)
-                        # auto_to_ABA_10um_n = tifffile.imread(os.path.join(signal_to_reference_10um_directory, "result.tif"))
+                        mins = [np.percentile(auto_to_ABA_10um, 0.001), 0]
+                        maxs = [np.percentile(auto_to_ABA_10um, 99.999), 3000]
 
-                        # Normalize the array to the range 0-1
-                        auto_to_ABA_10um_min = auto_to_ABA_10um.min()
-                        auto_to_ABA_10um_max = auto_to_ABA_10um.max()
-                        auto_to_ABA_10um_norm = (auto_to_ABA_10um - auto_to_ABA_10um_min) /\
-                                                (auto_to_ABA_10um_max - auto_to_ABA_10um_min)
+                        for min, max, fmf in zip(mins, maxs, flatmap_figures):
+                            auto_to_ABA_10um = skio.imread(auto_to_ABA_10um_path, plugin='simpleitk')
+                            auto_to_ABA_10um[auto_to_ABA_10um < min] = min
+                            auto_to_ABA_10um[auto_to_ABA_10um > max] = max
 
-                        normalized_layers = proj_butterfly_slab.project_volume(auto_to_ABA_10um_norm)
+                            auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 0, 1)
+                            auto_to_ABA_10um = np.swapaxes(auto_to_ABA_10um, 2, 1)
+                            auto_to_ABA_10um = np.flip(auto_to_ABA_10um, 1)
+                            # tifffile.imwrite(os.path.join(signal_to_reference_10um_directory, "result.tif"), auto_to_ABA_10um)
+                            # auto_to_ABA_10um_n = tifffile.imread(os.path.join(signal_to_reference_10um_directory, "result.tif"))
 
-                        main_max = normalized_layers.max(axis=2).T
-                        top_max = normalized_layers.max(axis=1).T
-                        left_max = normalized_layers.max(axis=0)
+                            # Normalize the array to the range 0-1
+                            auto_to_ABA_10um_min = auto_to_ABA_10um.min()
+                            auto_to_ABA_10um_max = auto_to_ABA_10um.max()
+                            auto_to_ABA_10um_norm = (auto_to_ABA_10um - auto_to_ABA_10um_min) /\
+                                                    (auto_to_ABA_10um_max - auto_to_ABA_10um_min)
 
-                        main_shape = main_max.shape
-                        top_shape = top_max.shape
-                        left_shape = left_max.shape
+                            normalized_layers = proj_butterfly_slab.project_volume(auto_to_ABA_10um_norm)
 
-                        # PLOT ALL LAYERS
+                            main_max = normalized_layers.max(axis=2).T
+                            top_max = normalized_layers.max(axis=1).T
+                            left_max = normalized_layers.max(axis=0)
 
-                        # Set up a figure to plot them together
-                        fig, axes = plt.subplots(2, 2,
-                                                 gridspec_kw=dict(
-                                                     width_ratios=(left_shape[1], main_shape[1]),
-                                                     height_ratios=(top_shape[0], main_shape[0]),
-                                                     hspace=0.01,
-                                                     wspace=0.01),
-                                                 figsize=(19.4, 12))
+                            main_shape = main_max.shape
+                            top_shape = top_max.shape
+                            left_shape = left_max.shape
 
-                        vmin = 0.0
-                        vmax = 1.0
-                        # Plot the surface view
-                        axes[1, 1].imshow(main_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+                            # PLOT ALL LAYERS
 
-                        # plot our region boundaries
-                        for k, boundary_coords in bf_left_boundaries.items():
-                            axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
-                        for k, boundary_coords in bf_right_boundaries.items():
-                            axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
+                            # Set up a figure to plot them together
+                            fig, axes = plt.subplots(2, 2,
+                                                     gridspec_kw=dict(
+                                                         width_ratios=(left_shape[1], main_shape[1]),
+                                                         height_ratios=(top_shape[0], main_shape[0]),
+                                                         hspace=0.01,
+                                                         wspace=0.01),
+                                                     figsize=(19.4, 12))
 
-                        axes[1, 1].set(xticks=[], yticks=[], anchor="NW")
+                            vmin = 0.0
+                            vmax = 1.0
+                            # Plot the surface view
+                            axes[1, 1].imshow(main_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
 
-                        # Plot the top view
-                        axes[0, 1].imshow(top_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
-                        axes[0, 1].set(xticks=[], yticks=[], anchor="SW")
+                            # plot our region boundaries
+                            # for k, boundary_coords in bf_left_boundaries.items():
+                            #     axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
+                            # for k, boundary_coords in bf_right_boundaries.items():
+                            #     axes[1, 1].plot(*boundary_coords.T, c="white", lw=0.5)
 
-                        # Plot the side view
-                        axes[1, 0].imshow(left_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
-                        axes[1, 0].set(xticks=[], yticks=[], anchor="NE")
+                            axes[1, 1].set(xticks=[], yticks=[], anchor="NW")
 
-                        # Remove axes from unused plot area
-                        axes[0, 0].set(xticks=[], yticks=[])
-                        plt.savefig(fmf, dpi=300)
+                            # Plot the top view
+                            axes[0, 1].imshow(top_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+                            axes[0, 1].set(xticks=[], yticks=[], anchor="SW")
 
-                    # PLOT LAYER BY LAYER
+                            # Plot the side view
+                            axes[1, 0].imshow(left_max, vmin=vmin, vmax=vmax, cmap="magma", interpolation=None)
+                            axes[1, 0].set(xticks=[], yticks=[], anchor="NE")
 
-                    # # LAYER 2/3
-                    # plt.figure()
-                    # plt.imshow(
-                    #     normalized_layers[:, :, top_l23:top_l4].max(axis=2).T,
-                    #     vmin=0, vmax=1,
-                    #     cmap="magma",
-                    #     interpolation=None
-                    # )
-                    # # plot region boundaries
-                    # for k, boundary_coords in bf_left_boundaries.items():
-                    #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
-                    # for k, boundary_coords in bf_right_boundaries.items():
-                    #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
-                    # plt.title("Layer 2/3")
-                    # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_2-3.png"), dpi=300)
-                    #
-                    # # LAYER 4
-                    # plt.figure()
-                    # plt.imshow(
-                    #     normalized_layers[:, :, top_l4:top_l5].max(axis=2).T,
-                    #     vmin=0, vmax=1,
-                    #     cmap="magma",
-                    #     interpolation=None
-                    # )
-                    # # plot region boundaries
-                    # for k, boundary_coords in bf_left_boundaries.items():
-                    #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
-                    # for k, boundary_coords in bf_right_boundaries.items():
-                    #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
-                    # plt.title("Layer 4")
-                    # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_4.png"), dpi=300)
+                            # Remove axes from unused plot area
+                            axes[0, 0].set(xticks=[], yticks=[])
+                            plt.savefig(fmf, dpi=300)
+
+                        # PLOT LAYER BY LAYER
+
+                        # # LAYER 2/3
+                        # plt.figure()
+                        # plt.imshow(
+                        #     normalized_layers[:, :, top_l23:top_l4].max(axis=2).T,
+                        #     vmin=0, vmax=1,
+                        #     cmap="magma",
+                        #     interpolation=None
+                        # )
+                        # # plot region boundaries
+                        # for k, boundary_coords in bf_left_boundaries.items():
+                        #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                        # for k, boundary_coords in bf_right_boundaries.items():
+                        #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                        # plt.title("Layer 2/3")
+                        # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_2-3.png"), dpi=300)
+                        #
+                        # # LAYER 4
+                        # plt.figure()
+                        # plt.imshow(
+                        #     normalized_layers[:, :, top_l4:top_l5].max(axis=2).T,
+                        #     vmin=0, vmax=1,
+                        #     cmap="magma",
+                        #     interpolation=None
+                        # )
+                        # # plot region boundaries
+                        # for k, boundary_coords in bf_left_boundaries.items():
+                        #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                        # for k, boundary_coords in bf_right_boundaries.items():
+                        #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
+                        # plt.title("Layer 4")
+                        # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_4.png"), dpi=300)
 
 
 
