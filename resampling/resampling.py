@@ -5,7 +5,6 @@ import itertools
 import json
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
-from natsort import natsorted
 import functools as ft
 import numpy as np
 import cv2

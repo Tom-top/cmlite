@@ -19,6 +19,7 @@ dependencies:
   - pillow
   - matplotlib
   - pyqt
+  - nrrd
   - pip:
       - scikit-image
       - h5py

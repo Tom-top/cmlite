@@ -3,11 +3,9 @@ import re
 import multiprocessing
 import shutil
 import json
-import yaml
 from functools import partial
 
 import yaml
-from natsort import natsorted
 import numpy as np
 import tifffile
 import h5py
@@ -55,7 +53,6 @@ def save_right_left_tiles(side, params, sample_name, kwargs, channel, file_name,
         si = side_indices[::-1] if kwargs["study_params"]["scanning_pattern"] == "s" and r % 2 != 0 else side_indices
         for c, ci in zip(si, side_indices):
             c, ci = int(c), int(ci)
-            # print_c(f"[INFO {sample_name}] Saving tile: [{str(r).zfill(2)} x {str(c).zfill(2)}] ({side[1]})")
             ut.print_c(f"[INFO {sample_name}] Channel {channel}: {side[1]}. Saving tile: {side_tile_n}/{n_tiles}",
                        end="\r")
             side_tile_n += 1
@@ -65,8 +62,6 @@ def save_right_left_tiles(side, params, sample_name, kwargs, channel, file_name,
     for r in range(params['n_rows']):
         # Add blending and other processing steps here if necessary
         if params['c_tile'] is not None:
-            # print_c(f"[INFO {sample_name}] Saving tile: [{str(r).zfill(2)} x {str(params['c_tile']).zfill(2)}]"
-            #         f" (temp center {side[1]})")
             ut.print_c(f"[INFO {sample_name}] Saving tile: {center_tile_n}/{params['n_rows']}"
                        f" (temp center {side[1]})", end="\r")
             center_tile_n += 1

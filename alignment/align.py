@@ -11,11 +11,9 @@ import multiprocessing as mp
 import numpy as np
 from io import UnsupportedOperation
 import ccf_streamlines.projection as ccfproj
-import nrrd
 import skimage.io as skio
 import matplotlib.pyplot as plt
 import matplotlib
-import tifffile
 
 matplotlib.use("Qt5Agg")  # Headless mode
 
