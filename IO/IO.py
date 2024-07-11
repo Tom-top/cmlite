@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-from natsort import natsorted
 import importlib
 import h5py
 
