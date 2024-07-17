@@ -77,7 +77,7 @@ for sample_name in sample_names:
     ####################################################################################################################
 
     cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
-                        data_to_segment=None,  #r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged\chunk_stitched_5.npy",
+                        data_to_segment=None,
                         save_segmented_cells=True, **parameters)
 
     ####################################################################################################################
