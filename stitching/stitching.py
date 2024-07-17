@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import glob
+import platform
 
 import json
 import numpy as np
@@ -263,10 +264,20 @@ def find_file_list(filename, sort=True, groups=None, absolute=True):
                     yield f
 
     # split full paths in case path contains regular expression
-    fnsp = filename.split(os.path.sep)
+    if platform.system().lower() == "windows":
+        pattern = re.compile(r'stack_\\\[.*\\\]_3\.tif')
+        match = pattern.search(filename)
+        if match:
+            start, end = match.span()
+            # directory_part = filename[:start]
+            fnsp = ["", filename]  # Fixme: THIS IS BROKEN
+        else:
+            print("No match found for the regular expression in the path.")
+    else:
+        fnsp = filename.split(os.path.sep)
 
     # handle absolute path
-    if fnsp[0] == '':  # aboslute path
+    if fnsp[0] == '':  # absolute path
         files = [os.path.sep]
         fnsp.pop(0)
     else:  # relative path
@@ -622,6 +633,7 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
         # infer tiling from regular expression
         # find file:
         fns, ids = find_file_list(regular_expression, groups=('row', 'col', 'z'))
+        print(fns, ids)
         fsize = io.data_size(fns[0])
         dim = len(fsize)
 

@@ -757,10 +757,11 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
             if not os.path.exists(cells_transformed_csv_path):
                 ut.print_c(f"[INFO {sample_name}] Saving cell counts as csv for channel {channel}!")
                 delimiter = ";"
-                header = f'{delimiter} '.join([h for h in cells_transformed.dtype.names])
+                header = f'{delimiter}'.join([h for h in cells_transformed.dtype.names])
                 np.savetxt(cells_transformed_csv_path, cells_transformed[:], header=header,
                            delimiter=delimiter,
-                           fmt='%s')
+                           fmt='%d;%d;%d;%d;%.6f;%.6f;%.6f;%.6f;%d;"%s"',
+                           comments="")
                 shutil.copyfile(cells_transformed_csv_path,
                                 os.path.join(analysis_sample_directory, f"{atlas}_cells_transformed_{channel}.csv"))
             else:
