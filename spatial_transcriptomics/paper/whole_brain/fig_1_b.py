@@ -20,8 +20,8 @@ n_datasets = len(datasets)
 
 category_names = ["class", "subclass", "supertype", "cluster"]
 
-DOWNLOAD_BASE = r"/default/path"  # PERSONAL
-MAP_DIR = r"/default/path"  # PERSONAL
+DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
+MAP_DIR = r"E:\tto\spatial_transcriptomics_results"  # PERSONAL
 TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"whole_brain_mask.tif"))
 RESULTS_DIR = ut.create_dir(os.path.join(MAP_DIR, "results"))
 CAT_DIR = ut.create_dir(os.path.join(RESULTS_DIR, "categories"))

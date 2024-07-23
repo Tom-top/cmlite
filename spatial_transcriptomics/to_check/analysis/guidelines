@@ -1,5 +1,0 @@
-1) First, transform the coordinates from all cells of the selected dataset to the Gubra atlas using
- "routine/transform_all_cells/transform_all_cells.py" for instance
-
-2) Binarize the pvalue/Z-score map using "analysis/routine/binarize_z-score_map.py" (It have to be in coronal
-rostral->caudal
