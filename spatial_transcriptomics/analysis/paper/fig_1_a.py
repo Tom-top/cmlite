@@ -217,8 +217,8 @@ n_datasets = len(datasets)
 category_names = ["class", "subclass", "supertype", "cluster"]
 # category_names = ["class"]
 
-DOWNLOAD_BASE = r'E:\tto\spatial_transcriptomics'
-TRANSFORM_DIR = ut.create_dir(os.path.join(DOWNLOAD_BASE, 'transformed_cells'))
+DOWNLOAD_BASE = r'/mnt/data/Grace/spatial_transcriptomics'
+TRANSFORM_DIR = os.path.join(r"resources\abc_atlas")
 
 for m, ccat in enumerate(category_names):
 

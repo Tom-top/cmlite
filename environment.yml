@@ -19,7 +19,6 @@ dependencies:
   - pillow
   - matplotlib
   - pyqt
-  - nrrd
   - pip:
       - scikit-image
       - h5py
@@ -28,3 +27,4 @@ dependencies:
       - SimpleITK
       - tqdm
       - ccf-streamlines
+      - pynrrd
