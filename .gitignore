@@ -1,6 +1,5 @@
 __pychache__/
 .idea/
-scripts/*_TTO.py
 resources/atlas
 resources/abc_atlas
 custom_config.yml
