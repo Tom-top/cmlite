@@ -1,8 +1,4 @@
 __pychache__/
 .idea/
 scripts/*_TTO.py
-resources/atlas/*.tif
-resources/atlas/*.tif.lzma
-resources/atlas/*.nrrd
-resources/cortical_flatmaps/*
 custom_config.yml
