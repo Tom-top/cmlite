@@ -2,7 +2,7 @@ import os
 
 import resampling.resampling as res
 
-working_directory = r""
+working_directory = r""  # PERSONAL
 converted_file = os.path.join(working_directory, "stitched_6.npy")
 
 resample_5um_parameter = {
