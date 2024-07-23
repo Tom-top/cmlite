@@ -72,9 +72,14 @@ def load_config(config_file=None):
             config = yaml.safe_load(stream)
     return config
 
+
 def get_sample_names(raw_directory, **kwargs):
     if kwargs["study_params"]["samples_to_process"]:
         sample_names = natsorted(kwargs["study_params"]["samples_to_process"])
     else:
         sample_names = [i for i in os.listdir(raw_directory) if os.path.isdir(os.path.join(raw_directory, i))]
     return sample_names
+
+
+def hex_to_rgb(hex):
+    return tuple(int(hex[1:][i:i + 2], 16) for i in (0, 2, 4))

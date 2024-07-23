@@ -3,6 +3,23 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+def remove_spines_and_ticks(ax):
+    # Turn off the axis spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
+    # Turn off the ticks and labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Hide tick labels
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+
 def setup_plot(n, i):
     if i is None and n == 0:
         fig = plt.figure()

@@ -18,3 +18,22 @@ def filter_points_in_3d_mask(arr_0, mask_1):
     print(f"Function run time: {end_time - start_time} seconds")
 
     return filtered_arr_0, mask_2
+
+
+def filter_coordinates_dim(coordinates, i, j, dim):
+    """
+    Filters out coordinates where the value in a specified dimension falls within the range [i, j]
+    and returns a mask indicating which points were kept.
+
+    Parameters:
+    coordinates (list of tuples): A list of (x, y, z) coordinates.
+    i (float): The lower bound of the value range to exclude.
+    j (float): The upper bound of the value range to exclude.
+    dim (int): The dimension to check (0 for x, 1 for y, 2 for z).
+
+    Returns:
+    tuple: A tuple containing the filtered list of coordinates and a mask.
+    """
+    mask = np.array([(point[dim] > i and point[dim] < j) for point in coordinates])
+    filtered_coordinates = np.array([point for point, m in zip(coordinates, mask) if m])
+    return filtered_coordinates, mask
