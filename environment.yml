@@ -19,6 +19,9 @@ dependencies:
   - pillow
   - matplotlib
   - pyqt
+  - umap-learn
+  - anndata
+  - hdbscan
   - pip:
       - scikit-image
       - h5py
