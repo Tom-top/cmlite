@@ -321,40 +321,40 @@ for m in maps:
         # plt.rcParams['ytick.labelsize'] = 20
         # plt.rcParams['xtick.labelsize'] = 20
         #
-        #
-        # def bar_plot(cells_color, unique_cells, unique_cells_color, saving_dir):
-        #     fig, (ax1) = plt.subplots(1, 1, figsize=(15, 10))
-        #
-        #     # Count the occurrences of each color in labels
-        #     color_counts = pd.Series(np.array(cells_color)).value_counts() \
-        #         .reindex(unique_cells_color, fill_value=0)
-        #     # Create a DataFrame for sorting
-        #     count_df = pd.DataFrame({
-        #         'Color': unique_cells_color,
-        #         'Label': unique_cells,
-        #         'Count': color_counts
-        #     })
-        #
-        #     # Sort the DataFrame by counts in descending order and select top 10
-        #     sorted_df = count_df.sort_values(by='Count', ascending=False).head(10)
-        #
-        #     # Bar plot on the second subplot for top 20 items
-        #     ax1.bar(range(len(sorted_df)), sorted_df['Count'], color=sorted_df['Color'])
-        #     ax1.set_ylabel('Number of Cells', fontsize=20)
-        #     ax1.set_xlim(-0.5, 10)
-        #     # ax1.set_xticks(range(len(sorted_df)))
-        #     ax1.set_xticks([])
-        #     # ax1.set_xticklabels(sorted_df['Label'], rotation=45, fontsize=15)
-        #
-        #     top_10_handles = [mlines.Line2D([0], [0], color=c, marker='o', linestyle='None', markersize=10)
-        #                       for c in sorted_df['Color']]
-        #     top_10_labels = sorted_df['Label'].tolist()
-        #     ax1.legend(handles=top_10_handles, labels=top_10_labels, fontsize=20, ncol=1, loc=1)
-        #
-        #     plt.tight_layout()
-        #     plt.savefig(os.path.join(saving_dir, "bar_plot_all.png"), dpi=300)
-        #     # plt.show()
-        #
+
+        def bar_plot(cells_color, unique_cells, unique_cells_color, saving_dir):
+            fig, (ax1) = plt.subplots(1, 1, figsize=(15, 10))
+
+            # Count the occurrences of each color in labels
+            color_counts = pd.Series(np.array(cells_color)).value_counts() \
+                .reindex(unique_cells_color, fill_value=0)
+            # Create a DataFrame for sorting
+            count_df = pd.DataFrame({
+                'Color': unique_cells_color,
+                'Label': unique_cells,
+                'Count': color_counts
+            })
+
+            # Sort the DataFrame by counts in descending order and select top 10
+            sorted_df = count_df.sort_values(by='Count', ascending=False).head(10)
+
+            # Bar plot on the second subplot for top 20 items
+            ax1.bar(range(len(sorted_df)), sorted_df['Count'], color=sorted_df['Color'])
+            ax1.set_ylabel('Number of Cells', fontsize=20)
+            ax1.set_xlim(-0.5, 10)
+            # ax1.set_xticks(range(len(sorted_df)))
+            ax1.set_xticks([])
+            # ax1.set_xticklabels(sorted_df['Label'], rotation=45, fontsize=15)
+
+            top_10_handles = [mlines.Line2D([0], [0], color=c, marker='o', linestyle='None', markersize=10)
+                              for c in sorted_df['Color']]
+            top_10_labels = sorted_df['Label'].tolist()
+            ax1.legend(handles=top_10_handles, labels=top_10_labels, fontsize=20, ncol=1, loc=1)
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(saving_dir, "bar_plot_all.png"), dpi=300)
+            # plt.show()
+
         #
         # ########################################################################################################################
         # # Standard umap
