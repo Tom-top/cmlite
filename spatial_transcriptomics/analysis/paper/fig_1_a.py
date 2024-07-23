@@ -209,16 +209,12 @@ def plot_cells(n, i, fig, ax, cell_colors="black", neuronal_mask=None, xlim=0, y
 
 
 datasets = [1, 2, 3, 4]
-# datasets = [4]
 dataset_colors = ["cyan", "magenta", "yellow", "black"]
-# dataset_colors = ["black"]
 n_datasets = len(datasets)
-
 category_names = ["class", "subclass", "supertype", "cluster"]
-# category_names = ["class"]
 
 DOWNLOAD_BASE = r'/mnt/data/Grace/spatial_transcriptomics'
-TRANSFORM_DIR = os.path.join(r"resources\abc_atlas")
+TRANSFORM_DIR = os.path.join(r"resources/abc_atlas")
 
 for m, ccat in enumerate(category_names):
 
