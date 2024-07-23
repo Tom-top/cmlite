@@ -2,7 +2,7 @@ import os
 
 import resampling.resampling as res
 
-working_directory = r"C:\Users\MANDOUDNA\PycharmProjects\cmlite\resources\atlas"
+working_directory = r"/default/path"  # PERSONAL
 
 # REFERENCE
 

@@ -24,7 +24,7 @@ def assign_random_colors(grayscale_image):
     return colored_image
 
 
-working_directory = r"U:\Users\TTO\phd_projects\lll\figures\microglial_density_whole-brain_baseline"
+working_directory = r"/default/path"  # PERSONAL
 file_list = [os.path.join(working_directory, i) for i in os.listdir(working_directory) if i.split("_")[1] == "16b"]
 
 for f in file_list:

@@ -3,7 +3,6 @@ import os
 import tifffile
 
 # Binarize the entire annotation
-test_path = "/default/path"  # PERSONAL
 ref_directory = r"/default/path"  # PERSONAL
 ref_path = os.path.join(ref_directory, f"atlas_annotations_coronal.tif")
 

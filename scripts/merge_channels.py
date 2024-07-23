@@ -2,7 +2,7 @@ import os
 
 import tifffile
 
-working_directory = r"d"
+working_directory = r"/default/path"  # PERSONAL
 
 stack_1_path = os.path.join(working_directory, "stitched_3_5um.tif")
 stack_2_path = os.path.join(working_directory, "stitched_4_5um.tif")

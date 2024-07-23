@@ -5,7 +5,7 @@ import tifffile
 
 import IO.IO as io
 
-working_directory = r"E:\tto\23-GUP030-0696-bruker\raw\ID014_an002992_g003_Brain_M3_rescan1\xy5p0_z5p0\2024-05-02_044404_merged"
+working_directory = r"/default/path"  # PERSONAL
 
 x_s, y_s, z_s = 200, 200, 200
 res_ratio = 2.5

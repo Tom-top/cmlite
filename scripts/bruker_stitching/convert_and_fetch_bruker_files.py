@@ -4,7 +4,7 @@ import numpy as np
 import h5py
 import tifffile
 
-raw_data_folder = r"E:\tto\23-GUP030-0696-bruker\raw\raw"
+raw_data_folder = r"/default/path"  # PERSONAL
 
 multistack = True
 channels_to_stitch = [[3, 4]]

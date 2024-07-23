@@ -2,7 +2,7 @@ import os
 
 import stitching.stitching as st
 
-raw_directory = r"E:\tto\23-GUP030-0696-bruker\raw"
+raw_directory = r"/default/path"  # PERSONAL
 
 parameters = {"study_params":
                   {"scanning_system": "",

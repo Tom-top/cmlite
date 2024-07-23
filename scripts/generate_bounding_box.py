@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-working_dir = r""
+working_dir = r""  # PERSONAL
 
 bounding_box = np.array([[110, 1314],  # Depth dim (in the stitched.tif file)
                          [236, 2828],  # Vertical dim
