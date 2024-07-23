@@ -30,7 +30,7 @@ n_datasets = len(datasets)
 category_names = ["class", "subclass", "supertype", "cluster"]
 
 DOWNLOAD_BASE = r"/default/path"  # PERSONAL
-MAP_DIR = r"/mnt/data/Thomas/whole_brain"
+MAP_DIR = r"/mnt/data/Thomas/whole_brain"  # PERSONAL
 TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"whole_brain_mask.tif"))
 RESULTS_DIR = os.path.join(MAP_DIR, "results")
 
