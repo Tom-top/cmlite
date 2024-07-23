@@ -3,8 +3,8 @@ import os
 import tifffile
 
 # Binarize the entire annotation
-test_path = "hello"  # PERSONAL
-ref_directory = r"/mnt/data/spatial_transcriptomics/results/whole_brain"  # PERSONAL
+test_path = "/default/path"  # PERSONAL
+ref_directory = r"/default/path"  # PERSONAL
 ref_path = os.path.join(ref_directory, f"atlas_annotations_coronal.tif")
 
 cutoff = 0
