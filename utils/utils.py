@@ -1,6 +1,8 @@
 import os
+import json
 
 import yaml
+import numpy as np
 from natsort import natsorted
 
 import settings
@@ -82,4 +84,54 @@ def get_sample_names(raw_directory, **kwargs):
 
 
 def hex_to_rgb(hex):
-    return tuple(int(hex[1:][i:i + 2], 16) for i in (0, 2, 4))
+    hex = hex.lstrip('#')
+    return tuple(int(hex[i:i + 2], 16)/255 for i in (0, 2, 4))
+
+
+def read_ano_json(ano_json):
+    with open(ano_json, 'r') as f:
+        json_data = json.load(f)
+    structure = json_data['msg'][0]
+    return structure
+
+
+def find_key_by_id(structure, target_id, key):
+    """
+    Recursively search for the acronym of a region with a given id in a nested JSON structure.
+
+    :param structure: The nested structure (dictionary) to search through.
+    :param target_id: The id of the region to find.
+    :return: The acronym of the region if found, else None.
+    """
+
+    if structure['id'] == target_id:
+        return structure[key]
+
+    # If the structure has children, search through each child
+    if 'children' in structure and structure['children']:
+        for child in structure['children']:
+            result = find_key_by_id(child, target_id, key)
+            if result:
+                return result
+
+    return None
+
+
+def assign_random_colors(grayscale_image):
+    # Find unique grayscale values in the image
+    unique_values = np.unique(grayscale_image)
+
+    # Create a dictionary to map each grayscale value to a random RGB color
+    color_map = {}
+    for value in unique_values:
+        if value != 0:
+            color_map[value] = np.random.randint(0, 256, size=3)
+
+    # Create an empty image with the same dimensions as the grayscale image, but with 3 channels (RGB)
+    colored_image = np.zeros((*grayscale_image.shape, 3), dtype=np.uint8)
+
+    # Map each grayscale value to its corresponding RGB color
+    for value, color in color_map.items():
+        colored_image[grayscale_image == value] = color
+
+    return colored_image

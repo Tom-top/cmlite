@@ -19,7 +19,8 @@ combined_regions_bin = np.logical_or.reduce([(annotation == region).astype(np.ui
 
 # Process the first half of the image
 midline = annotation.shape[-1] // 2
-combined_regions_hemisphere_bin = combined_regions_bin[:, :, :midline]
+combined_regions_hemisphere_bin = combined_regions_bin.copy()
+combined_regions_hemisphere_bin[:, :, midline:] = 0
 
 # Set the binary values to 255
 combined_regions_hemisphere_bin[combined_regions_hemisphere_bin == 1] = 255

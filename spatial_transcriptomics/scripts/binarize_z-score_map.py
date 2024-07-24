@@ -12,7 +12,7 @@ zscore_map_name = "Semaglutide"
 zscore_map_directory = os.path.join(zscore_maps_directory, zscore_map_name)
 zscore_map_path = os.path.join(zscore_map_directory, "result.nii.gz")
 analysis_directory = ut.create_dir(fr"E:\tto\spatial_transcriptomics_results\{zscore_map_name}")  # PERSONAL
-cutoff = 350  # Value above which all pixels will be kept for the mask (z-score * 100)
+cutoff = 320  # Value above which all pixels will be kept for the mask (z-score * 100)
 
 # Load and transpose the image
 zscore_map_nii = nib.load(zscore_map_path)
@@ -24,7 +24,8 @@ zscore_map_bin = (zscore_map >= cutoff).astype("uint8")
 
 # Process the first half of the image
 midline = zscore_map.shape[-1] // 2
-zscore_map_bin_half = zscore_map_bin[:, :, :midline]
+zscore_map_bin_half = zscore_map_bin.copy()
+zscore_map_bin_half[:, :, midline:] = 0
 
 # Set the binary values to 255
 zscore_map_bin[zscore_map_bin == 1] = 255
