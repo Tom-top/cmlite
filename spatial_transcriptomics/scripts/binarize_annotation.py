@@ -18,7 +18,8 @@ annotation_bin = (annotation > cutoff).astype("uint8")
 
 # Process the first half of the image
 midline = annotation.shape[-1] // 2
-annotation_hemisphere_bin = annotation_bin[:, :, :midline]
+annotation_hemisphere_bin = annotation_bin.copy()
+annotation_hemisphere_bin[:, :, midline:] = 0
 
 # Set the binary values to 255
 annotation_hemisphere_bin[annotation_hemisphere_bin == 1] = 255

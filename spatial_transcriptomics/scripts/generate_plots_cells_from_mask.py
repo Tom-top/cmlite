@@ -17,17 +17,17 @@ import tifffile
 from collections import Counter
 import matplotlib
 matplotlib.use("Agg")
+# matplotlib.use("Qt5Agg")
 
 import utils.utils as ut
 
 from spatial_transcriptomics.utils.coordinate_manipulation import filter_points_in_3d_mask
-from spatial_transcriptomics.utils.plotting import setup_plot, plot_cells,stacked_bar_plot_atlas_regions
+from spatial_transcriptomics.utils.plotting import setup_plot, plot_cells
 
 datasets = [1, 2, 3, 4]
 n_datasets = len(datasets)
 category_names = ["class", "subclass", "supertype", "cluster"]
-BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
-ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
+BILATERAL = True
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.tif")
@@ -36,7 +36,7 @@ ANO_JSON = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.json")
 
 DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
 MAP_DIR = r"E:\tto\spatial_transcriptomics_results\Semaglutide"  # PERSONAL
-LABELED_MASK = True  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
+LABELED_MASK = False  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 if LABELED_MASK:  # Each label will be processed separately.
     TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"labeled_mask.tif"))
     unique_labels = np.unique(TISSUE_MASK)
@@ -44,7 +44,7 @@ if LABELED_MASK:  # Each label will be processed separately.
     labels = [ul for ul in unique_labels if not ul == 0]
 else:
     labels = [1]
-    TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
+    TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
     TISSUE_MASKS = [TISSUE_MASK]
 
 MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results")
@@ -56,12 +56,10 @@ REFERENCE = tifffile.imread(REFERENCE_FILE)
 
 for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
-    region_id_counts = Counter(ANO[TISSUE_MASK == 255])
+    region_id_counts = Counter(ANO[TISSUE_MASKS[0] == 255])
     most_common_region_id = max(region_id_counts, key=region_id_counts.get)
     structure = ut.read_ano_json(ANO_JSON)
-    region_acronym = ut.find_key_by_id(structure, most_common_region_id, key="acronym")
-
-    ####################################################################################################################
+    region_acronym = ut.find_acronym_by_id(structure, most_common_region_id)
 
     with open(ANO_JSON, 'r') as f:
         json_data = json.load(f)
@@ -75,14 +73,6 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         SAVING_DIR = ut.create_dir(SAVING_DIR)
     else:
         SAVING_DIR = RESULTS_DIR
-
-    sorted_region_id_counts = dict(sorted(region_id_counts.items(), key=lambda item: item[1], reverse=True))
-    ids = list(sorted_region_id_counts.keys())
-
-    region_id_counts_total = [np.sum(ANO == id) for id in ids]
-    acros = [ut.find_key_by_id(structure, id, key="acronym") for id in ids]
-    colors = [ut.hex_to_rgb(ut.find_key_by_id(structure, id, key="color_hex_triplet")) for id in ids]
-    stacked_bar_plot_atlas_regions(sorted_region_id_counts, region_id_counts_total, acros, colors, SAVING_DIR)
 
     for m, ccat in enumerate(category_names):
 
@@ -195,20 +185,19 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                 orix, oriy = 2, 0
                 xlim, ylim = 369, 512
 
-                # Only neurons, class colors, all experiments
+                # Forth horizontal plot: Only neurons, class colors, all experiments
                 if i == 0 and n == 0:
                     fig1bc, ax1bc = setup_plot(n, i)
                 plot_cells(n, i, fig1bc, ax1bc, cell_colors=np.array(cc), neuronal_mask=neuronal_mask,
                            xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
                            saving_name=f"neurons_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
 
-                if not ONLY_NEURONS:
-                    # All cells, class colors, all experiments
-                    if i == 0 and n == 0:
-                        fig1abc, ax1abc = setup_plot(n, i)
-                    plot_cells(n, i, fig1abc, ax1abc, cell_colors=np.array(cc), neuronal_mask=None,
-                               xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                               saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
+                # Eighth horizontal plot: All cells, class colors, all experiments
+                if i == 0 and n == 0:
+                    fig1abc, ax1abc = setup_plot(n, i)
+                plot_cells(n, i, fig1abc, ax1abc, cell_colors=np.array(cc), neuronal_mask=None,
+                           xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
+                           saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
 
                 ############################################################################################################
                 # Sagittal
@@ -218,20 +207,19 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                 orix, oriy = 0, 1
                 xlim, ylim = 512, 268
 
-                # Only neurons, class colors, all experiments
+                # Forth sagittal plot: Only neurons, class colors, all experiments
                 if i == 0 and n == 0:
                     fig2bc, ax2bc = setup_plot(n, i)
                 plot_cells(n, i, fig2bc, ax2bc, cell_colors=np.array(cc), neuronal_mask=neuronal_mask,
                            xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
                            saving_name=f"neurons_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
 
-                if not ONLY_NEURONS:
-                    # All cells, class colors, all experiments
-                    if i == 0 and n == 0:
-                        fig2abc, ax2abc = setup_plot(n, i)
-                    plot_cells(n, i, fig2abc, ax2abc, cell_colors=np.array(cc), neuronal_mask=None,
-                               xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                               saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
+                # Eighth sagittal plot: All cells, class colors, all experiments
+                if i == 0 and n == 0:
+                    fig2abc, ax2abc = setup_plot(n, i)
+                plot_cells(n, i, fig2abc, ax2abc, cell_colors=np.array(cc), neuronal_mask=None,
+                           xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
+                           saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
 
                 ############################################################################################################
                 # Coronal
@@ -241,17 +229,16 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                 orix, oriy = 2, 1 # Projection = 1
                 xlim, ylim = 369, 268
 
-                # Only neurons, class colors, all experiments
+                # Forth coronal plot: Only neurons, class colors, all experiments
                 if i == 0 and n == 0:
                     fig3bc, ax3bc = setup_plot(n, i)
                 plot_cells(n, i, fig3bc, ax3bc, cell_colors=np.array(cc), neuronal_mask=neuronal_mask,
                            xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
                            saving_name=f"neurons_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
 
-                if not ONLY_NEURONS:
-                    # All cells, class colors, all experiments
-                    if i == 0 and n == 0:
-                        fig3abc, ax3abc = setup_plot(n, i)
-                    plot_cells(n, i, fig3abc, ax3abc, cell_colors=np.array(cc), neuronal_mask=None,
-                               xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
-                               saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
+                # Eighth coronal plot: All cells, class colors, all experiments
+                if i == 0 and n == 0:
+                    fig3abc, ax3abc = setup_plot(n, i)
+                plot_cells(n, i, fig3abc, ax3abc, cell_colors=np.array(cc), neuronal_mask=None,
+                           xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
+                           saving_name=f"all_{ori}_mouse_{ccat}.png", **all_plots_cells_params)
