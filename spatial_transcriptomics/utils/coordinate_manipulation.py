@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-def filter_points_in_3d_mask(arr_0, mask_1):
+def filter_points_in_3d_mask(arr_0, mask_1, verbose=False):
     start_time = time.time()
     int_coords = arr_0.astype(int)
     valid_x = (0 <= int_coords[:, 0]) & (int_coords[:, 0] < mask_1.shape[0])
@@ -15,7 +15,8 @@ def filter_points_in_3d_mask(arr_0, mask_1):
     filtered_arr_0 = arr_0[mask_2]
 
     end_time = time.time()
-    print(f"Function run time: {end_time - start_time} seconds")
+    if verbose:
+        print(f"Function run time: {end_time - start_time} seconds")
 
     return filtered_arr_0, mask_2
 

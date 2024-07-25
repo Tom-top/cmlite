@@ -168,3 +168,48 @@ def bar_plot(cells_color, unique_cells, unique_cells_color, saving_path, n_bars=
 
     plt.tight_layout()
     plt.savefig(saving_path, dpi=300)
+
+
+# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+# for n, (cat, data) in enumerate(zip(categories, data_categories)):
+# ax.set_ylabel(cat, fontsize=10)
+
+def stacked_horizontal_bar_plot(data_categories, saving_path):
+    categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+    fig = plt.figure(figsize=(15, 10))
+    gs = fig.add_gridspec(len(data_categories), 1, hspace=0.1)  # Adjust hspace for better spacing
+
+    previous_right_ends = None
+
+    for n, (cat, data) in enumerate(zip(categories, data_categories)):
+        ax = fig.add_subplot(gs[n])
+
+        left = 0
+        current_right_ends = []
+        for index, row in data.iterrows():
+            bar = ax.barh(0, row['Count'], left=left, color=row['Color'], edgecolor="black", lw=0.5, zorder=1)
+            current_right_ends.append(left + row['Count'])
+            left += row['Count']
+
+        if previous_right_ends is not None:
+            for prev_right_end, curr_right_end in zip(previous_right_ends, current_right_ends):
+                ax.plot([prev_right_end, prev_right_end], [1, 0], color='black', lw=0.5, clip_on=False, zorder=2)
+
+        previous_right_ends = current_right_ends
+
+        if n + 1 == len(data_categories):
+            ax.set_xlabel('Number of Cells', fontsize=10)
+        else:
+            ax.set_xticks([])
+            ax.spines['bottom'].set_visible(False)
+
+        ax.set_ylabel(cat, fontsize=10)
+        ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.set_xlim(0, sum(data['Count']))
+        ax.set_ylim(-0.5, 0.5)
+
+    plt.tight_layout()
+    plt.savefig(saving_path, dpi=300)
