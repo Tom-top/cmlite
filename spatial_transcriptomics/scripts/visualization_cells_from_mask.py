@@ -35,7 +35,7 @@ ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.json")
 
 DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
-MAP_DIR = r"E:\tto\spatial_transcriptomics_results\Semaglutide"  # PERSONAL
+MAP_DIR = r"E:\tto\spatial_transcriptomics_results\PB"  # PERSONAL
 LABELED_MASK = True  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 if LABELED_MASK:  # Each label will be processed separately.
     TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"labeled_mask.tif"))

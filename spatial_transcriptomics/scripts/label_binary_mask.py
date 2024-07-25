@@ -12,7 +12,7 @@ matplotlib.use("Agg")
 
 from utils.utils import assign_random_colors
 
-MAP_DIR = r"E:\tto\spatial_transcriptomics_results\Semaglutide"  # PERSONAL
+MAP_DIR = r"E:\tto\spatial_transcriptomics_results\PB"  # PERSONAL
 TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
 threshold_size = 50  # Set your size threshold here (in voxels)
 
