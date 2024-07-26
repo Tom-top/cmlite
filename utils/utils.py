@@ -84,6 +84,8 @@ def get_sample_names(raw_directory, **kwargs):
 
 
 def hex_to_rgb(hex):
+    if hex == None:
+        return None
     hex = hex.lstrip('#')
     return tuple(int(hex[i:i + 2], 16)/255 for i in (0, 2, 4))
 
