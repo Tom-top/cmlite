@@ -2,8 +2,11 @@ import os
 
 import numpy as np
 import pandas as pd
+import cv2
+from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+import tifffile
 
 
 def remove_spines_and_ticks(ax):
@@ -33,35 +36,125 @@ def setup_plot(n, i):
         return fig, ax
 
 
-def plot_cells(n, i, fig, ax, cell_colors="black", neuronal_mask=None, xlim=0, ylim=0, orix=0, oriy=1, orip=0,
-               saving_name="", **kwargs):
-    if kwargs["filtered_points"].size > 0:
+def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell_colors="black", xlim=0, ylim=0, orix=0,
+               oriy=1, orip=0, mask_axis=0, s=0.5, saving_path=""):
+    if filtered_points.size > 0:
         if neuronal_mask is None:
-            filtered_points_plot_x = kwargs["filtered_points"][:, orix]
-            filtered_points_plot_y = kwargs["filtered_points"][:, oriy]
+            filtered_points_plot_x = filtered_points[:, orix]
+            filtered_points_plot_y = filtered_points[:, oriy]
         else:
-            filtered_points_plot_x = kwargs["filtered_points"][:, orix][~neuronal_mask]
-            filtered_points_plot_y = kwargs["filtered_points"][:, oriy][~neuronal_mask]
+            filtered_points_plot_x = filtered_points[:, orix][~neuronal_mask]
+            filtered_points_plot_y = filtered_points[:, oriy][~neuronal_mask]
             if type(cell_colors) != str and cell_colors.size > 0:
                 cell_colors = cell_colors[~neuronal_mask]
 
-        ax.scatter(filtered_points_plot_x, filtered_points_plot_y, c=cell_colors, s=kwargs["marker_size"],
-                   lw=kwargs["linewidth"], edgecolors="black", alpha=1)
+        max_proj_reference = np.rot90(np.max(reference, axis=orip))[::-1]
 
-    if i is None and n + 1 == kwargs["n_chunks"]:
-        ax.imshow(np.rot90(np.max(kwargs["reference"], axis=orip))[::-1], cmap='gray_r', alpha=0.3)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.scatter(filtered_points_plot_x, filtered_points_plot_y, c=cell_colors, s=s,
+                   lw=0, edgecolors="black", alpha=1)
+        ax.imshow(max_proj_reference, cmap='gray_r', alpha=0.3)
         ax.set_xlim(0, xlim)
         ax.set_ylim(0, ylim)
         ax.invert_yaxis()
         ax.axis('off')
-        fig.savefig(os.path.join(kwargs["saving_dir"], saving_name), dpi=300)
-    elif i is not None and i + 1 == kwargs["n_datasets"] and n + 1 == kwargs["n_chunks"]:
-        ax.imshow(np.rot90(np.max(kwargs["reference"], axis=orip))[::-1], cmap='gray_r', alpha=0.3)
-        ax.set_xlim(0, xlim)
-        ax.set_ylim(0, ylim)
+        fig.savefig(saving_path, dpi=300)
+        plt.close(fig)
+
+        # Zoom-in view
+        split_path = saving_path.split(".")
+        max_proj_mask = np.max(tissue_mask, mask_axis)
+        if mask_axis == 2:
+            max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
+
+        tifffile.imwrite(split_path[0] + "_test." + split_path[-1], max_proj_mask)
+        top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
+        cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
+
+        # Adjust the filtered points to the new coordinate system
+        adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
+        adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
+
+        # Calculate the area of the crop
+        crop_height = bottom_right[0] - top_left[0]
+        crop_width = bottom_right[1] - top_left[1]
+        crop_area = crop_height * crop_width
+
+        # Adjust the size of the points based on the crop area
+        adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.scatter(adjusted_points_plot_x, adjusted_points_plot_y, c=cell_colors, s=adjusted_size,
+                   lw=0, edgecolors="black", alpha=1)
+        ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                  alpha=0.3)
+        ax.set_xlim(0, cropped_ref.shape[0])
+        ax.set_ylim(0, cropped_ref.shape[-1])
         ax.invert_yaxis()
         ax.axis('off')
-        fig.savefig(os.path.join(kwargs["saving_dir"], saving_name), dpi=300)
+        fig.savefig(split_path[0] + "_zoom." + split_path[-1], dpi=300)
+        plt.close(fig)
+
+        # Contour plot for each color
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(cropped_ref, cmap='gray_r', alpha=0.3)
+        ax.set_xlim(0, cropped_ref.shape[1])
+        ax.set_ylim(0, cropped_ref.shape[0])
+        ax.invert_yaxis()
+        ax.axis('off')
+
+        # Find the top 3 most abundant colors
+        color_counts = Counter(cell_colors)
+        top_colors = [color for color, count in color_counts.most_common(3)]
+
+        # Create contour plots for each of the top 3 colors
+        for color in top_colors:
+            color_mask = np.array(cell_colors) == color
+            x = adjusted_points_plot_x[color_mask]
+            y = adjusted_points_plot_y[color_mask]
+            if len(x) > 0 and len(y) > 0:
+                # Create a density map
+                heatmap, xedges, yedges = np.histogram2d(y, x, bins=[np.arange(0, cropped_ref.shape[0]),
+                                                                     np.arange(0, cropped_ref.shape[1])])
+                heatmap = cv2.GaussianBlur(heatmap, (3, 3), 0)
+                ax.contour(heatmap, levels=5, colors=color, linewidths=1)
+
+        contour_saving_path = split_path[0] + "_contour." + split_path[-1]
+        fig.savefig(contour_saving_path, dpi=300)
+        plt.close(fig)  # Close the figure to free up memory
+
+
+def find_square_bounding_box(mask, padding=10):
+    # Find all non-zero points in the mask
+    points = np.argwhere(mask > 0)
+
+    # Get the bounding box of the non-zero points
+    top_left = points.min(axis=0)
+    bottom_right = points.max(axis=0)
+
+    # Calculate the width and height of the bounding box
+    height = bottom_right[0] - top_left[0]
+    width = bottom_right[1] - top_left[1]
+
+    # Determine the side length of the square box
+    side_length = max(height, width) + 2 * padding
+
+    # Calculate the center of the bounding box
+    center = (top_left + bottom_right) / 2
+
+    # Calculate the top-left and bottom-right corners of the square box
+    half_side_length = side_length // 2
+    top_left_square = (center - half_side_length).astype(int)
+    bottom_right_square = (center + half_side_length).astype(int)
+
+    # Ensure the coordinates are within the image boundaries
+    top_left_square = np.maximum(top_left_square, 0)
+    bottom_right_square = np.minimum(bottom_right_square, [mask.shape[0], mask.shape[1]])
+
+    return top_left_square, bottom_right_square
 
 
 def stacked_bar_plot_atlas_regions(sorted_region_id_counts, region_id_counts_total, acros, colors, saving_path):
@@ -97,7 +190,7 @@ def stacked_bar_plot_atlas_regions(sorted_region_id_counts, region_id_counts_tot
     # Remove the top, right, and left spines (the square around the plot)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+    #ax.spines['left'].set_visible(False)
     plt.tight_layout()  # Show the plot
     plt.savefig(os.path.join(saving_path, "voxels_from_region_in_blob.png"), dpi=300)
     plt.savefig(os.path.join(saving_path, "voxels_from_region_in_blob.svg"), dpi=300)
@@ -170,12 +263,7 @@ def bar_plot(cells_color, unique_cells, unique_cells_color, saving_path, n_bars=
     plt.savefig(saving_path, dpi=300)
 
 
-# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
-# for n, (cat, data) in enumerate(zip(categories, data_categories)):
-# ax.set_ylabel(cat, fontsize=10)
-
-def stacked_horizontal_bar_plot(data_categories, saving_path):
-    categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+def stacked_horizontal_bar_plot(categories, data_categories, saving_path, labeled=False):
     fig = plt.figure(figsize=(15, 10))
     gs = fig.add_gridspec(len(data_categories), 1, hspace=0.1)  # Adjust hspace for better spacing
 
@@ -189,6 +277,12 @@ def stacked_horizontal_bar_plot(data_categories, saving_path):
         for index, row in data.iterrows():
             bar = ax.barh(0, row['Count'], left=left, color=row['Color'], edgecolor="black", lw=0.5, zorder=1)
             current_right_ends.append(left + row['Count'])
+
+            if labeled:
+                ax.text(left + row['Count'] / 2, 0, str(row['Label']) + "\n" + str(row['Count']),
+                        ha='center', va='center', fontsize=4, zorder=3,
+                        rotation=90)
+
             left += row['Count']
 
         if previous_right_ends is not None:
@@ -212,4 +306,5 @@ def stacked_horizontal_bar_plot(data_categories, saving_path):
         ax.set_ylim(-0.5, 0.5)
 
     plt.tight_layout()
-    plt.savefig(saving_path, dpi=300)
+    plt.savefig(saving_path + ".png", dpi=300)
+    plt.savefig(saving_path + ".svg", dpi=300)

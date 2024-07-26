@@ -8,7 +8,7 @@ import utils.utils as ut
 ref_directory = r"resources\atlas"
 ref_path = os.path.join(ref_directory, "gubra_annotation_mouse.tif")
 analysis_directory = ut.create_dir(r"/default/path")  # PERSONAL
-regions_to_bin = [5598, 5599, 5600]  # List of region ids to include in the binary mask
+regions_to_bin = [5623]  # List of region ids to include in the binary mask
 
 # Load and transpose the image
 annotation = np.transpose(tifffile.imread(ref_path), (1, 2, 0))
