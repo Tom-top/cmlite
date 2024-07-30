@@ -2,12 +2,13 @@ import os
 
 import numpy as np
 import pandas as pd
-import cv2
+# import cv2
+import scipy.ndimage
 from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
-import tifffile
 
+import utils.utils as ut
 
 def remove_spines_and_ticks(ax):
     # Turn off the axis spines
@@ -36,8 +37,8 @@ def setup_plot(n, i):
         return fig, ax
 
 
-def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell_colors="black", xlim=0, ylim=0, orix=0,
-               oriy=1, orip=0, mask_axis=0, s=0.5, saving_path=""):
+def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell_colors="black", cell_categories=None,
+               xlim=0, ylim=0, orix=0, oriy=1, orip=0, mask_axis=0, s=0.5, saving_path=""):
     if filtered_points.size > 0:
         if neuronal_mask is None:
             filtered_points_plot_x = filtered_points[:, orix]
@@ -47,12 +48,111 @@ def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell
             filtered_points_plot_y = filtered_points[:, oriy][~neuronal_mask]
             if type(cell_colors) != str and cell_colors.size > 0:
                 cell_colors = cell_colors[~neuronal_mask]
+            if cell_categories.size > 0:
+                cell_categories = cell_categories[~neuronal_mask]
 
+
+        # Find the top 3 most abundant colors
+        color_counts = Counter(cell_colors)
+        sorted_color_counts = dict(sorted(color_counts.items(), key=lambda item: item[1], reverse=True))
+        colors = list(sorted_color_counts.keys())
+        # counts = np.array([sorted_color_counts[i] for i in colors])
+        categories = np.array([cell_categories[cell_colors == i][0] for i in colors])
         max_proj_reference = np.rot90(np.max(reference, axis=orip))[::-1]
+
+        for color, category in zip(colors, categories):
+
+            saving_file_name = os.path.basename(saving_path)
+            saving_dir = ut.create_dir(os.path.join(os.path.dirname(saving_path), category))
+            color_mask = np.array(cell_colors) == color
+
+            # top_colors = [color for color, count in color_counts.most_common(3)]
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.scatter(filtered_points_plot_x[color_mask], filtered_points_plot_y[color_mask], c=color, s=0.5,
+                       lw=0, edgecolors="black", alpha=1)
+            ax.imshow(max_proj_reference, cmap='gray_r', alpha=0.3)
+            ax.set_xlim(0, xlim)
+            ax.set_ylim(0, ylim)
+            ax.invert_yaxis()
+            ax.axis('off')
+            fig.savefig(os.path.join(saving_dir, saving_file_name), dpi=300)
+            plt.close(fig)
+
+            # Zoom-in view
+            split_path = saving_file_name.split(".")
+            max_proj_mask = np.max(tissue_mask, mask_axis)
+            if mask_axis == 2:
+                max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
+
+            top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
+            cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
+
+            # Adjust the filtered points to the new coordinate system
+            adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
+            adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
+
+            # Calculate the area of the crop
+            crop_height = bottom_right[0] - top_left[0]
+            crop_width = bottom_right[1] - top_left[1]
+            crop_area = crop_height * crop_width
+
+            # Adjust the size of the points based on the crop area
+            adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.scatter(adjusted_points_plot_x[color_mask], adjusted_points_plot_y[color_mask], c=color, s=adjusted_size,
+                       lw=0, edgecolors="black", alpha=1)
+            ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                      alpha=0.3)
+            ax.set_xlim(0, cropped_ref.shape[0])
+            ax.set_ylim(0, cropped_ref.shape[-1])
+            ax.invert_yaxis()
+            ax.axis('off')
+            fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom." + split_path[-1]), dpi=300)
+            plt.close(fig)
+
+            # Contour plot for each color
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.imshow(cropped_ref, cmap='gray_r', alpha=0.3)
+            ax.set_xlim(0, cropped_ref.shape[1])
+            ax.set_ylim(0, cropped_ref.shape[0])
+            ax.invert_yaxis()
+            ax.axis('off')
+
+            # Create contour plots for each of the top 3 colors
+            x = adjusted_points_plot_x[color_mask]
+            y = adjusted_points_plot_y[color_mask]
+            if len(x) > 0 and len(y) > 0:
+                # Create a higher resolution density map
+                x_edges = np.linspace(0, cropped_ref.shape[1], cropped_ref.shape[1] * 2 + 1)
+                y_edges = np.linspace(0, cropped_ref.shape[0], cropped_ref.shape[0] * 2 + 1)
+                heatmap, xedges, yedges = np.histogram2d(y, x, bins=[y_edges, x_edges])
+
+                # Apply Gaussian smoothing
+                sigma = 2  # Higher sigma for more smoothing
+                smoothed_heatmap = scipy.ndimage.gaussian_filter(heatmap, sigma=sigma)
+
+                levels = np.linspace(np.min(smoothed_heatmap), np.max(smoothed_heatmap), 6)
+
+                extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+
+                for i in range(len(levels) - 1):
+                    alpha = 1 - i / (len(levels) - 1)
+                    ax.contour(smoothed_heatmap, levels=[levels[i], levels[i + 1]], colors=[color], alpha=alpha,
+                               linewidths=1, extent=extent)
+
+            contour_saving_path = split_path[0] + "_contour." + split_path[-1]
+            print(contour_saving_path)
+            fig.savefig(os.path.join(saving_dir, contour_saving_path), dpi=300)
+            plt.close(fig)  # Close the figure to free up memory
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.scatter(filtered_points_plot_x, filtered_points_plot_y, c=cell_colors, s=s,
+        ax.scatter(filtered_points_plot_x, filtered_points_plot_y, c=cell_colors, s=0.5,
                    lw=0, edgecolors="black", alpha=1)
         ax.imshow(max_proj_reference, cmap='gray_r', alpha=0.3)
         ax.set_xlim(0, xlim)
@@ -63,12 +163,10 @@ def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell
         plt.close(fig)
 
         # Zoom-in view
-        split_path = saving_path.split(".")
         max_proj_mask = np.max(tissue_mask, mask_axis)
         if mask_axis == 2:
             max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
 
-        tifffile.imwrite(split_path[0] + "_test." + split_path[-1], max_proj_mask)
         top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
         cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
 
@@ -94,37 +192,8 @@ def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell
         ax.set_ylim(0, cropped_ref.shape[-1])
         ax.invert_yaxis()
         ax.axis('off')
-        fig.savefig(split_path[0] + "_zoom." + split_path[-1], dpi=300)
+        fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom." + split_path[-1]), dpi=300)
         plt.close(fig)
-
-        # Contour plot for each color
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.imshow(cropped_ref, cmap='gray_r', alpha=0.3)
-        ax.set_xlim(0, cropped_ref.shape[1])
-        ax.set_ylim(0, cropped_ref.shape[0])
-        ax.invert_yaxis()
-        ax.axis('off')
-
-        # Find the top 3 most abundant colors
-        color_counts = Counter(cell_colors)
-        top_colors = [color for color, count in color_counts.most_common(3)]
-
-        # Create contour plots for each of the top 3 colors
-        for color in top_colors:
-            color_mask = np.array(cell_colors) == color
-            x = adjusted_points_plot_x[color_mask]
-            y = adjusted_points_plot_y[color_mask]
-            if len(x) > 0 and len(y) > 0:
-                # Create a density map
-                heatmap, xedges, yedges = np.histogram2d(y, x, bins=[np.arange(0, cropped_ref.shape[0]),
-                                                                     np.arange(0, cropped_ref.shape[1])])
-                heatmap = cv2.GaussianBlur(heatmap, (3, 3), 0)
-                ax.contour(heatmap, levels=5, colors=color, linewidths=1)
-
-        contour_saving_path = split_path[0] + "_contour." + split_path[-1]
-        fig.savefig(contour_saving_path, dpi=300)
-        plt.close(fig)  # Close the figure to free up memory
 
 
 def find_square_bounding_box(mask, padding=10):
@@ -297,7 +366,7 @@ def stacked_horizontal_bar_plot(categories, data_categories, saving_path, labele
             ax.set_xticks([])
             ax.spines['bottom'].set_visible(False)
 
-        ax.set_ylabel(cat, fontsize=10)
+        ax.set_ylabel(cat + ": " + str(len(data)), fontsize=10)
         ax.set_yticks([])
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)

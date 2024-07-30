@@ -30,6 +30,8 @@ CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen"]
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
+# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+categories = ["class"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.tif")
@@ -266,8 +268,6 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     # ITERATE OVER EVERY CATEGORY
     ####################################################################################################################
 
-    categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
-
     if PLOT_COUNTS_BY_CATEGORY:
 
         neurotransmitter_count_df = pd.DataFrame({
@@ -478,15 +478,15 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         # Only neurons, class colors, all experiments
         st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                          mask_axis=mask_axis, s=cell_size,
+                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
+                          orix=orix, oriy=oriy, orip=orix, mask_axis=mask_axis, s=cell_size,
                           saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
             st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              neuronal_mask=None, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                              mask_axis=mask_axis, s=cell_size,
+                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+                              orix=orix, oriy=oriy, orip=orix, mask_axis=mask_axis, s=cell_size,
                               saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))
 
         ########################################################################################################
@@ -499,15 +499,15 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         # Only neurons, class colors, all experiments
         st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                          mask_axis=mask_axis, s=cell_size,
+                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
+                          orix=orix, oriy=oriy, orip=orix, mask_axis=mask_axis, s=cell_size,
                           saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
             st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              neuronal_mask=None, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
-                              mask_axis=mask_axis, s=cell_size,
+                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+                              orix=orix, oriy=oriy, orip=orix, mask_axis=mask_axis, s=cell_size,
                               saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))
 
         ########################################################################################################
@@ -520,13 +520,13 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         # Only neurons, class colors, all experiments
         st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
-                          mask_axis=mask_axis, s=cell_size,
+                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
+                          orix=orix, oriy=oriy, orip=oriy, mask_axis=mask_axis, s=cell_size,
                           saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
             st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              neuronal_mask=None, xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
-                              mask_axis=mask_axis, s=cell_size,
+                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+                              orix=orix, oriy=oriy, orip=oriy, mask_axis=mask_axis, s=cell_size,
                               saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))

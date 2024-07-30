@@ -17,6 +17,8 @@ def print_c(msg, end="\n"):
         print(f"\033[92m{msg}\033[0m", end=end)
     elif msg.startswith("[WARNING"):
         print(f"\033[93m{msg}\033[0m", end=end)
+    elif msg.startswith("[CRITICAL"):
+        print(f"\033[91{msg}\033[0m", end=end)
     else:
         print(f"\033[37m{msg}\033[0m", end=end)
 
@@ -137,3 +139,19 @@ def assign_random_colors(grayscale_image):
         colored_image[grayscale_image == value] = color
 
     return colored_image
+
+
+def load_json_file(file_path):
+    """
+    Load and parse a JSON file.
+
+    :param file_path: The path to the JSON file.
+    :return: The parsed JSON data.
+    """
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    return data
+
+
+def to_raw_string(s):
+    return s.replace('\\', '\\\\')
