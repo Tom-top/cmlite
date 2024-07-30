@@ -51,7 +51,10 @@ def initialize_stitcher(path=None):
         path = settings.terastitcher_path
 
     # search for elastix binary
-    terasticher_bin_path = os.path.join(path, 'bin/terastitcher')
+    if platform.system().lower() == "windows":
+        terasticher_bin_path = os.path.join(path, 'terastitcher.exe')
+    else:
+        terasticher_bin_path = os.path.join(path, 'bin/terastitcher')
     if os.path.exists(terasticher_bin_path):
         terastitcher_binary = terasticher_bin_path
     else:
@@ -239,104 +242,179 @@ def _cleanXML(xmlstring):
     return xmlstring[:start] + xmlstring[(end + len(end_str)):]
 
 
-def find_file_list(filename, sort=True, groups=None, absolute=True):
-    """Returns the list of files that match the regular expression (including variable paths)
+# def find_file_list(filename, sort=True, groups=None, absolute=True):
+#     """Returns the list of files that match the regular expression (including variable paths)
+#
+#     Arguments:
+#         filename (str): file name as regular expression
+#         sort (bool): naturally sort the list
+#         groups (list or None): if list also return the values found for the indicated group identifier
+#
+#     Returns:
+#         list: file names
+#         list: if groups is not None, a list of lists of group identifier
+#     """
+#
+#     if sort:
+#         def list_dir(path):
+#             for f in natsorted(os.listdir(path)):
+#                 if not f.startswith('.'):
+#                     yield f
+#     else:
+#         def list_dir(path):
+#             for f in os.listdir(path):
+#                 if not f.startswith('.'):
+#                     yield f
+#
+#     # split full paths in case path contains regular expression
+#     if platform.system().lower() == "windows":
+#         pattern = re.compile(r'stack_\\\[.*\\\]_3\.tif')
+#         match = pattern.search(filename)
+#         if match:
+#             start, end = match.span()
+#             # directory_part = filename[:start]
+#             fnsp = ["", filename]  # Fixme: THIS IS BROKEN
+#         else:
+#             print("No match found for the regular expression in the path.")
+#     else:
+#         fnsp = filename.split(os.path.sep)
+#
+#     # handle absolute path
+#     if fnsp[0] == '':  # absolute path
+#         files = [os.path.sep]
+#         fnsp.pop(0)
+#     else:  # relative path
+#         if absolute:
+#             files = [os.path.abspath(os.curdir)]
+#         else:
+#             files = ['.']
+#
+#     # handle pure directory expression -> all files
+#     if len(fnsp) > 0 and fnsp[-1] == '':
+#         fnsp[-1] = '.*'
+#     if groups is None:
+#         # no group info
+#         for n in fnsp:
+#             search = re.compile(n).search
+#             newfiles = []
+#             for f in files:
+#                 matches = map(search, list_dir(f))
+#                 matches = [x for x in matches if x]
+#                 for m in matches:
+#                     if f.endswith(os.path.sep):
+#                         newfiles.append(f + m.string)
+#                     else:
+#                         newfiles.append(f + os.path.sep + m.string)
+#             files = newfiles
+#
+#         return files
+#
+#     else:  # with group info
+#         infos = [[None for x in groups]]
+#         for n in fnsp:
+#             search = re.compile(n).search
+#             newfiles = []
+#             newinfos = []
+#
+#             for f, i in zip(files, infos):
+#                 matches = map(search, list_dir(f))
+#                 matches = [x for x in matches if x]
+#                 for m in matches:
+#                     if f.endswith(os.path.sep):
+#                         newfiles.append(f + m.string)
+#                     else:
+#                         newfiles.append(f + os.path.sep + m.string)
+#
+#                     d = m.groupdict()
+#                     ii = list(i)
+#                     for k, v in d.items():
+#                         try:
+#                             j = groups.index(k)
+#                             ii[j] = v
+#                         except:
+#                             pass
+#                     newinfos.append(ii)
+#
+#             files = newfiles
+#             infos = newinfos
+#
+#         return np.array(files), np.array(infos)
+
+
+def list_files_in_directory(path, sort=True):
+    """Lists files in a given directory."""
+    try:
+        if sort:
+            return natsorted(os.listdir(path))
+        else:
+            return os.listdir(path)
+    except (PermissionError, NotADirectoryError):
+        print(f"Cannot access: {path}")
+        return []
+
+def find_file_list(regular_expression, sort=True, groups=None, absolute=True):
+    """Returns the list of files that match the regular expression (including variable paths).
 
     Arguments:
-        filename (str): file name as regular expression
+        directory (str): directory path
+        filename_pattern (str): file name as regular expression
         sort (bool): naturally sort the list
-        groups (list or None): if list also return the values found for the indicated group identifier
+        groups (list or None): if list, also return the values found for the indicated group identifier
+        absolute (bool): whether to return absolute paths
 
     Returns:
         list: file names
         list: if groups is not None, a list of lists of group identifier
     """
 
-    if sort:
-        def list_dir(path):
-            for f in natsorted(os.listdir(path)):
-                if not f.startswith('.'):
-                    yield f
-    else:
-        def list_dir(path):
-            for f in os.listdir(path):
-                if not f.startswith('.'):
-                    yield f
+    def list_dir(path):
+        return (f for f in list_files_in_directory(path, sort=sort) if not f.startswith('.'))
 
-    # split full paths in case path contains regular expression
+    # Split the directory path into segments
     if platform.system().lower() == "windows":
-        pattern = re.compile(r'stack_\\\[.*\\\]_3\.tif')
-        match = pattern.search(filename)
+        match = re.search(r'stack_\\\[.*\]_', regular_expression)
         if match:
-            start, end = match.span()
-            # directory_part = filename[:start]
-            fnsp = ["", filename]  # Fixme: THIS IS BROKEN
-        else:
-            print("No match found for the regular expression in the path.")
+            directory_path = regular_expression[:match.start()]
+            regex_pattern = regular_expression[match.start():]
+        drive, path = os.path.splitdrive(directory_path)
+        path_segments = [part for part in path.split(os.path.sep) if part]
     else:
-        fnsp = filename.split(os.path.sep)
+        drive = ''
+        path_segments = [part for part in regular_expression.split(os.path.sep) if part]
 
-    # handle absolute path
-    if fnsp[0] == '':  # absolute path
-        files = [os.path.sep]
-        fnsp.pop(0)
-    else:  # relative path
-        if absolute:
-            files = [os.path.abspath(os.curdir)]
-        else:
-            files = ['.']
+    # Initial files list with root directory
+    files = [drive + os.path.sep] if drive else ['.']
 
-    # handle pure directory expression -> all files
-    if len(fnsp) > 0 and fnsp[-1] == '':
-        fnsp[-1] = '.*'
+    # Traverse directories up to the target directory
+    for part in path_segments:
+        newfiles = []
+        for f in files:
+            full_path = os.path.join(f, part)
+            if os.path.isdir(full_path):
+                newfiles.append(full_path)
+        files = newfiles
+
+    # Apply the filename pattern in the target directories
+    final_pattern = re.compile(regex_pattern)
+    matched_files = []
+    for f in files:
+        for item in list_dir(f):
+            full_path = os.path.join(f, item)
+            if final_pattern.search(item):
+                matched_files.append(full_path)
 
     if groups is None:
-        # no group info
-        for n in fnsp:
-            search = re.compile(n).search
-            newfiles = []
-            for f in files:
-                matches = map(search, list_dir(f))
-                matches = [x for x in matches if x]
-                for m in matches:
-                    if f.endswith(os.path.sep):
-                        newfiles.append(f + m.string)
-                    else:
-                        newfiles.append(f + os.path.sep + m.string)
-            files = newfiles
+        return matched_files
 
-        return files
+    # Extract group information if groups are specified
+    infos = []
+    for f in matched_files:
+        match = final_pattern.search(os.path.basename(f))
+        if match:
+            info = [match.group(g) for g in groups]
+            infos.append(info)
 
-    else:  # with group info
-        infos = [[None for x in groups]]
-        for n in fnsp:
-            search = re.compile(n).search
-            newfiles = []
-            newinfos = []
-
-            for f, i in zip(files, infos):
-                matches = map(search, list_dir(f))
-                matches = [x for x in matches if x]
-                for m in matches:
-                    if f.endswith(os.path.sep):
-                        newfiles.append(f + m.string)
-                    else:
-                        newfiles.append(f + os.path.sep + m.string)
-
-                    d = m.groupdict()
-                    ii = list(i)
-                    for k, v in d.items():
-                        try:
-                            j = groups.index(k)
-                            ii[j] = v
-                        except:
-                            pass
-                    newinfos.append(ii)
-
-            files = newfiles
-            infos = newinfos
-
-        return np.array(files), np.array(infos)
+    return np.array(matched_files), np.array(infos)
 
 
 def displacements(size, resolution=(1.0, 1.0), overlap=(0.0, 0.0), addOverlap=0, units='Microns'):
@@ -528,8 +606,8 @@ def xml_import(base_directory, size, resolution=(1.0, 1.0, 1.0), origin=(0.0, 0.
             stackdispl = [displ[0] * coli, displ[1] * rowi]
             te = tile_expression(row, col)
             dn, fn = os.path.split(te)
-            e = xml_import_stack(rowi, coli, z_range(row, col), stackdispl, stitchable=False, directory=dn,
-                                 expression=fn,
+            e = xml_import_stack(rowi, coli, z_range(row, col), stackdispl, stitchable=False, directory=".",
+                                 expression=te,
                                  dim=dim)
             stack.append(e)
 
@@ -550,36 +628,199 @@ def xml_import(base_directory, size, resolution=(1.0, 1.0, 1.0), origin=(0.0, 0.
         return xml_import_file
 
 
+# def xml_file_import(processed_directory, regular_expression, size=None, overlap=None, add_overlap=0, origin=None, resolution=None,
+#                     tiling=None, tile_expression=None, z_range=None, xml_import_file=None, as_string=False, ff=None,
+#                     manual=False, manual_data=None):
+#     """Creates the xml import file for TeraStitcher from a directory of image files and optional additional information
+#     Arguments:
+#       regularExpression (string): base directory or regular expression to infer the tiled image data, in the latter case use group names
+#                                   names 'col' and 'row' for the tile indices and 'z' for the z-plane indices
+#       size (tuple or None): volume size in pixel if None inferred from meta data
+#       overlap (tuple or None): the (x,y) overlap of the tiles in pixel, if None try to find info from metadata
+#       addOverlapp (tuple): additional overlap in pixel to increase posssible search radius
+#       origin (tuple or None): the origin of the image, if None then the tpypical value (0.0,0.0,0.0).
+#       resolution (tupl0 or None): the (x,y,z) resolution of the image in microns per pixel, if None try to find info from metadata
+#       tiling (tuple or  None): the (row,col) tiling dimensions, if None infer from 'row' and 'col' groups in regularExpression
+#       tileExpression (function or None): a function of (col,row) that returns a regular expression for the images in the (col,row) tile or None if that tile is missing,
+#                                          if None use the regular expression row and col group info
+#       zRange (function or None. all): a function of (col,row) that returns a the z range specifications for the (col,row) tile
+#                                       if None use the regular expression z group to infer this from first tile, if all infer this in detail for all tiles
+#       xmlImportFile (string or None): filename for the xml import file, if None return the xml tree, if all create 'TreaStitcher_import.xml' file in base directory
+#       asString (bool): if True return xml code as string, otherwise return as a xml tree
+#
+#     Returns:
+#       string: filename of the xml import file
+#
+#     Note:
+#       Example for a regular expression: r'/path/to/image/image_(?P<row>\d{2})_(?P<col>\d{2})_(?P<z>\d{4}).tif'
+#
+#     See also:
+#       :param manual:
+#       :func:`importData`
+#     """
+#
+#     ## origin
+#     if origin is None:
+#         origin = (0, 0, 0)
+#
+#     if manual:
+#         size = manual_data[0]
+#         resolution = manual_data[1]
+#         overlap = manual_data[2]
+#
+#     if ff != None:
+#
+#         first_file = find_first_file(ff)
+#         finfo = find_file_info(first_file)
+#
+#         if size is None:
+#             size = finfo['size']
+#
+#         if resolution is None:
+#             resolution = finfo['resolution']
+#
+#         if overlap is None:
+#             overlap = finfo['overlap']
+#
+#         for val, name in zip([size, overlap, resolution], ['size', 'overlap', 'resolution']):
+#             if val is None:
+#                 raise RuntimeError('cannot determine %s from file or input!' % name)
+#
+#     # infer size, resolution and overlap
+#     if ff == None:
+#
+#         if size is None or resolution is None or overlap is None:
+#             first_file = find_first_file(regular_expression)
+#
+#             finfo = find_file_info(first_file)
+#
+#             if size is None:
+#                 size = finfo['size']
+#
+#             if resolution is None:
+#                 resolution = finfo['resolution']
+#
+#             if overlap is None:
+#                 overlap = finfo['overlap']
+#
+#             for val, name in zip([size, overlap, resolution], ['size', 'overlap', 'resolution']):
+#                 if val is None:
+#                     raise RuntimeError('cannot determine %s from file or input!' % name)
+#
+#     if tiling is None or z_range is None or z_range is all:
+#         # infer tiling from regular expression
+#         # find file:
+#         fns, ids = find_file_list(processed_directory, regular_expression, groups=('row', 'col'))
+#         print("Files found:", fns)
+#         print("IDs found:", ids)
+#         fsize = io.data_size(ut.to_raw_string(fns[0]))
+#         dim = len(fsize)
+#
+#         ids = np.array(ids)
+#
+#         # get rid of invalid labels
+#         b = np.zeros(ids.shape[0], dtype=bool)
+#         for i in range(5 - dim):
+#             b = np.logical_or(b, np.equal(ids[:, i], None))
+#         b = np.logical_not(b)
+#         fns = fns[b]
+#         ids = ids[b]
+#
+#         if len(fns) == 0:
+#             raise RuntimeError(
+#                 'no files found that match the expression %s with row, col and z groups' % regular_expression)
+#
+#         # calculate tile dimensions
+#         rows = np.unique(ids[:, 0])
+#         nrows = len(rows)
+#
+#         cols = np.unique(ids[:, 1])
+#         ncols = len(cols)
+#
+#         if tiling is not None and tiling != (nrows, ncols):
+#             raise RuntimeWarning('specified tiling is different from inferred tiling, min tile number will be used !')
+#             tiling = (min(nrows, tiling[0]), min(ncols, tiling[1]))
+#             rows = rows[:tiling[0]]
+#             cols = cols[:tiling[1]]
+#         else:
+#             tiling = (nrows, ncols)
+#
+#         # zRanges
+#         if dim == 2:
+#             zs = np.unique(ids[:, 2])
+#             nzs = len(zs)
+#
+#             if z_range is None:
+#                 z_range = (0, nzs)
+#             elif z_range is all:
+#                 z_range = lambda row, col: (0, np.sum(np.logical_and(ids[:, 0] == row, ids[:, 1] == col)))
+#         else:
+#             nzs = fsize[2]
+#             z_range = (0, nzs)
+#
+#     else:
+#         rows = None
+#         cols = None
+#         fns = None
+#
+#         nzs = 0
+#         for row in range(tiling[0]):
+#             for col in range(tiling[1]):
+#                 nzs = max(nzs, z_range(row, col)[1])
+#
+#     size = tuple(size) + (nzs,)
+#
+#     # base directory and tile directories
+#     if fns is None:
+#         if first_file is None:
+#             fn = find_first_file(regular_expression, sort=False)
+#         else:
+#             fn = first_file
+#     else:
+#         fn = fns[0]
+#
+#     fdim = len(io.data_size(ut.to_raw_string(fn)))
+#
+#     fnsep = fn.split(os.path.sep)
+#     fesep = regular_expression.split(os.path.sep)
+#
+#     print(fnsep, fesep)
+#
+#     if len(fnsep) != len(fesep):
+#         raise RuntimeError('inconsistent file names and file expression!')
+#
+#     for i in range(len(fnsep)):
+#         if fnsep[i] != fesep[i]:
+#             base_directory = os.path.sep.join(fesep[:i])
+#             regular_expression = os.path.sep.join(fesep[i:])
+#             break
+#
+#     # tileExpression
+#     if tile_expression is None:
+#         def makeTileExpression(row, col):
+#             te = re.sub(r"\(\?P<row>.*?\)", str(row), regular_expression, count=1)
+#             return re.sub(r"\(\?P<col>.*?\)", str(col), te, count=1)
+#
+#         tile_expression = makeTileExpression
+#     elif isinstance(tile_expression, str):
+#         tileExpressionString = tile_expression
+#
+#         def makeTileExpression(row, col):
+#             te = re.sub(r"\(\?P<row>.*?\)", str(row), tileExpressionString, count=1)
+#             return re.sub(r'\(\?P<col>.*?\)', str(col), te, count=1)
+#
+#         tile_expression = makeTileExpression
+#
+#     # create xml import
+#     return xml_import(base_directory, size=size, resolution=resolution, origin=origin, overlap=overlap,
+#                       add_overlap=add_overlap, tiling=tiling, tile_expression=tile_expression, z_range=z_range,
+#                       rows=rows, cols=cols, dim=fdim, xml_import_file=xml_import_file, as_string=as_string)
+
+
 def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, origin=None, resolution=None,
                     tiling=None, tile_expression=None, z_range=None, xml_import_file=None, as_string=False, ff=None,
                     manual=False, manual_data=None):
-    """Creates the xml import file for TeraStitcher from a directory of image files and optional additional information
-    Arguments:
-      regularExpression (string): base directory or regular expression to infer the tiled image data, in the latter case use group names
-                                  names 'col' and 'row' for the tile indices and 'z' for the z-plane indices
-      size (tuple or None): volume size in pixel if None inferred from meta data
-      overlap (tuple or None): the (x,y) overlap of the tiles in pixel, if None try to find info from metadata
-      addOverlapp (tuple): additional overlap in pixel to increase posssible search radius
-      origin (tuple or None): the origin of the image, if None then the tpypical value (0.0,0.0,0.0).
-      resolution (tupl0 or None): the (x,y,z) resolution of the image in microns per pixel, if None try to find info from metadata
-      tiling (tuple or  None): the (row,col) tiling dimensions, if None infer from 'row' and 'col' groups in regularExpression
-      tileExpression (function or None): a function of (col,row) that returns a regular expression for the images in the (col,row) tile or None if that tile is missing,
-                                         if None use the regular expression row and col group info
-      zRange (function or None. all): a function of (col,row) that returns a the z range specifications for the (col,row) tile
-                                      if None use the regular expression z group to infer this from first tile, if all infer this in detail for all tiles
-      xmlImportFile (string or None): filename for the xml import file, if None return the xml tree, if all create 'TreaStitcher_import.xml' file in base directory
-      asString (bool): if True return xml code as string, otherwise return as a xml tree
-
-    Returns:
-      string: filename of the xml import file
-
-    Note:
-      Example for a regular expression: r'/path/to/image/image_(?P<row>\d{2})_(?P<col>\d{2})_(?P<z>\d{4}).tif'
-
-    See also:
-      :param manual:
-      :func:`importData`
-    """
+    """Creates the xml import file for TeraStitcher from a directory of image files and optional additional information."""
 
     ## origin
     if origin is None:
@@ -590,8 +831,7 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
         resolution = manual_data[1]
         overlap = manual_data[2]
 
-    if ff != None:
-
+    if ff is not None:
         first_file = find_first_file(ff)
         finfo = find_file_info(first_file)
 
@@ -609,8 +849,7 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
                 raise RuntimeError('cannot determine %s from file or input!' % name)
 
     # infer size, resolution and overlap
-    if ff == None:
-
+    if ff is None:
         if size is None or resolution is None or overlap is None:
             first_file = find_first_file(regular_expression)
 
@@ -630,11 +869,8 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
                     raise RuntimeError('cannot determine %s from file or input!' % name)
 
     if tiling is None or z_range is None or z_range is all:
-        # infer tiling from regular expression
-        # find file:
-        fns, ids = find_file_list(regular_expression, groups=('row', 'col', 'z'))
-        print(fns, ids)
-        fsize = io.data_size(fns[0])
+        fns, ids = find_file_list(regular_expression, groups=('row', 'col'))
+        fsize = io.data_size(ut.to_raw_string(fns[0]))
         dim = len(fsize)
 
         ids = np.array(ids)
@@ -700,10 +936,18 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
     else:
         fn = fns[0]
 
-    fdim = len(io.data_size(fn))
+    fdim = len(io.data_size(ut.to_raw_string(fn)))
 
     fnsep = fn.split(os.path.sep)
-    fesep = regular_expression.split(os.path.sep)
+    if platform.system().lower() == "windows":
+        match = re.search(r'stack_\\\[.*\]_', regular_expression)
+        if match:
+            directory_path = regular_expression[:match.start()]
+            regex_pattern = regular_expression[match.start():]
+        fesep = directory_path.split(os.path.sep)[:-1]
+        fesep.append(regex_pattern)
+    else:
+        fesep = directory_path.split(os.path.sep)
 
     if len(fnsep) != len(fesep):
         raise RuntimeError('inconsistent file names and file expression!')
@@ -713,9 +957,15 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
             base_directory = os.path.sep.join(fesep[:i])
             regular_expression = os.path.sep.join(fesep[i:])
             break
-
     # tileExpression
     if tile_expression is None:
+        # if platform.system().lower() == "windows":
+        #     def makeTileExpression(row, col):
+        #         te = re.sub(r"\(\?P<row>\\d\)", str(row), regular_expression, count=1)
+        #         te = re.sub(r"\(\?P<col>\\d\)", str(col), te, count=1)
+        #         te = te.replace("\\", "")
+        #         return te
+        # else:
         def makeTileExpression(row, col):
             te = re.sub(r"\(\?P<row>.*?\)", str(row), regular_expression, count=1)
             return re.sub(r"\(\?P<col>.*?\)", str(col), te, count=1)
@@ -734,6 +984,7 @@ def xml_file_import(regular_expression, size=None, overlap=None, add_overlap=0, 
     return xml_import(base_directory, size=size, resolution=resolution, origin=origin, overlap=overlap,
                       add_overlap=add_overlap, tiling=tiling, tile_expression=tile_expression, z_range=z_range,
                       rows=rows, cols=cols, dim=fdim, xml_import_file=xml_import_file, as_string=as_string)
+
 
 
 def base_directory_from_xml_import(xmlFile):
@@ -948,15 +1199,16 @@ def align_data(xml_import_file: object, slices: object = None, sub_region: objec
     else:
         xml_result_file = 'xml_displcomp.xml'
 
-    if verbose:
-        if silent_mode:
-            cmd = cmd + ("2>&1 | "
-                         "grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
-                         "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
+    if platform.system().lower() == "linux":
+        if verbose:
+            if silent_mode:
+                cmd = cmd + ("2>&1 | "
+                             "grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
+                             "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
 
-        ut.print_c("[INFO] Running pairwise displacement computation")
-    else:
-        cmd = cmd + (" > /dev/null 2>&1")
+            ut.print_c("[INFO] Running pairwise displacement computation")
+        else:
+            cmd = cmd + (" > /dev/null 2>&1")
     res = os.system(cmd)
 
     if res != 0:
@@ -1098,7 +1350,7 @@ def place_tiles(xml_threshold_file, algorithm=None, xml_result_file=None, verbos
     return xml_result_file
 
 
-def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=None, form=None, channel=None,
+def stitch_data(xml_placement_file, result_path, filename, algorithm=None, resolutions=None, form=None, channel=None,
                 sub_region=None,
                 bit_depth=None, block_size=None, compress=False, silent_mode=True):
     """Runs the final stiching step of TeraSticher
@@ -1125,6 +1377,7 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
       `TeraStitcher project step <https://github.com/abria/TeraStitcher/wiki/Step-6:-Merge>`_.
     """
 
+    system = platform.system().lower()
     check_sticher_initialized()
     global terastitcher_binary
 
@@ -1132,15 +1385,18 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
 
     cmd = cmd + '--projin="' + xml_placement_file + '" '
 
-    if len(result_path) > 3 and result_path[-4:] == '.tif':
-        if fu.is_file_expression(result_path, check=False):
-            form = 'TiledXY|2Dseries'
-            result_path, filename = os.path.split(result_path)
-        else:
-            form = 'TiledXY|3Dseries'
-            result_path, filename = os.path.split(result_path)
+    # if len(result_path) > 3 and result_path[-4:] == '.tif':
+    if fu.is_file_expression(filename, check=False):
+        form = 'TiledXY|2Dseries'
+        # if system == "windows":
+        #     result_path, filename = os.path.split(result_path)
+        # else:
+        #     result_path, filename = os.path.split(result_path)
     else:
-        filename = None
+        form = 'TiledXY|3Dseries'
+        # result_path, filename = os.path.split(result_path)
+    # else:
+    #     filename = None
 
     cmd = cmd + '--volout="' + result_path + '" '
 
@@ -1181,9 +1437,10 @@ def stitch_data(xml_placement_file, result_path, algorithm=None, resolutions=Non
         # print resultPath
     fu.create_directory(result_path, split=False)
 
-    if silent_mode:
-        cmd = cmd + ("2>&1 | grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
-                     "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
+    if platform.system().lower() == "linux":
+        if silent_mode:
+            cmd = cmd + ("2>&1 | grep --line-buffered -E 'PROGRESS:	[0-9]+%' | "
+                         "awk '{ printf \"\\r%s\", $0 fflush() } END { print \"\" }'")
 
     res = os.system(cmd)
 
@@ -1260,16 +1517,17 @@ def stitch_samples(raw_directory, **kwargs):
 
 def stitch_sample(sample_directory, **kwargs):
     print("")
+    system = platform.system().lower()
     sample_name = os.path.basename(sample_directory)
     for channel_to_stitch in kwargs["study_params"]["channels_to_stitch"]:
-        processed_folder = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
+        processed_folder = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")  # Fixme: CHANGE PROCESSED NAME
         processed_files_expression = "_".join([i for i in os.listdir(processed_folder) if
                                                i.endswith(".tif")][0].split("_")[:-2])
         stitched_folder = os.path.join(sample_directory, f"stitched_{channel_to_stitch}")
         if os.path.exists(processed_folder) and not os.path.exists(stitched_folder):
             ut.print_c(f"[INFO {sample_name}] Channel {channel_to_stitch}: Starting stitching!")
             processed_directory = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
-            expression_raw = rf"{processed_files_expression}_\[(?P<row>\d{{2}})\ x (?P<col>\d{{2}})\]_{channel_to_stitch}.tif"
+            regular_expression = rf"{processed_files_expression}_\[(?P<row>\d)\ x\ (?P<col>\d)\]_{channel_to_stitch}.tif"
 
             metadata_file = os.path.join(sample_directory, "scan_metadata.json")
             if not os.path.exists(metadata_file):
@@ -1282,7 +1540,7 @@ def stitch_sample(sample_directory, **kwargs):
             resolution = np.array([metadata["x_res"], metadata["y_res"], metadata["z_res"]])
             overlap = tile_size * (metadata["overlap"])
 
-            import_file = xml_file_import(os.path.join(processed_directory, expression_raw),
+            import_file = xml_file_import(os.path.join(processed_directory, regular_expression),
                                           manual=True,
                                           manual_data=[tile_size, resolution, overlap],
                                           xml_import_file=os.path.join(processed_directory,
@@ -1316,7 +1574,7 @@ def stitch_sample(sample_directory, **kwargs):
                                      xml_result_file=os.path.join(processed_directory, 'TeraStitcher_place.xml'),
                                      verbose=False)
 
-            result = stitch_data(place_file, result_path=os.path.join(stitched_folder, 'Z\d{4}.tif'),
+            result = stitch_data(place_file, result_path=stitched_folder, filename=r'Z\d{4}.tif',
                                  bit_depth=16, algorithm='SINBLEND')
 
         else:

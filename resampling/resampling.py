@@ -268,7 +268,7 @@ def orientation_to_permuation(orientation, inverse=False):
 def _resample_2d(index, source, sink, axes, shape, interpolation, n_indices, verbose):
     """Resampling helper function to use for parallel resampling of image slices"""
     if verbose:
-        pw.ProcessWriter(index).write(f"Resampling: Axes {axes}, slice {index[0]}/{n_indices}")
+        pw.ProcessWriter(index).write(f"Resampling: Axes {axes}, slice {index[0]+1}/{n_indices}")
 
     # slicing
     ndim = len(shape)

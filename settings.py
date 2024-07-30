@@ -60,7 +60,10 @@ Notes:
 """
 
 # path to TeraSticher installation
-terastitcher_path = os.path.join(external_path, 'terastitcher')
+if platform.system().lower() == "windows":
+    terastitcher_path = os.path.join(external_path, r'terastitcher\windows')
+else:
+    terastitcher_path = os.path.join(external_path, r'terastitcher/linux')
 """str: Absolue path to the TeraStitcher installation
 
 Notes:
