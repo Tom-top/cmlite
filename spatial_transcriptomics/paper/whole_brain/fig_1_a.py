@@ -29,8 +29,8 @@ dataset_colors = ["cyan", "magenta", "yellow", "black"]
 n_datasets = len(datasets)
 category_names = ["class", "subclass", "supertype", "cluster"]
 
-DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
-MAP_DIR = r"E:\tto\spatial_transcriptomics_results"  # PERSONAL
+DOWNLOAD_BASE = r"/default/path"  # PERSONAL
+MAP_DIR = r"/default/path"  # PERSONAL
 TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"whole_brain_mask.tif"))
 RESULTS_DIR = os.path.join(MAP_DIR, "results")
 
