@@ -7,7 +7,7 @@ import tifffile
 from utils.utils import assign_random_colors
 
 
-working_directory = r"E:\tto\spatial_transcriptomics_results\Semaglutide"  # PERSONAL
+working_directory = r"/default/path"  # PERSONAL
 file_list = [os.path.join(working_directory, i) for i in os.listdir(working_directory) if i.split("_")[1] == "16b"]
 
 for f in file_list:
