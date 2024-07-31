@@ -37,7 +37,7 @@ def save_tile(params, side, r, side_indices, c, ci, pattern, channel, saving_dir
         raise ut.CmliteError(f"Scanning pattern: {pattern} unrecognized!")
     metadata = params['reader'].get_image_dask_data("ZMYX", C=channel, I=side[0], M=tile_index, cores=25)
     tile = metadata.__array__()
-    tifffile.imwrite(os.path.join(saving_directory, f"{scan_name}_[{str(r).zfill(2)} x {str(ci).zfill(2)}]"
+    tifffile.imwrite(os.path.join(saving_directory, f"stack_[{str(r).zfill(2)} x {str(ci).zfill(2)}]"
                                                     f"_{channel}.tif"), tile)
 
 
@@ -69,7 +69,7 @@ def save_right_left_tiles(side, params, sample_name, kwargs, channel, file_name,
             metadata = params['reader'].get_image_dask_data("ZMYX", C=channel, I=side[0], M=center_tile_index, cores=25)
             center_tile = metadata.__array__()
             scan_name = params['scan_name'].split(".")[0]
-            tifffile.imwrite(os.path.join(params["temp_directory"], f"{scan_name}_[{str(r).zfill(2)} x "
+            tifffile.imwrite(os.path.join(params["temp_directory"], f"stack_[{str(r).zfill(2)} x "
                                                                     f"{str(params['c_tile']).zfill(2)}]_{channel}_{side[1]}.tif"),
                              center_tile)
 
@@ -152,6 +152,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
         scan_metadata = {
             "tile_x": reader.dims.X,
             "tile_y": reader.dims.Y,
+            "tile_z": reader.dims.Z,
             "x_res": reader.physical_pixel_sizes.X,
             "y_res": reader.physical_pixel_sizes.Y,
             "z_res": reader.physical_pixel_sizes.Z,
@@ -216,28 +217,29 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
                     f" folder already exists!")
 
     elif kwargs["study_params"]["scanning_system"] == "3i":
-        image_record = os.path.join(sample_directory, "ImageRecord.yaml")
-        with open(image_record, 'r') as yaml_file:
-            yaml_data = yaml_file.read()
-        yaml_documents = yaml_data.strip().split('---')[1].split('StartClass:')
-        # Initialize a list to store parsed data
-        # Process each YAML document individually
-        for doc in yaml_documents:
-            doc = "StartClass:" + doc
-            # Load the document as YAML
-            data = yaml.safe_load(doc)
-            # Append to the parsed_data list if valid data is loaded
-            try:
-                pixel_size = data["StartClass"]["mMicronPerPixel"]
-            except:
-                scan_metadata = {}
-        scan_metadata = {
-            "x_res": 6,
-            "y_res": 2.995,
-            "z_res": 2.995,
-        }
-        with open(os.path.join(sample_directory, "scan_metadata.json"), 'w') as json_file:
-            json.dump(scan_metadata, json_file, indent=4)
+        ut.CmliteError("Data from 3i is not supported just yet!")
+        # image_record = os.path.join(sample_directory, "ImageRecord.yaml")
+        # with open(image_record, 'r') as yaml_file:
+        #     yaml_data = yaml_file.read()
+        # yaml_documents = yaml_data.strip().split('---')[1].split('StartClass:')
+        # # Initialize a list to store parsed data
+        # # Process each YAML document individually
+        # for doc in yaml_documents:
+        #     doc = "StartClass:" + doc
+        #     # Load the document as YAML
+        #     data = yaml.safe_load(doc)
+        #     # Append to the parsed_data list if valid data is loaded
+        #     try:
+        #         pixel_size = data["StartClass"]["mMicronPerPixel"]
+        #     except:
+        #         scan_metadata = {}
+        # scan_metadata = {
+        #     "x_res": 6,
+        #     "y_res": 2.995,
+        #     "z_res": 2.995,
+        # }
+        # with open(os.path.join(sample_directory, "scan_metadata.json"), 'w') as json_file:
+        #     json.dump(scan_metadata, json_file, indent=4)
 
     elif kwargs["study_params"]["scanning_system"] == "bruker":
         sample_path = os.path.join(raw_directory, sample_name)
@@ -257,6 +259,7 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
             scan_metadata = {
                 "tile_x": data_shape[0],
                 "tile_y": data_shape[1],
+                "tile_z": data_shape[2],
                 "x_res": xy_res,
                 "y_res": xy_res,
                 "z_res": z_res,

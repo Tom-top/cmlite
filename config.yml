@@ -5,6 +5,7 @@ general_params:
 study_params:
   study_name: ""  # Name of the study
   scanning_system: "bruker"  # Options: zeiss; 3i; bruker
+  scanning_pattern: "z"  # Tilling pattern: z/s
   samples_to_process: []  # List of samples to be processed. If empty, runs on all.
   channels_to_stitch: [1, 5, 7]  # Channels to be stitched
   channels_to_segment: [5, 7]  # Channels to be segmented
