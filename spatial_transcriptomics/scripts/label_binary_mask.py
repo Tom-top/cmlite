@@ -48,17 +48,17 @@ grayscale_image = tifffile.imread(labeled_mask_path).astype("uint16")
 if grayscale_image.dtype != np.uint16:
     raise ValueError("The image is not 16-bit grayscale")
 # Assign random colors to the grayscale image
-colored_image = assign_random_colors(grayscale_image)
+colored_image = assign_random_colors(grayscale_image, color="FFAE6F")
 tifffile.imwrite(os.path.join(MAP_DIR, new_f_name), colored_image)
 
 REFERENCE_FILE = r"resources/atlas/gubra_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 
 ori = "horizontal"
-orix, oriy = 2, 0
+orix, oriy, mask_axis = 0, 1, 2
 xlim, ylim = 369, 512
 
-max_colored_image = np.max(colored_image, 1)
+max_colored_image = np.max(colored_image, oriy)
 # Assuming colored_image is your image with shape (512, 369, 3)
 height, width, channels = max_colored_image.shape
 # Calculate the midpoint of the width
@@ -75,10 +75,64 @@ colored_image_rgba[..., 3] = np.where(np.max(mirrored_image, axis=2) > 0, 1.0, 0
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.imshow(np.rot90(np.max(REFERENCE, axis=orix))[::-1], cmap='gray_r', alpha=0.3)  # Display the reference image
+ax.imshow(np.rot90(np.max(REFERENCE, axis=mask_axis))[::-1], cmap='gray_r', alpha=0.3)  # Display the reference image
 ax.imshow(colored_image_rgba)  # Display the RGBA colored image
 ax.set_xlim(0, xlim)
 ax.set_ylim(0, ylim)
 ax.invert_yaxis()
 ax.axis('off')
-fig.savefig(os.path.join(MAP_DIR, "rgb_" + f_name.split(".")[0] + ".png"), dpi=600)  # Save the figure
+fig.savefig(os.path.join(MAP_DIR, "rgb_" + f_name.split(".")[0] + f"_{ori}.png"), dpi=600)  # Save the figure
+
+
+ori = "sagittal"
+orix, oriy, mask_axis = 0, 1, 0
+xlim, ylim = 512, 268
+
+max_colored_image = np.max(colored_image, 0)
+# Create an RGBA version of colored_image
+colored_image_rgba = np.zeros((max_colored_image.shape[0], max_colored_image.shape[1], 4), dtype=np.float32)
+# Set the RGB channels
+colored_image_rgba[..., :3] = max_colored_image[..., :3] / max_colored_image.max()  # normalize RGB values if needed
+# Set the alpha channel: 0 where colored_image is 0, 1 otherwise
+colored_image_rgba[..., 3] = np.where(np.max(max_colored_image, axis=2) > 0, 1.0, 0.0)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(np.rot90(np.max(REFERENCE, axis=mask_axis))[::-1], cmap='gray_r', alpha=0.3)  # Display the reference image
+ax.imshow(colored_image_rgba)  # Display the RGBA colored image
+ax.set_xlim(0, xlim)
+ax.set_ylim(0, ylim)
+ax.invert_yaxis()
+ax.axis('off')
+fig.savefig(os.path.join(MAP_DIR, "rgb_" + f_name.split(".")[0] + f"_{ori}.png"), dpi=600)  # Save the figure
+
+
+ori = "coronal"
+orix, oriy, mask_axis = 2, 1, 1  # Projection = 1
+xlim, ylim = 369, 268
+
+
+max_colored_image = np.max(colored_image, 0)
+# Assuming colored_image is your image with shape (512, 369, 3)
+height, width, channels = max_colored_image.shape
+# Calculate the midpoint of the width
+midpoint = width // 2
+# Mirror the first half to the second half
+mirrored_image = max_colored_image.copy()
+mirrored_image[:, midpoint+1:] = max_colored_image[:, :midpoint][:, ::-1]
+# Create an RGBA version of colored_image
+colored_image_rgba = np.zeros((mirrored_image.shape[0], mirrored_image.shape[1], 4), dtype=np.float32)
+# Set the RGB channels
+colored_image_rgba[..., :3] = mirrored_image[..., :3] / mirrored_image.max()  # normalize RGB values if needed
+# Set the alpha channel: 0 where colored_image is 0, 1 otherwise
+colored_image_rgba[..., 3] = np.where(np.max(mirrored_image, axis=2) > 0, 1.0, 0.0)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(np.rot90(np.max(REFERENCE, axis=mask_axis))[::-1], cmap='gray_r', alpha=0.3)  # Display the reference image
+ax.imshow(colored_image_rgba)  # Display the RGBA colored image
+ax.set_xlim(0, xlim)
+ax.set_ylim(0, ylim)
+ax.invert_yaxis()
+ax.axis('off')
+fig.savefig(os.path.join(MAP_DIR, "rgb_" + f_name.split(".")[0] + f"_{ori}.png"), dpi=600)  # Save the figure

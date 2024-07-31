@@ -6,6 +6,7 @@ import numpy as np
 from natsort import natsorted
 
 import settings
+import utils.utils as ut
 
 
 class CmliteError(Exception):
@@ -85,11 +86,14 @@ def get_sample_names(raw_directory, **kwargs):
     return sample_names
 
 
-def hex_to_rgb(hex):
+def hex_to_rgb(hex, eight_bit=False):
     if hex == None:
         return None
     hex = hex.lstrip('#')
-    return tuple(int(hex[i:i + 2], 16)/255 for i in (0, 2, 4))
+    if eight_bit:
+        return tuple(int(hex[i:i + 2], 16) for i in (0, 2, 4))
+    else:
+        return tuple(int(hex[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
 def read_ano_json(ano_json):
@@ -121,7 +125,7 @@ def find_key_by_id(structure, target_id, key):
     return None
 
 
-def assign_random_colors(grayscale_image):
+def assign_random_colors(grayscale_image, color=""):
     # Find unique grayscale values in the image
     unique_values = np.unique(grayscale_image)
 
@@ -129,7 +133,10 @@ def assign_random_colors(grayscale_image):
     color_map = {}
     for value in unique_values:
         if value != 0:
-            color_map[value] = np.random.randint(0, 256, size=3)
+            if color:
+                color_map[value] = ut.hex_to_rgb(color, eight_bit=True)
+            else:
+                color_map[value] = np.random.randint(0, 256, size=3)
 
     # Create an empty image with the same dimensions as the grayscale image, but with 3 channels (RGB)
     colored_image = np.zeros((*grayscale_image.shape, 3), dtype=np.uint8)
