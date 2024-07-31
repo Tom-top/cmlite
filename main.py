@@ -76,9 +76,7 @@ for sample_name in sample_names:
     # 3.0 SEGMENT
     ####################################################################################################################
 
-    cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
-                        data_to_segment=None,
-                        save_segmented_cells=True, **parameters)
+    cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory, **parameters)
 
     ####################################################################################################################
     # 4.0 VOXELIZE
