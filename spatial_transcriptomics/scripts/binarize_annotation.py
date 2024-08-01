@@ -7,7 +7,7 @@ import utils.utils as ut
 # Define paths and cutoff value for binarization
 ref_directory = r"resources\atlas"
 ref_path = os.path.join(ref_directory, "gubra_annotation_mouse.tif")
-analysis_directory = ut.create_dir(r"E:\tto\spatial_transcriptomics_results\whole_brain")  # PERSONAL
+analysis_directory = ut.create_dir(r"/default/path")  # PERSONAL
 cutoff = 0  # Value above which all pixels will be kept for the mask. 0 = everything but background
 
 # Load and transpose the image
