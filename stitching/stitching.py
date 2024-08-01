@@ -1416,7 +1416,7 @@ def stitch_sample(sample_directory, **kwargs):
             if os.path.exists(mdata_file):
                 os.remove(mdata_file)
 
-            if not kwargs["stitching"]["z_subreg_alignment"]:
+            if len(kwargs["stitching"]["z_subreg_alignment"]) != 2:
                 middle_plane = int(n_z_planes / 2)
                 kwargs["stitching"]["z_subreg_alignment"] = np.array([middle_plane, middle_plane + 50])
             align_file = align_data(import_file,
