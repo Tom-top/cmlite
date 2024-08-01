@@ -276,11 +276,15 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             'Count': np.array([]),
         })
 
+        neurotransmitter_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_neurotransmitter.xlsx"), index=False)
+
         class_count_df = pd.DataFrame({
             'Color': np.array([]),
             'Label': np.array([]),
             'Count': np.array([]),
         })
+
+        class_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_class.xlsx"), index=False)
 
         subclass_count_df = pd.DataFrame({
             'Color': np.array([]),
@@ -288,17 +292,23 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             'Count': np.array([]),
         })
 
+        subclass_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_subclass.xlsx"), index=False)
+
         supertype_count_df = pd.DataFrame({
             'Color': np.array([]),
             'Label': np.array([]),
             'Count': np.array([]),
         })
 
+        supertype_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_supertype.xlsx"), index=False)
+
         cluster_count_df = pd.DataFrame({
             'Color': np.array([]),
             'Label': np.array([]),
             'Count': np.array([]),
         })
+
+        cluster_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_cluster.xlsx"), index=False)
 
         # CLASS
         if ONLY_NEURONS:
