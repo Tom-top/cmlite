@@ -4,8 +4,8 @@ import scripts.track_microscope_efficiency.utils as ut
 working_directory = r'G:\\'  # Replace with the path to your directory
 studies_to_analyze = []  # Replace with your actual study names
 saving_dir = r"/default/path"  # PERSONAL
-scanning_systems = ["M3", "M4"]  # Replace with your actual scanning system
-#"M1", "M2",
+scanning_systems = ["M3"]  # Replace with your actual scanning system
+#"M1", "M2",, "M2", "M3", "M4"
 
 for scanning_system in scanning_systems:
     timestamps, durations, date_to_study, valid_scan_percentages, sample_counts = ut.extract_timestamps(

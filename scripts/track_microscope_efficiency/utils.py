@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 
@@ -33,58 +34,75 @@ def extract_timestamps(working_directory, studies, scanning_system):
     date_to_study = {}
     valid_scan_percentages = {}
     sample_counts = {}
+    scanning_systems = ["M1", "M2", "M3", "M4"]
 
     if not studies:
         studies = [i for i in os.listdir(working_directory) if i.startswith("24-") or i.startswith("23-")
                    or i.startswith("22-")]
+    # studies = ["23-GUM041-0511-bruker"]
 
-    for folder in os.listdir(working_directory):
-        if folder in studies:
+    for folder in os.listdir(working_directory):  # ITERATE OVER EVERY FOLDER
+        if folder in studies:  # IF THE FOLDER IS IN THE LISTED STUDIES
             study_dir = os.path.join(working_directory, folder)
             keep_dir = os.path.join(study_dir, ".keep")
-            if os.path.exists(keep_dir):
-                ut.print_c(f"[INFO {folder}] Found .keep folder!")
+            if os.path.exists(keep_dir):  # IF THERE IS A .keep DIRECTORY
                 scan_summary_qc_file = os.path.join(keep_dir, "scan_summary_QC.csv")
-                if os.path.exists(scan_summary_qc_file):
+                if os.path.exists(scan_summary_qc_file):  # IF THERE IS A scan_summary_QC.csv FILE
+
+                    ####################################################################################################
+                    # THIS BASICALLY MEANS THAT THIS IS A VALID STUDY
+                    ####################################################################################################
+
                     print("")
                     ut.print_c(f"[INFO {folder}] Found QC summary file: {scan_summary_qc_file}!")
                     scan_summary_qc = pd.read_csv(scan_summary_qc_file)
 
+                    ####################################################################################################
                     # ATTEMPT TO FIND QC SUMMARY IN U DRIVE
-                    year_suffix = folder.split("-")[0]
+                    ####################################################################################################
+
+                    year_suffix = folder.split("-")[0]  # THIS WORKS ONLY WITH THE NEW STUDY NAME FORMAT
                     year = "20" + str(year_suffix)
                     year_dir_u = os.path.join(r'U:\\', year)
-                    if os.path.exists(year_dir_u):
-                        if folder.endswith("bruker"):
+                    if os.path.exists(year_dir_u):  # IF THE YEAR FOLDER EXISTS
+                        if folder.endswith("bruker"):  # IF THIS IS A STUDY SCANNED ON BRUKER
                             study_dir_u = os.path.join(year_dir_u, "-".join(folder.split("-")[:-1]))
-                        else:
+                        else:  # IF THIS IS A STUDY SCANNED ON LAVISION
                             study_dir_u = os.path.join(year_dir_u, folder)
-                        if os.path.exists(study_dir_u):
+                        if os.path.exists(study_dir_u):  # IF THE STUDY FOLDER EXISTS IN U: DRIVE
+                            # COLLECT ALL THE SCAN SUMMARY FILES TO MERGE THEM
+                            # FIXME: IDEALLY WE WANT TO AVOID THIS AND HAVE ONLY ONE VALID SCAN SUMMARY
                             scan_summary_qc_files = [os.path.join(study_dir_u, i) for i in os.listdir(study_dir_u)
                                                      if i.startswith("scan_summary") and i.endswith(".csv")]
-                            # scan_summary_qc_file = os.path.join(study_dir_u, "scan_summary_QC_tto.csv")
-                            if len(scan_summary_qc_files) >= 1:
+                            if len(scan_summary_qc_files) >= 1:  # IF THERE IS AT LEAST ONE SCAN SUMMARY FILE
                                 ut.print_c(f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary files!")
-                                # scan_summary_qc_path = os.path.join(study_dir_u, scan_summary_qc_file)
-                                # scan_summary_qc = pd.read_csv(scan_summary_qc_path)
-                                scan_summary_qc = merge_csv_files(scan_summary_qc_files)
+                                scan_summary_qc = merge_csv_files(scan_summary_qc_files)  # MERGE THE SCAN SUMMARY FILES
+                                scan_summary_qc.to_csv(os.path.join(study_dir_u, "merged_scan_summary.csv"),
+                                                       index=False)  # SAVE THE MERGED SCAN SUMMARY
 
-                                # Calculate the percentage of valid scans
+                                # CALCULATE THE PERCENTAGE OF VALID SCANS
                                 for_analysis_col = scan_summary_qc["for analysis"]
                                 all_scans = len(for_analysis_col)
                                 valid_scans = np.sum(for_analysis_col == "x")
                                 percent_valid_scans = (valid_scans / all_scans) * 100
                                 valid_scan_percentages[folder] = percent_valid_scans
 
-                                # Count the number of samples in the study
-                                # sample_counts[folder] = all_scans  # That is not accurate: sum of scans and rescans
+                                # COUNT THE NUMBER OF SAMPLES
                                 sample_counts[folder] = valid_scans
                             else:
+                                ut.print_c(f"[WARNING {folder}] No QC summary files were found!")
                                 valid_scan_percentages[folder] = None
                                 sample_counts[folder] = None
                         else:
+                            ut.print_c(f"[WARNING {folder}] No study folder was found on the U: drive!")
                             valid_scan_percentages[folder] = None
                             sample_counts[folder] = None
+
+                    ####################################################################################################
+                    #
+                    ####################################################################################################
+
+                    scanning_system_detected = False
 
                     if os.path.isdir(study_dir):
                         raw_dir = os.path.join(study_dir, ".raw")
@@ -102,9 +120,16 @@ def extract_timestamps(working_directory, studies, scanning_system):
                                     durations.append(scan_time)
                                     sample_dir = os.path.join(raw_dir, sample)
                                     split_sample_name = sample.split("_")
-                                    ss = [i for i in split_sample_name if i in ["M1", "M2", "M3", "M4"]]
+                                    ss = [i for i in split_sample_name if i in scanning_systems
+                                          or i.startswith(tuple(scanning_systems))]
                                     if len(ss) == 1:
                                         ss = ss[0]
+                                        if not scanning_system_detected:
+                                            scanning_system_detected = True
+                                            if ss == scanning_system:
+                                                ut.print_c(f"[INFO {folder}] Scanning system used: {ss}!")
+                                            else:
+                                                ut.print_c(f"[WARNING {folder}] Scanning system used: {ss}, fetching studies for {scanning_system}!")
                                     else:
                                         ut.print_c(f"[CRITICAL {folder}] Multiple scanning systems were detected!")
                                     if ss == scanning_system:
@@ -134,10 +159,14 @@ def extract_timestamps(working_directory, studies, scanning_system):
                                                         date_to_study[date][folder] = 0
                                                     date_to_study[date][folder] += scan_time
                                     else:
-                                        ut.print_c(f"[WARNING {folder}] Sample: {sample}. Scanning system is: {ss}!")
+                                        continue
+                                        # ut.print_c(f"[WARNING {folder}] Sample: {sample}. Scanning system is: {ss}!")
                                 else:
                                     ut.print_c(
-                                        f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")
+                                        f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")  # IF THE FOL
+                else:
+                    continue
+                    # ut.print_c(f"[WARNING {folder}] No QC summary file found!")
 
     return timestamps, durations, date_to_study, valid_scan_percentages, sample_counts
 
@@ -322,7 +351,7 @@ def plot_monthly_average_uptime(monthly_avg_uptime, scanning_system, year, savin
     :param year: The specific year for the plot.
     :param saving_dir: The directory where the plot will be saved.
     """
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(20, 6))
 
     # Plot the uptime bars
     plt.bar(monthly_avg_uptime['date'].dt.strftime('%b'), monthly_avg_uptime['uptime_percentage'], color='skyblue',
@@ -416,14 +445,17 @@ def merge_csv_files(file_paths):
     """
     Merge multiple CSV files so that if a scan is labeled in the "for analysis" column with an "x",
     it keeps the "x" in the merged result, while ensuring only unique sample names are retained.
+    If a sample has a rescan, the original sample is not labeled for analysis. Among multiple rescans,
+    only the highest-numbered rescan is labeled for analysis. If a sample is missing the 'scan time [secs]'
+    information, it is filled with the median of all available values, and a warning is printed.
 
     :param file_paths: List of file paths to CSV files.
-    :return: A merged DataFrame with unique sample names.
+    :return: A merged DataFrame with unique sample names, containing only 'sample name',
+             'for analysis', and 'scan time [secs]' columns.
     """
     merged_df = pd.DataFrame()
 
     for file in file_paths:
-        # print(f"Processing: {file}")
         # Read the CSV file
         df = pd.read_csv(file)
 
@@ -444,18 +476,68 @@ def merge_csv_files(file_paths):
             if col not in df.columns:
                 df[col] = ''  # Add the missing column with empty values
 
-        # Merge dataframes on relevant columns, ensuring that 'x' is retained in 'for analysis'
-        merge_keys = [col for col in required_columns if col != 'comments']
+        # Keep only the required columns
+        df = df[required_columns]
 
+        # Merge dataframes on 'sample name' only
         if merged_df.empty:
             merged_df = df
         else:
-            merged_df = pd.merge(merged_df, df, on=merge_keys, how='outer', suffixes=('', '_new'))
+            merged_df = pd.merge(merged_df, df, on='sample name', how='outer', suffixes=('', '_new'))
 
             # Safely combine the 'for analysis' columns
             if 'for analysis_new' in merged_df.columns:
                 merged_df['for analysis'] = merged_df[['for analysis', 'for analysis_new']].apply(
                     lambda x: 'x' if 'x' in x.values else '', axis=1)
                 merged_df = merged_df.drop(columns=['for analysis_new'])
+
+            # Combine 'scan time [secs]' columns (taking non-null values)
+            if 'scan time [secs]_new' in merged_df.columns:
+                merged_df['scan time [secs]'] = merged_df['scan time [secs]'].combine_first(
+                    merged_df['scan time [secs]_new'])
+                merged_df = merged_df.drop(columns=['scan time [secs]_new'])
+
+    # Ensure 'scan time [secs]' is treated as numeric, converting errors to NaN
+    merged_df['scan time [secs]'] = pd.to_numeric(merged_df['scan time [secs]'], errors='coerce')
+
+    # Now calculate the count of missing scan times
+    missing_scan_time_count = merged_df['scan time [secs]'].isna().sum()
+
+    if missing_scan_time_count > 0:
+        median_scan_time = merged_df['scan time [secs]'].median()
+        print(f"Warning: {missing_scan_time_count} samples are missing 'scan time [secs]'. "
+              f"Filling with the median value of {median_scan_time} seconds.")
+        merged_df['scan time [secs]'] = merged_df['scan time [secs]'].fillna(median_scan_time)
+
+    # Handle rescans: prioritize highest-numbered rescan and untick original sample
+    def process_rescans(group):
+        original_samples = group[~group['sample name'].str.contains('_rescan')]
+        rescan_samples = group[group['sample name'].str.contains('_rescan')]
+
+        if not rescan_samples.empty:
+            # Find the highest-numbered rescan
+            rescan_samples['rescan_number'] = rescan_samples['sample name'].apply(
+                lambda x: int(re.search(r'_rescan(\d+)', x).group(1)) if re.search(r'_rescan(\d+)', x) else 0
+            )
+            max_rescan_idx = rescan_samples['rescan_number'].idxmax()
+
+            # Mark only the highest-numbered rescan for analysis
+            rescan_samples['for analysis'] = ''
+            rescan_samples.at[max_rescan_idx, 'for analysis'] = 'x'
+
+            # Reset original sample's analysis marker
+            original_samples['for analysis'] = ''
+
+            # Combine the results, making sure not to duplicate
+            combined_samples = pd.concat([original_samples, rescan_samples.drop(columns=['rescan_number'])])
+
+            return combined_samples.drop_duplicates(subset='sample name')
+        else:
+            return group
+
+    # Apply processing to all sample groups
+    merged_df = merged_df.groupby(
+        merged_df['sample name'].str.extract(r'(.*)_rescan.*|(.+)')[0].fillna(merged_df['sample name']),
+        group_keys=False).apply(process_rescans)
 
     return merged_df
