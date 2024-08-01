@@ -13,6 +13,7 @@ dependencies:
   - natsort
   - numpy
   - pandas<2  # Groupby syntax changes
+  - openpyxl
   - scipy
   - opencv
   - tifffile<2020.9.22  # Adds "Use DimensionOrder to determine axes order in OmeXml." which breaks ClearMap.IO
