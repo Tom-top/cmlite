@@ -201,7 +201,7 @@ for m in maps:
             res_dir = os.path.join(map_path, fr"transcriptomics\full_data_plots")
             if not os.path.exists(res_dir):
                 os.mkdir(res_dir)
-            whole_brain_dir = os.path.join(res_dir, "whole_brain")
+            whole_brain_dir = os.path.join(res_dir, "fig_1")
             if not os.path.exists(whole_brain_dir):
                 os.mkdir(whole_brain_dir)
             mask = tifffile.imread(os.path.join(map_path, r"v5_to_v6\bin.tif"))

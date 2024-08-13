@@ -24,22 +24,25 @@ import utils.utils as ut
 from spatial_transcriptomics.utils.coordinate_manipulation import filter_points_in_3d_mask
 import spatial_transcriptomics.utils.plotting as st_plt
 
+ATLAS_USED = "gubra"
 DATASETS = [1, 2, 3, 4]
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster"]
-NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen"]
+NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
+PLOT_MOST_REPRESENTED_CATEGORIES = True
+PERCENTAGE_THRESHOLD = 50
 # categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
 categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
 
 ANO_DIRECTORY = r"resources\atlas"
-ANO_PATH = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.tif")
+ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
-ANO_JSON = os.path.join(ANO_DIRECTORY, "gubra_annotation_mouse.json")
+ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
 
 DOWNLOAD_BASE = r"/default/path"  # PERSONAL
-MAP_DIR = r"/default/path"  # PERSONAL
+MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
 WHOLE_REGION = True  # If true, the unprocessed mask will be used
 LABELED_MASK = True  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 PLOT_COUNTS_BY_CATEGORY = True  # If true plots the category plot
@@ -63,8 +66,16 @@ MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results")
 RESULTS_DIR = ut.create_dir(os.path.join(MAIN_RESULTS_DIR, "3d_views"))
 
 TRANSFORM_DIR = r"resources/abc_atlas"
-REFERENCE_FILE = r"resources/atlas/gubra_reference_mouse.tif"
+REFERENCE_FILE = fr"resources/atlas/{ATLAS_USED}_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
+REFERENCE_SHAPE = REFERENCE.shape
+
+ABC_ATLAS_DIRECTORY = r"resources\abc_atlas"
+CLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_class.xlsx"))
+SUBCLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_subclass.xlsx"))
+SUPERTYPE_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_supertype.xlsx"))
+CLUSTER_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_cluster.xlsx"))
+NEUROTRANSMITTER_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_neurotransmitter.xlsx"))
 
 ########################################################################################################################
 # ITERATE OVER EVERY BLOB (LABEL)
@@ -152,7 +163,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         cell_metadata_views.set_index('cell_label', inplace=True)
 
         # Fetch the transformed coordinates from the selected dataset
-        transformed_coordinates = np.load(os.path.join(TRANSFORM_DIR, f"all_transformed_cells_{dataset_n}.npy"))
+        transformed_coordinates = np.load(os.path.join(TRANSFORM_DIR, f"all_transformed_cells_{ATLAS_USED}_{dataset_n}.npy"))
 
         # Pre-calculate the chunks to run through in the selected dataset
         chunk_size = 10  # Size of each data chunk (voxels)
@@ -261,7 +272,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     unique_cells_cluster_color = np.array(cells_cluster_colors_merged)[unique_indices]
 
     # Create masks for neuronal cells
-    neuronal_mask_global = np.array(
+    non_neuronal_mask_global = np.array(
         [True if any([j in i for j in NON_NEURONAL_CELL_TYPES]) else False for i in cells_class_merged])
 
     ####################################################################################################################
@@ -276,15 +287,11 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             'Count': np.array([]),
         })
 
-        neurotransmitter_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_neurotransmitter.xlsx"), index=False)
-
         class_count_df = pd.DataFrame({
             'Color': np.array([]),
             'Label': np.array([]),
             'Count': np.array([]),
         })
-
-        class_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_class.xlsx"), index=False)
 
         subclass_count_df = pd.DataFrame({
             'Color': np.array([]),
@@ -292,15 +299,11 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             'Count': np.array([]),
         })
 
-        subclass_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_subclass.xlsx"), index=False)
-
         supertype_count_df = pd.DataFrame({
             'Color': np.array([]),
             'Label': np.array([]),
             'Count': np.array([]),
         })
-
-        supertype_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_supertype.xlsx"), index=False)
 
         cluster_count_df = pd.DataFrame({
             'Color': np.array([]),
@@ -308,13 +311,11 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             'Count': np.array([]),
         })
 
-        cluster_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_cluster.xlsx"), index=False)
-
         # CLASS
         if ONLY_NEURONS:
-            if neuronal_mask_global.size > 0:
-                cell_colors = np.array(cells_class_colors_merged)[~neuronal_mask_global]
-                unique_categories, unique_indices = np.unique(np.array(cells_class_merged)[~neuronal_mask_global],
+            if non_neuronal_mask_global.size > 0:
+                cell_colors = np.array(cells_class_colors_merged)[~non_neuronal_mask_global]
+                unique_categories, unique_indices = np.unique(np.array(cells_class_merged)[~non_neuronal_mask_global],
                                                               return_index=True)
             else:
                 cell_colors = np.array([])
@@ -435,30 +436,70 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                         df = pd.DataFrame({
                             'Color': unique_colors,
                             'Label': unique_categories,
+                            'Label_cluster': cl,
                             'Count': color_counts
                         })
                         neurotransmitter_sorted_df = df.sort_values(by='Count', ascending=False)
                         neurotransmitter_count_df = pd.concat([neurotransmitter_count_df, neurotransmitter_sorted_df],
                                                               axis=0)
 
+        # SAVE THE COUNTS
+        neurotransmitter_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_neurotransmitter.xlsx"), index=False)
+        class_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_class.xlsx"), index=False)
+        subclass_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_subclass.xlsx"), index=False)
+        supertype_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_supertype.xlsx"), index=False)
+        cluster_count_df.to_excel(os.path.join(SAVING_DIR, "counts_cells_cluster.xlsx"), index=False)
+
+        merged_class_count_df = pd.merge(class_count_df, CLASS_COUNTS, on='Label', suffixes=('_df', '_all'))
+        merged_class_count_df['Percentage'] = (merged_class_count_df['Count_df'] / merged_class_count_df[
+            'Count_all']) * 100
+
+        merged_subclass_count_df = pd.merge(subclass_count_df, SUBCLASS_COUNTS, on='Label', suffixes=('_df', '_all'))
+        merged_subclass_count_df['Percentage'] = (merged_subclass_count_df['Count_df'] / merged_subclass_count_df[
+            'Count_all']) * 100
+
+        merged_supertype_count_df = pd.merge(supertype_count_df, SUPERTYPE_COUNTS, on='Label', suffixes=('_df', '_all'))
+        merged_supertype_count_df['Percentage'] = (merged_supertype_count_df['Count_df'] / merged_supertype_count_df[
+            'Count_all']) * 100
+
+        merged_cluster_count_df = pd.merge(cluster_count_df, CLUSTER_COUNTS, on='Label', suffixes=('_df', '_all'))
+        merged_cluster_count_df['Percentage'] = (merged_cluster_count_df['Count_df'] / merged_cluster_count_df[
+            'Count_all']) * 100
+
+        merged_neurotransmitter_count_df = pd.merge(neurotransmitter_count_df, NEUROTRANSMITTER_COUNTS, on='Label_cluster', suffixes=('_df', '_all'))
+        merged_neurotransmitter_count_df['Percentage'] = (merged_neurotransmitter_count_df['Count_df'] / merged_neurotransmitter_count_df[
+            'Count_all']) * 100
+
         ut.print_c(f"[INFO] Generating plots for all categories!")
+        merged_data = [merged_class_count_df, merged_subclass_count_df, merged_supertype_count_df,
+                       merged_cluster_count_df, merged_neurotransmitter_count_df]
 
         st_plt.stacked_horizontal_bar_plot(
             categories,
-            [class_count_df, subclass_count_df, supertype_count_df, cluster_count_df, neurotransmitter_count_df],
-            os.path.join(SAVING_DIR, f"categories_neurons"),
+            merged_data,
+            SAVING_DIR,
+            plots_to_generate=["categories", "categories_labeled"],  # , "percentage"
+            colormap="viridis",
         )
-        st_plt.stacked_horizontal_bar_plot(
-            categories,
-            [class_count_df, subclass_count_df, supertype_count_df, cluster_count_df, neurotransmitter_count_df],
-            os.path.join(SAVING_DIR, f"categories_neurons_labeled"),
-            labeled=True,
-        )
+
+        # EXTRACT THE RELEVANT CATEGORIES TO DISPLAY
+        relevant_categories = []
+        if PLOT_MOST_REPRESENTED_CATEGORIES:
+            for d in merged_data:
+                for n in range(len(d)):
+                    try:
+                        cat_name = d.iloc[n]["Label"]
+                    except KeyError:
+                        cat_name = d.iloc[n]["Label_cluster"]
+                    cat_percentage = d.iloc[n]["Percentage"]
+                    if cat_percentage >= PERCENTAGE_THRESHOLD:
+                        relevant_categories.append(cat_name)
 
     ########################################################################################################
     # PLOT CELLS IN 3D
     ########################################################################################################
 
+    filtered_points_merged_conc = np.array([])
     filtered_points_merged = np.array(filtered_points_merged)
     cell_size = 0.5
 
@@ -466,8 +507,10 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         mirrored_filtered_points = filtered_points_merged.copy()
         if mirrored_filtered_points.size > 0:
             mirrored_filtered_points[:, 2] = REFERENCE.shape[0] - 1 - filtered_points_merged[:, 2]
-        filtered_points_merged = np.concatenate([filtered_points_merged, mirrored_filtered_points])
-        neuronal_mask_global = np.tile(neuronal_mask_global, 2)
+        if filtered_points_merged.shape[0] != filtered_points_merged_conc.shape[0]:
+            filtered_points_merged_conc = np.concatenate([filtered_points_merged, mirrored_filtered_points])
+        if non_neuronal_mask_global.shape[0] != filtered_points_merged_conc.shape[0]:
+            non_neuronal_mask_global = np.tile(non_neuronal_mask_global, 2)
 
     for n, cat in enumerate(categories):
 
@@ -481,23 +524,24 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         ########################################################################################################
         # HORIZONTAL 3D VIEW
         ########################################################################################################
-
         ori = "horizontal"
         orix, oriy, mask_axis = 2, 0, 1
-        xlim, ylim = 369, 512
-
-        # Only neurons, class colors, all experiments
-        st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
-                          orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
-                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
+        xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[1]
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
-            st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
                               orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
-                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))
+                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"),
+                              relevant_categories=relevant_categories, show_outline=False, zoom=False)
+        # Only neurons, class colors, all experiments
+        st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                          cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim,
+                          ylim=ylim,
+                          orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"),
+                          relevant_categories=relevant_categories, show_outline=False, zoom=False)
 
         ########################################################################################################
         # SAGITTAL 3D VIEW
@@ -505,20 +549,22 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         ori = "sagittal"
         orix, oriy, mask_axis = 0, 1, 2
-        xlim, ylim = 512, 268
-
-        # Only neurons, class colors, all experiments
-        st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
-                          orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
-                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
+        xlim, ylim = REFERENCE_SHAPE[1], REFERENCE_SHAPE[2]
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
-            st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
                               orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
-                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))
+                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"),
+                              relevant_categories=relevant_categories, show_outline=False, zoom=False)
+        # Only neurons, class colors, all experiments
+        st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                          cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim, ylim=ylim,
+                          orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"),
+                          relevant_categories=relevant_categories, show_outline=False, zoom=False)
+
 
         ########################################################################################################
         # CORONAL 3D VIEW
@@ -526,17 +572,19 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         ori = "coronal"
         orix, oriy, mask_axis = 2, 1, 0  # Projection = 1
-        xlim, ylim = 369, 268
-
-        # Only neurons, class colors, all experiments
-        st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                          cell_categories=points_cats, neuronal_mask=neuronal_mask_global, xlim=xlim, ylim=ylim,
-                          orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
-                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"))
+        xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[2]
 
         if not ONLY_NEURONS:
             # All cells, class colors, all experiments
-            st_plt.plot_cells(filtered_points_merged, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
-                              cell_categories=points_cats, neuronal_mask=None, xlim=xlim, ylim=ylim,
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
                               orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
-                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"))
+                              saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}.png"),
+                              relevant_categories=relevant_categories, show_outline=False, zoom=False)
+        # Only neurons, class colors, all experiments
+        st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                          cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim,
+                          ylim=ylim,
+                          orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
+                          saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}.png"),
+                          relevant_categories=relevant_categories, show_outline=False, zoom=False)

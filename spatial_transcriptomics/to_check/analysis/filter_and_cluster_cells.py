@@ -186,8 +186,8 @@ n_cells_ccf = len(cell_metadata_ccf)
 transformed_coordinates = np.load(r"/mnt/data/spatial_transcriptomics/results/transformed_cells_to_gubra/"
                                   fr"general/all_transformed_cells_{dataset_n}.npy")
 
-# maps_path = r"/mnt/data/spatial_transcriptomics/results/whole_brain"
-# maps = ["whole_brain"]
+# maps_path = r"/mnt/data/spatial_transcriptomics/results/fig_1"
+# maps = ["fig_1"]
 maps_path = r"/mnt/data/spatial_transcriptomics/results/mpd5_pick1"
 maps = ["Pick-1_vs_Vehicle"]
 

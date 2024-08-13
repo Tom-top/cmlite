@@ -440,8 +440,8 @@ for m, (ccat, cat_vs, cat_cs) in enumerate(zip(category_names, category_unique_v
                 transformed_coordinates = np.load(r"/mnt/data/Grace/spatial_transcriptomics/results/transformed_cells_to_gubra/"
                                                   fr"general/all_transformed_cells_{dataset_n}.npy")
 
-                maps_path = r"/mnt/data/Grace/spatial_transcriptomics/results/whole_brain"
-                map = "whole_brain"
+                maps_path = r"/mnt/data/Grace/spatial_transcriptomics/results/fig_1"
+                map = "fig_1"
 
                 map_path = os.path.join(maps_path, map)
                 res_dir = os.path.join(map_path, "transcriptomics")

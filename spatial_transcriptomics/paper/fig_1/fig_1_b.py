@@ -172,7 +172,7 @@ for m, (ccat, cat_vs, cat_cs) in enumerate(zip(category_names, category_unique_v
                     # Eighth horizontal plot: All cells, class colors, all experiments
                     if i == 0 and n == 0:
                         fig1abc, ax1abc = setup_plot(n, i)
-                    plot_cells(n, i, fig1abc, ax1abc, cell_colors=cat_c, neuronal_mask=None,
+                    plot_cells(n, i, fig1abc, ax1abc, cell_colors=cat_c, non_neuronal_mask=None,
                                xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
                                saving_name=f"{saving_path}/{ccat}_{cat_v.replace('/', '-')}_{ori}.png", **plot_cells_params)
 
@@ -187,7 +187,7 @@ for m, (ccat, cat_vs, cat_cs) in enumerate(zip(category_names, category_unique_v
                     # Eighth sagittal plot: All cells, class colors, all experiments
                     if i == 0 and n == 0:
                         fig2abc, ax2abc = setup_plot(n, i)
-                    plot_cells(n, i, fig2abc, ax2abc, cell_colors=cat_c, neuronal_mask=None,
+                    plot_cells(n, i, fig2abc, ax2abc, cell_colors=cat_c, non_neuronal_mask=None,
                                xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=orix,
                                saving_name=f"{saving_path}/{ccat}_{cat_v.replace('/', '-')}_{ori}.png", **plot_cells_params)
 
@@ -202,6 +202,6 @@ for m, (ccat, cat_vs, cat_cs) in enumerate(zip(category_names, category_unique_v
                     # Eighth coronal plot: All cells, class colors, all experiments
                     if i == 0 and n == 0:
                         fig3abc, ax3abc = setup_plot(n, i)
-                    plot_cells(n, i, fig3abc, ax3abc, cell_colors=cat_c, neuronal_mask=None,
+                    plot_cells(n, i, fig3abc, ax3abc, cell_colors=cat_c, non_neuronal_mask=None,
                                xlim=xlim, ylim=ylim, orix=orix, oriy=oriy, orip=oriy,
                                saving_name=f"{saving_path}/{ccat}_{cat_v.replace('/', '-')}_{ori}.png", **plot_cells_params)

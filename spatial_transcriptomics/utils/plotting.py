@@ -7,6 +7,9 @@ import scipy.ndimage
 from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+import matplotlib.colors as mcolors
+from matplotlib.patches import Rectangle
+import tifffile
 
 import utils.utils as ut
 
@@ -37,185 +40,250 @@ def setup_plot(n, i):
         return fig, ax
 
 
-def plot_cells(filtered_points, reference, tissue_mask, neuronal_mask=None, cell_colors="black", cell_categories=None,
-               xlim=0, ylim=0, orix=0, oriy=1, orip=0, ori="", mask_axis=0, s=0.5, saving_path=""):
+def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, cell_colors="black", cell_categories=None,
+               xlim=0, ylim=0, orix=0, oriy=1, orip=0, ori="", mask_axis=0, s=0.5, saving_path="", relevant_categories=[],
+               show_outline=False, zoom=False):
+
+    # If at least one set of coordinates for a cell is given
     if filtered_points.size > 0:
-        if neuronal_mask is None:
+
+        ################################################################################################################
+        #  FILTER THE CELLS TO BE KEPT (ALL CELLS / NEURONS) AND FETCH
+        ################################################################################################################
+
+        if non_neuronal_mask is None:
             filtered_points_plot_x = filtered_points[:, orix]
             filtered_points_plot_y = filtered_points[:, oriy]
+            filtered_points_plot_z = filtered_points[:, mask_axis]
         else:
-            filtered_points_plot_x = filtered_points[:, orix][~neuronal_mask]
-            filtered_points_plot_y = filtered_points[:, oriy][~neuronal_mask]
+            filtered_points_plot_x = filtered_points[:, orix][~non_neuronal_mask]
+            filtered_points_plot_y = filtered_points[:, oriy][~non_neuronal_mask]
+            filtered_points_plot_z = filtered_points[:, mask_axis][~non_neuronal_mask]
             if type(cell_colors) != str and cell_colors.size > 0:
-                cell_colors = cell_colors[~neuronal_mask]
+                cell_colors = cell_colors[~non_neuronal_mask]
             if cell_categories.size > 0:
-                cell_categories = cell_categories[~neuronal_mask]
+                cell_categories = cell_categories[~non_neuronal_mask]
 
-        # Find the top 3 most abundant colors
         color_counts = Counter(cell_colors)
         sorted_color_counts = dict(sorted(color_counts.items(), key=lambda item: item[1], reverse=True))
         colors = list(sorted_color_counts.keys())
-        # counts = np.array([sorted_color_counts[i] for i in colors])
         categories = np.array([cell_categories[cell_colors == i][0] for i in colors])
-        max_proj_reference = np.rot90(np.max(reference, axis=orip))[::-1]
 
+        # If we keep only specific categories
+        if relevant_categories:
+            category_masks = np.array([True if i in relevant_categories else False for i in categories])
+            categories = categories[category_masks]
+            colors = np.array(colors)[category_masks]
+
+        ################################################################################################################
+        #  GENERATE THE REFERENCE OVERLAY IMAGE
+        ################################################################################################################
+
+        max_proj_reference = np.rot90(np.max(reference, axis=orip))[::-1]
+        ref_alpha = 0.2
         max_proj_mask = np.max(tissue_mask, mask_axis)
         if mask_axis == 2:
             max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
-        top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
+        top_left, bottom_right = find_square_bounding_box(max_proj_mask, 0)
+
         cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
 
         saving_file_name = os.path.basename(saving_path)
         split_path = saving_file_name.split(".")
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
-                  alpha=0.3)
-        ax.imshow(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]],
-                  alpha=1)
-        ax.set_xlim(0, cropped_ref.shape[0])
-        ax.set_ylim(0, cropped_ref.shape[-1])
-        ax.invert_yaxis()
-        ax.axis('off')
-        fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png"), dpi=300)
-        fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.svg"), dpi=300)
-        plt.close(fig)
-
-        for color, category in zip(colors, categories):
-
-            saving_dir = ut.create_dir(os.path.join(os.path.dirname(saving_path), category))
-            color_mask = np.array(cell_colors) == color
-
-            # top_colors = [color for color, count in color_counts.most_common(3)]
-
+        if not os.path.exists(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png")):
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.scatter(filtered_points_plot_x[color_mask], filtered_points_plot_y[color_mask], c=color, s=0.5,
+            ax.imshow(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                      alpha=0.3)
+            if show_outline:
+                ax.contour(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], levels=[0.5], colors='black',
+                           linewidths=1, alpha=0.5, linestyles='dashed')
+            ax.set_xlim(0, cropped_ref.shape[1])
+            ax.set_ylim(0, cropped_ref.shape[0])
+            ax.invert_yaxis()
+            ax.axis('off')
+            fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png"), dpi=300)
+            fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.svg"), dpi=300)
+            plt.close(fig)
+
+
+        if categories.size > 0:
+
+            for color, category in zip(colors, categories):
+
+                saving_dir = ut.create_dir(os.path.join(os.path.dirname(saving_path), category))
+                color_mask = np.array(cell_colors) == color
+
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.scatter(filtered_points_plot_x[color_mask], filtered_points_plot_y[color_mask], c=color, s=0.5,
+                           lw=0, edgecolors="black", alpha=1)
+                if show_outline:
+                    ax.contour(max_proj_mask, levels=[0.5], colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
+                ax.imshow(max_proj_reference, cmap='gray_r', alpha=ref_alpha)
+                ax.set_xlim(0, xlim)
+                ax.set_ylim(0, ylim)
+                ax.invert_yaxis()
+                ax.axis('off')
+                fig.savefig(os.path.join(saving_dir, saving_file_name), dpi=300)
+                plt.close(fig)
+
+                if zoom:
+
+                    # Zoom-in view
+                    # Adjust the filtered points to the new coordinate system
+                    adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
+                    adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
+
+                    # Calculate the area of the crop
+                    crop_height = bottom_right[0] - top_left[0]
+                    crop_width = bottom_right[1] - top_left[1]
+                    crop_area = crop_height * crop_width
+
+                    # Adjust the size of the points based on the crop area
+                    adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
+
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111)
+                    ax.scatter(adjusted_points_plot_x[color_mask], adjusted_points_plot_y[color_mask], c=color, s=adjusted_size,
+                               lw=0, edgecolors="black", alpha=1)
+                    ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                              alpha=ref_alpha)
+                    if show_outline:
+                        ax.contour(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], levels=[0.5],
+                                   colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
+                    print(xlim, ylim, cropped_ref.shape[1], cropped_ref.shape[0])
+                    ax.set_xlim(0, cropped_ref.shape[1])
+                    ax.set_ylim(0, cropped_ref.shape[0])
+                    ax.invert_yaxis()
+                    ax.axis('off')
+                    fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom." + split_path[-1]), dpi=300)
+                    fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom.svg"), dpi=300)
+                    plt.close(fig)
+
+                    ############################################################################################################
+                    # CONTOUR PLOT
+                    ############################################################################################################
+
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111)
+
+                    # Display the reference image
+                    ax.imshow(cropped_ref, cmap='gray_r', alpha=ref_alpha)
+                    ax.set_xlim(0, cropped_ref.shape[1])
+                    ax.set_ylim(0, cropped_ref.shape[0])
+                    ax.invert_yaxis()
+                    ax.axis('off')
+
+                    # Create contour plots for each of the colors
+                    x = adjusted_points_plot_x[color_mask]
+                    y = adjusted_points_plot_y[color_mask]
+
+                    if len(x) > 0 and len(y) > 0:
+                        # Create a higher resolution density map
+                        x_edges = np.linspace(0, cropped_ref.shape[1], cropped_ref.shape[1] * 2 + 1)
+                        y_edges = np.linspace(0, cropped_ref.shape[0], cropped_ref.shape[0] * 2 + 1)
+
+                        # Note the order of bins: numpy's histogram2d takes [y_edges, x_edges]
+                        heatmap, xedges, yedges = np.histogram2d(y, x, bins=[y_edges, x_edges])
+
+                        # Apply Gaussian smoothing
+                        sigma = 1.5  # Higher sigma for more smoothing
+                        smoothed_heatmap = scipy.ndimage.gaussian_filter(heatmap, sigma=sigma)
+
+                        # Adjust the levels to avoid emphasizing low-density regions
+                        min_level = np.percentile(smoothed_heatmap, 20)  # Exclude lower percentiles
+                        max_level = np.max(smoothed_heatmap)
+                        levels = np.linspace(min_level, max_level, 6)
+
+                        # Correct the extent to match the image orientation
+                        extent = [0, cropped_ref.shape[1], cropped_ref.shape[0], 0]
+
+                        # Calculate alpha values for each level, more transparent on outer levels
+                        alphas = np.linspace(0.1, 1.0,
+                                             len(levels) - 1)  # Transparency gradient from outer (0.1) to inner (1.0)
+
+                        for i in range(len(levels) - 1):
+                            ax.contour(smoothed_heatmap, levels=[levels[i], levels[i + 1]], colors=[color], alpha=alphas[i],
+                                       linewidths=1, extent=extent)
+
+                    if show_outline:
+                        ax.contour(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], levels=[0.5],
+                                   colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
+
+                    contour_saving_path = split_path[0] + "_contour." + split_path[-1]
+                    fig.savefig(os.path.join(saving_dir, contour_saving_path), dpi=300)
+                    fig.savefig(os.path.join(saving_dir, split_path[0] + "_contour.svg"), dpi=300)
+                    plt.close(fig)  # Close the figure to free up memory
+
+        if ori == "sagittal":
+            views = range(1)
+        else:
+            views = range(2)
+
+        for view in views:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
+            sorted_z_indices = np.argsort(filtered_points_plot_z)
+            if view == 0:
+                sorted_z_indices = sorted_z_indices[::-1]
+            # Apply this sorting to the x, y, and z coordinates
+            sorted_x_z = filtered_points_plot_x[sorted_z_indices]
+            sorted_y_z = filtered_points_plot_y[sorted_z_indices]
+            sorted_colors_z = cell_colors[sorted_z_indices]
+
+            ax.scatter(sorted_x_z, sorted_y_z, c=sorted_colors_z, s=0.1,
                        lw=0, edgecolors="black", alpha=1)
+            if show_outline:
+                ax.contour(max_proj_mask, levels=[0.5], colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
             ax.imshow(max_proj_reference, cmap='gray_r', alpha=0.3)
             ax.set_xlim(0, xlim)
             ax.set_ylim(0, ylim)
             ax.invert_yaxis()
             ax.axis('off')
-            fig.savefig(os.path.join(saving_dir, saving_file_name), dpi=300)
+            fig.savefig(os.path.join(os.path.dirname(saving_path), split_path[0] + f"_{view}." + split_path[-1]),
+                        dpi=300)
             plt.close(fig)
 
-            # Zoom-in view
-            # Adjust the filtered points to the new coordinate system
-            adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
-            adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
+            if zoom:
+                # Zoom-in view
+                max_proj_mask = np.max(tissue_mask, mask_axis)
+                if mask_axis == 2:
+                    max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
 
-            # Calculate the area of the crop
-            crop_height = bottom_right[0] - top_left[0]
-            crop_width = bottom_right[1] - top_left[1]
-            crop_area = crop_height * crop_width
+                top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
+                cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
 
-            # Adjust the size of the points based on the crop area
-            adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
+                # Adjust the filtered points to the new coordinate system
+                adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
+                adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.scatter(adjusted_points_plot_x[color_mask], adjusted_points_plot_y[color_mask], c=color, s=adjusted_size,
-                       lw=0, edgecolors="black", alpha=1)
-            ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
-                      alpha=0.3)
-            ax.set_xlim(0, cropped_ref.shape[0])
-            ax.set_ylim(0, cropped_ref.shape[-1])
-            ax.invert_yaxis()
-            ax.axis('off')
-            fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom." + split_path[-1]), dpi=300)
-            fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom.svg"), dpi=300)
-            plt.close(fig)
+                # Calculate the area of the crop
+                crop_height = bottom_right[0] - top_left[0]
+                crop_width = bottom_right[1] - top_left[1]
+                crop_area = crop_height * crop_width
 
-            ############################################################################################################
-            # CONTOUR PLOT
-            ############################################################################################################
+                # Adjust the size of the points based on the crop area
+                adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.imshow(cropped_ref, cmap='gray_r', alpha=0.3)
-            ax.set_xlim(0, cropped_ref.shape[1])
-            ax.set_ylim(0, cropped_ref.shape[0])
-            ax.invert_yaxis()
-            ax.axis('off')
-
-            # Create contour plots for each of the top 3 colors
-            x = adjusted_points_plot_x[color_mask]
-            y = adjusted_points_plot_y[color_mask]
-            if len(x) > 0 and len(y) > 0:
-                # Create a higher resolution density map
-                x_edges = np.linspace(0, cropped_ref.shape[1], cropped_ref.shape[1] * 2 + 1)
-                y_edges = np.linspace(0, cropped_ref.shape[0], cropped_ref.shape[0] * 2 + 1)
-                heatmap, xedges, yedges = np.histogram2d(y, x, bins=[y_edges, x_edges])
-
-                # Apply Gaussian smoothing
-                sigma = 1.5  # Higher sigma for more smoothing
-                smoothed_heatmap = scipy.ndimage.gaussian_filter(heatmap, sigma=sigma)
-
-                # Adjust the levels to avoid emphasizing low-density regions
-                min_level = np.percentile(smoothed_heatmap, 20)  # Exclude lower percentiles
-                max_level = np.max(smoothed_heatmap)
-                levels = np.linspace(min_level, max_level, 6)
-
-                extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-
-                # Calculate alpha values for each level, more transparent on outer levels
-                alphas = np.linspace(0.1, 1.0, len(levels) - 1)  # Transparency gradient from outer (0.1) to inner (1.0)
-
-                for i in range(len(levels) - 1):
-                    ax.contour(smoothed_heatmap, levels=[levels[i], levels[i + 1]], colors=[color], alpha=alphas[i],
-                               linewidths=1, extent=extent)
-
-            contour_saving_path = split_path[0] + "_contour." + split_path[-1]
-            fig.savefig(os.path.join(saving_dir, contour_saving_path), dpi=300)
-            fig.savefig(os.path.join(saving_dir, split_path[0] + "_contour.svg"), dpi=300)
-            plt.close(fig)  # Close the figure to free up memory
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.scatter(filtered_points_plot_x, filtered_points_plot_y, c=cell_colors, s=0.5,
-                   lw=0, edgecolors="black", alpha=1)
-        ax.imshow(max_proj_reference, cmap='gray_r', alpha=0.3)
-        ax.set_xlim(0, xlim)
-        ax.set_ylim(0, ylim)
-        ax.invert_yaxis()
-        ax.axis('off')
-        fig.savefig(saving_path, dpi=300)
-        plt.close(fig)
-
-        # Zoom-in view
-        max_proj_mask = np.max(tissue_mask, mask_axis)
-        if mask_axis == 2:
-            max_proj_mask = np.swapaxes(max_proj_mask, 0, 1)
-
-        top_left, bottom_right = find_square_bounding_box(max_proj_mask, 15)
-        cropped_ref = max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]
-
-        # Adjust the filtered points to the new coordinate system
-        adjusted_points_plot_x = filtered_points_plot_x - top_left[1]
-        adjusted_points_plot_y = filtered_points_plot_y - top_left[0]
-
-        # Calculate the area of the crop
-        crop_height = bottom_right[0] - top_left[0]
-        crop_width = bottom_right[1] - top_left[1]
-        crop_area = crop_height * crop_width
-
-        # Adjust the size of the points based on the crop area
-        adjusted_size = s * (1e5 / crop_area)  # Adjust this scaling factor as needed
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.scatter(adjusted_points_plot_x, adjusted_points_plot_y, c=cell_colors, s=adjusted_size,
-                   lw=0, edgecolors="black", alpha=1)
-        ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
-                  alpha=0.3)
-        ax.set_xlim(0, cropped_ref.shape[0])
-        ax.set_ylim(0, cropped_ref.shape[-1])
-        ax.invert_yaxis()
-        ax.axis('off')
-        fig.savefig(os.path.join(saving_dir, split_path[0] + "_zoom." + split_path[-1]), dpi=300)
-        plt.close(fig)
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.scatter(adjusted_points_plot_x, adjusted_points_plot_y, c=cell_colors, s=adjusted_size,
+                           lw=0, edgecolors="black", alpha=1)
+                ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                          alpha=ref_alpha)
+                if show_outline:
+                    ax.contour(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], levels=[0.5],
+                               colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
+                ax.set_xlim(0, cropped_ref.shape[0])
+                ax.set_ylim(0, cropped_ref.shape[-1])
+                ax.invert_yaxis()
+                ax.axis('off')
+                fig.savefig(os.path.join(os.path.dirname(saving_path), split_path[0] + f"_{view}_zoom." + split_path[-1]),
+                            dpi=300)
+                plt.close(fig)
 
 
 def find_square_bounding_box(mask, padding=10):
@@ -263,6 +331,7 @@ def stacked_bar_plot_atlas_regions(sorted_region_id_counts, region_id_counts_tot
     reversed_colors = sorted_colors[::-1]
 
     fraction_reversed_counts = np.array(counts[::-1]) / np.array(region_id_counts_total[::-1]) * 100
+    fraction_reversed_counts = [i if i <= 100 else 100 for i in fraction_reversed_counts]  # Fixme: Check why some region are above 100
 
     ####################################################################################################################
     # NUMBER OF VOXELS FROM THE BLOB IN REGION
@@ -354,48 +423,96 @@ def bar_plot(cells_color, unique_cells, unique_cells_color, saving_path, n_bars=
     plt.savefig(saving_path, dpi=300)
 
 
-def stacked_horizontal_bar_plot(categories, data_categories, saving_path, labeled=False):
-    fig = plt.figure(figsize=(15, 10))
-    gs = fig.add_gridspec(len(data_categories), 1, hspace=0.1)  # Adjust hspace for better spacing
+def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_to_generate=["categories"],
+                                colormap="viridis"):
+    saving_directory = saving_path
+    cmap = plt.get_cmap(colormap)  # You can choose different colormaps like 'plasma', 'inferno', etc.
+    lw = 0.05
 
-    previous_right_ends = None
+    for plot in plots_to_generate:
 
-    for n, (cat, data) in enumerate(zip(categories, data_categories)):
-        ax = fig.add_subplot(gs[n])
+        previous_right_ends = None
+        fig = plt.figure(figsize=(15, 10))
+        gs = fig.add_gridspec(len(data_categories), 2, width_ratios=[0.95, 0.05], wspace=0.05)  # Add space for colorbar
 
-        left = 0
-        current_right_ends = []
-        for index, row in data.iterrows():
-            bar = ax.barh(0, row['Count'], left=left, color=row['Color'], edgecolor="black", lw=0.5, zorder=1)
-            current_right_ends.append(left + row['Count'])
+        for n, (cat, data) in enumerate(zip(categories, data_categories)):
 
-            if labeled:
-                ax.text(left + row['Count'] / 2, 0, str(row['Label']) + "\n" + str(row['Count']),
-                        ha='center', va='center', fontsize=4, zorder=3,
-                        rotation=90)
+            # Sorting the dataframe by the numeric part of the 'Label' column
+            if cat == "neurotransmitter":
+                data['Label_Number'] = data['Label_cluster'].str.extract(r'(\d+)').astype(int)
+            else:
+                data['Label_Number'] = data['Label'].str.extract(r'(\d+)').astype(int)
+            data = data.sort_values(by='Label_Number').drop(columns=['Label_Number'])
 
-            left += row['Count']
+            ax = fig.add_subplot(gs[n, 0])
 
-        if previous_right_ends is not None:
-            for prev_right_end, curr_right_end in zip(previous_right_ends, current_right_ends):
-                ax.plot([prev_right_end, prev_right_end], [1, 0], color='black', lw=0.5, clip_on=False, zorder=2)
+            left = 0
+            current_right_ends = []
+            for index, row in data.iterrows():
+                # Calculate the width for the full opacity part
+                if plot.startswith("categories"):
+                    full_opacity_width = row['Count_df']
+                    # Draw the full opacity part
+                    bar_full_opacity = ax.barh(0, full_opacity_width, left=left, color=row['Color_df'],
+                                               edgecolor="black", lw=lw, zorder=1)
+                    left += full_opacity_width
+                elif plot.startswith("percentage"):
+                    full_opacity_width = row['Count_df']
+                    normalized = float(row['Percentage'] / 100)
+                    colors = cmap(normalized)
+                    bar_full_opacity = ax.barh(0, full_opacity_width, left=left, color=colors,  #row['Color_df']
+                                               edgecolor="black", lw=lw, zorder=1)
+                    left += full_opacity_width
+                current_right_ends.append(left)
 
-        previous_right_ends = current_right_ends
+                if plot.endswith("labeled"):
+                    if cat != "neurotransmitter":
+                        ax.text(left - (row['Count_df'] / 2), 0, str(row['Label']) + "\n" + str(row['Count_df']),
+                                ha='center', va='center', fontsize=4, zorder=3,
+                                rotation=90)
+                    else:
+                        ax.text(left - (row['Count_df'] / 2), 0, str(row['Label_cluster']) + "\n" + str(row['Count_df']),
+                                ha='center', va='center', fontsize=4, zorder=3,
+                                rotation=90)
 
-        if n + 1 == len(data_categories):
-            ax.set_xlabel('Number of Cells', fontsize=10)
-        else:
-            ax.set_xticks([])
-            ax.spines['bottom'].set_visible(False)
+            if previous_right_ends is not None:
+                for prev_right_end, curr_right_end in zip(previous_right_ends, current_right_ends):
+                    ax.plot([prev_right_end, prev_right_end], [0.8, 0.4], color='black', lw=0.1, clip_on=False, zorder=2)
 
-        ax.set_ylabel(cat + ": " + str(len(data)), fontsize=10)
-        ax.set_yticks([])
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.set_xlim(0, sum(data['Count']))
-        ax.set_ylim(-0.5, 0.5)
+            previous_right_ends = current_right_ends
 
-    plt.tight_layout()
-    plt.savefig(saving_path + ".png", dpi=300)
-    plt.savefig(saving_path + ".svg", dpi=300)
+            if n + 1 == len(data_categories):
+                ax.set_xlabel('Number of Cells', fontsize=10)
+            else:
+                ax.set_xticks([])
+                ax.spines['bottom'].set_visible(False)
+
+            ax.set_ylabel(cat + ": " + str(len(data)), fontsize=10)
+            ax.set_yticks([])
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.set_xlim(0, sum(data['Count_df']))
+            ax.set_ylim(-0.5, 0.5)
+
+        # Add a single colorbar to the entire figure
+        if plot.startswith("percentage"):
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=100))
+            sm.set_array([])
+            cbar_ax = fig.add_subplot(gs[:, 1])  # Allocate the colorbar area on the right
+            cbar = fig.colorbar(sm, cax=cbar_ax, orientation='vertical')
+            cbar.set_label('Percentage')
+
+        # plt.tight_layout()
+
+        if plot.startswith("categories"):
+            saving_path = os.path.join(saving_path, "categories")
+        if plot.startswith("percentage"):
+            saving_path = os.path.join(saving_path, "percentage")
+        if plot.endswith("labeled"):
+            saving_path = saving_path + "_labeled"
+
+        plt.savefig(saving_path + ".png", dpi=300)
+        plt.savefig(saving_path + ".svg", dpi=300)
+        saving_path = saving_directory
+        plt.close()

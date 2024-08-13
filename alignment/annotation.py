@@ -646,68 +646,73 @@ def prepare_annotation_files(slicing=None, directory=None, postfix=None, overwri
     metadatas = []
     for atlas in kwargs["study_params"]["atlas_to_use"]:
 
-        atlas_name = atlas.split("_")[1]
-        atlas_species = atlas.split("_")[0]
-        annotation_file = os.path.join("resources/atlas",
-                                       f"{atlas_name}_annotation_{atlas_species}.tif")
-        if kwargs["study_params"]["no_bulbs"] and atlas_name == "gubra":
-            reference_file = os.path.join("resources/atlas",
-                                           f"{atlas_name}_reference_nb_{atlas_species}.tif")
-        else:
-            reference_file = os.path.join("resources/atlas",
-                                          f"{atlas_name}_reference_{atlas_species}.tif")
-        metadata_file = os.path.join("resources/atlas",
-                                       f"{atlas_name}_annotation_{atlas_species}.json")
-        orientation = kwargs["study_params"]["sample_permutation"]
+        for resolution in ["", "_10um"]:
 
-        files = [annotation_file, reference_file]
-        results = [annotations, references]
-
-        for f_path, result in zip(files, results):
-            if f_path is not None:
-                fn = __format_annotation_filename(f_path, orientation=orientation, slicing=slicing, postfix=postfix,
-                                                  directory=directory)
-                if verbose:
-                    print('Preparing: %r' % fn)
-
-                if not overwrite and fu.is_file(fn):
-                    if verbose:
-                        print('Atlas file exists, skipping')
-                    result.append(fn)
-                    continue
-
-                if not fu.is_file(f_path):
-                    raise ValueError(f'Cannot find annotation file: {f_path}')
-
-                s = io.as_source(f_path)
-                if verbose:
-                    print('Preparing: from source %r' % s)
-
-                data = np.array(s.array)
-
-                if orientation is not None:
-                    # permute
-                    per = res.orientation_to_permuation(orientation)
-                    data = data.transpose(per)
-
-                    # reverse axes
-                    re_slice = False
-                    sl = [slice(None)] * data.ndim
-                    for d, o in enumerate(orientation):
-                        if o < 0:
-                            sl[d] = slice(None, None, -1)
-                            re_slice = True
-                    if re_slice:
-                        data = data[tuple(sl)]
-
-                if slicing is not None:
-                    data = data[slicing]
-                io.write(fn, data)
-                result.append(fn)
+            atlas_name = atlas.split("_")[1]
+            atlas_species = atlas.split("_")[0]
+            annotation_file = os.path.join("resources/atlas",
+                                           f"{atlas_name}_annotation_{atlas_species}{resolution}.tif")
+            if kwargs["study_params"]["no_bulbs"] and atlas_name == "gubra":
+                reference_file = os.path.join("resources/atlas",
+                                               f"{atlas_name}_reference_nb_{atlas_species}{resolution}.tif")
             else:
-                result.append(None)
+                reference_file = os.path.join("resources/atlas",
+                                              f"{atlas_name}_reference_{atlas_species}{resolution}.tif")
+            metadata_file = os.path.join("resources/atlas",
+                                           f"{atlas_name}_annotation_{atlas_species}.json")
+            orientation = kwargs["study_params"]["sample_permutation"]
 
-        metadatas.append(metadata_file)
+            files = [annotation_file, reference_file]
+            results = [annotations, references]
+
+            for f_path, result in zip(files, results):
+                if f_path is not None:
+                    fn = __format_annotation_filename(f_path, orientation=orientation, slicing=slicing, postfix=postfix,
+                                                      directory=directory)
+                    if verbose:
+                        print('Preparing: %r' % fn)
+
+                    if not overwrite and fu.is_file(fn):
+                        if verbose:
+                            print('Atlas file exists, skipping')
+                        if not resolution:
+                            result.append(fn)
+                        continue
+
+                    if not fu.is_file(f_path):
+                        raise ValueError(f'Cannot find annotation file: {f_path}')
+
+                    s = io.as_source(f_path)
+                    if verbose:
+                        print('Preparing: from source %r' % s)
+
+                    data = np.array(s.array)
+
+                    if orientation is not None:
+                        # permute
+                        per = res.orientation_to_permuation(orientation)
+                        data = data.transpose(per)
+
+                        # reverse axes
+                        re_slice = False
+                        sl = [slice(None)] * data.ndim
+                        for d, o in enumerate(orientation):
+                            if o < 0:
+                                sl[d] = slice(None, None, -1)
+                                re_slice = True
+                        if re_slice:
+                            data = data[tuple(sl)]
+
+                    if slicing is not None:
+                        data = data[slicing]
+                    io.write(fn, data)
+                    if not resolution:
+                        result.append(fn)
+                else:
+                    if not resolution:
+                        result.append(None)
+
+            metadatas.append(metadata_file)
 
     return annotations, references, metadatas
 
