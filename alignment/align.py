@@ -635,9 +635,12 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                 ########################################################################################################
 
                 reference_split = reference.split(".")
+                reference_split_u = reference_split[0].split("_")
+                reference_10um_path = ("_".join(reference_split_u[:-4]) + "_10um_" + "_".join(reference_split_u[-4:])
+                                       + "." + reference_split[-1])
                 auto_to_reference_aba_directory = os.path.join(sample_directory,
                                                                f"{atlas}_auto_to_reference_10um_{channel}")
-                align_auto_to_reference_10um = dict(fixed_image_path=reference_split[0] + "_10um." + reference_split[-1],
+                align_auto_to_reference_10um = dict(fixed_image_path=reference_10um_path,
                                                     moving_image_path=os.path.join(sample_directory,
                                                                                    f"resampled_10um_"
                                                                                    f"{kwargs['study_params']['autofluorescence_channel']}.tif"),
@@ -659,11 +662,13 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                 # 2.6.2 TRANSFORM SIGNAL TO REFERENCE
                 ########################################################################################################
 
-                signal_to_reference_10um_directory = os.path.join(sample_directory, f"{atlas}_signal_to_reference_10um_{channel}")
+                signal_to_reference_10um_directory = os.path.join(sample_directory,
+                                                                  f"{atlas}_signal_to_reference_10um_{channel}")
                 transform_atlas_parameter = dict(
                     source=os.path.join(sample_directory, f"resampled_10um_{channel}.tif"),
                     result_directory=signal_to_reference_10um_directory,
-                    transform_parameter_file=os.path.join(auto_to_reference_aba_directory, f"TransformParameters.1.txt"))
+                    transform_parameter_file=os.path.join(auto_to_reference_aba_directory,
+                                                          f"TransformParameters.1.txt"))
                 if not os.path.exists(signal_to_reference_10um_directory):
                     ut.print_c(
                         f"[INFO {sample_name}] Running signal to {atlas} reference (10um) transform for channel {channel}!")
@@ -725,7 +730,8 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                             view_space_for_other_hemisphere='flatmap_butterfly',
                             thickness_type="normalized_layers",  # each layer will have the same thickness everwhere
                             layer_thicknesses=layer_thicknesses,
-                            streamline_layer_thickness_file=os.path.join(cortical_flatmaps_directory, "cortical_layers_10_v2.h5"),
+                            streamline_layer_thickness_file=os.path.join(cortical_flatmaps_directory,
+                                                                         "cortical_layers_10_v2.h5"),
                         )
 
                         auto_to_ABA_10um_path = os.path.join(signal_to_reference_10um_directory, "result.mhd")
@@ -752,7 +758,7 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                             # Normalize the array to the range 0-1
                             auto_to_ABA_10um_min = auto_to_ABA_10um.min()
                             auto_to_ABA_10um_max = auto_to_ABA_10um.max()
-                            auto_to_ABA_10um_norm = (auto_to_ABA_10um - auto_to_ABA_10um_min) /\
+                            auto_to_ABA_10um_norm = (auto_to_ABA_10um - auto_to_ABA_10um_min) / \
                                                     (auto_to_ABA_10um_max - auto_to_ABA_10um_min)
 
                             normalized_layers = proj_butterfly_slab.project_volume(auto_to_ABA_10um_norm)
@@ -834,10 +840,6 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
                         #     plt.plot(*boundary_coords.T, c="white", lw=0.5)
                         # plt.title("Layer 4")
                         # plt.savefig(os.path.join(signal_to_reference_10um_directory, "cortical_flatmap_layer_4.png"), dpi=300)
-
-
-
-
 
 # def permute_data(img, ):
 #     # permute

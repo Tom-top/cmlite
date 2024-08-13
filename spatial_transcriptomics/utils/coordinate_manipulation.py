@@ -2,6 +2,7 @@ import time
 
 import numpy as np
 
+
 def filter_points_in_3d_mask(arr_0, mask_1, verbose=False):
     start_time = time.time()
     int_coords = arr_0.astype(int)
@@ -38,3 +39,16 @@ def filter_coordinates_dim(coordinates, i, j, dim):
     mask = np.array([(point[dim] > i and point[dim] < j) for point in coordinates])
     filtered_coordinates = np.array([point for point, m in zip(coordinates, mask) if m])
     return filtered_coordinates, mask
+
+
+def sort_cells_and_get_indices(cell_counts):
+    # Convert the list to a numpy array for easier manipulation
+    cell_counts_array = np.array(cell_counts)
+    # Get indices that would sort the array from lowest to highest
+    ascending_indices = np.argsort(cell_counts_array)
+    # Reverse the indices to get highest to lowest
+    descending_indices = ascending_indices[::-1]
+    # Sort the cell counts array using the descending indices
+    sorted_cell_counts = cell_counts_array[descending_indices]
+
+    return sorted_cell_counts, descending_indices
