@@ -1,5 +1,7 @@
 __pychache__/
 .idea/
+external/elastix
+external/terastitcher
 resources/atlas
 resources/abc_atlas
 resources/z-score_maps
