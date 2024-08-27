@@ -96,6 +96,10 @@ def hex_to_rgb(hex, eight_bit=False):
         return tuple(int(hex[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
+def rgb_to_hex(rgb):
+    return '#{:02x}{:02x}{:02x}'.format(rgb[0], rgb[1], rgb[2])
+
+
 def read_ano_json(ano_json):
     with open(ano_json, 'r') as f:
         json_data = json.load(f)

@@ -20,7 +20,7 @@ import analysis.measurements.voxelization as vox
 # SET GLOBAL VARIABLES
 ########################################################################################################################
 
-ATLAS_USED = "aba"
+ATLAS_USED = "gubra"
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
 
 ########################################################################################################################
@@ -30,7 +30,7 @@ NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"
 DOWNLOAD_BASE = r'E:\tto\spatial_transcriptomics'  # PERSONAL
 URL = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
 MANIFEST = sut.fetch_manifest(URL)
-DATASETS = np.arange(1, 5, 1)
+DATASETS = np.arange(1, 6, 1)
 
 RESOURCES_DIR = "resources"
 ATLAS_DIR = os.path.join(RESOURCES_DIR, "atlas")
@@ -38,8 +38,7 @@ ATLAS_FILE = os.path.join(ATLAS_DIR, f"{ATLAS_USED}_annotation_mouse.tif")
 REFERENCE_FILE = os.path.join(ATLAS_DIR, f"{ATLAS_USED}_reference_mouse.tif")
 TRANSFORM_DIR = os.path.join(RESOURCES_DIR, "abc_atlas")
 
-WORKING_DIRECTORY = ut.create_dir(r"E:\tto\spatial_transcriptomics_results\whole_brain\results\3d_views")
-SAVING_DIRECTORY = ut.create_dir(os.path.join(WORKING_DIRECTORY, f"/default/path"))  # PERSONAL
+SAVING_DIRECTORY = ut.create_dir(r"/default/path")  # PERSONAL
 
 ########################################################################################################################
 # LOAD ATLAS AND REFERENCE
@@ -53,7 +52,10 @@ transformed_coordinates_neurons = []
 
 for dataset_n in DATASETS:
 
-    dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    if dataset_n < 5:
+        dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    else:
+        dataset_id = f"MERFISH-C57BL6J-638850"
     metadata = MANIFEST['file_listing'][dataset_id]['metadata']
     metadata_with_clusters = metadata['cell_metadata_with_cluster_annotation']
     metadata_ccf = MANIFEST['file_listing'][f'{dataset_id}-CCF']['metadata']

@@ -7,7 +7,7 @@ import tifffile
 from utils.utils import assign_random_colors
 
 
-working_directory = r"/default/path"  # PERSONAL
+working_directory = r"U:\Users\FSO\23-GUM041-0511\visualization\coronal_atlas_overlay"  # PERSONAL
 file_list = [os.path.join(working_directory, i) for i in os.listdir(working_directory) if i.split("_")[1] == "16b"]
 
 for f in file_list:

@@ -132,6 +132,36 @@ cpdef void devolve_weights(point_t[:,:] points, weight_t[:] weights, index_t[:,:
           sink[j] += <sink_t>weights[n];
     
   return;
+
+
+#@cython.boundscheck(False)
+#@cython.wraparound(False)
+cpdef void devolve_weights_intensity(point_t[:,:] points, weight_t[:] weights, index_t[:,:] indices, sink_t[:] sink, sink_t[:] weight_sum, index_t[:] shape, index_t[:] strides, int processes) nogil:
+  """Converts a list of points into an volumetric image array, averaging the signal locally using weights."""
+
+  cdef index_t i, j, k, v, d, n
+  cdef index_t n_points  = points.shape[0];
+  cdef index_t n_sink    = sink.shape[0];
+  cdef index_t n_indices = indices.shape[0];
+  cdef index_t n_dim     = strides.shape[0];
+
+  with nogil, parallel(num_threads = processes):
+    for n in prange(n_points, schedule='guided'):
+      for i in range(n_indices):
+        j = 0;
+        v = 1;
+        for d in range(n_dim):
+          k = <index_t>points[n,d] + indices[i,d];
+          if not (0 <= k and k < shape[d]):
+            v = 0;
+            break;
+          else:
+            j = j + k * strides[d];
+        if v == 1:
+          sink[j] += <sink_t>weights[n];
+          weight_sum[j] += <sink_t>1;  # Increment the weight sum at the sink location
+
+  return;
   
   
 #@cython.boundscheck(False)

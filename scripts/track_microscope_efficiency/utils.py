@@ -293,7 +293,7 @@ def calculate_monthly_average_uptime(uptime_df, year):
 
     # If there is no data for the selected year, return an empty DataFrame with all months set to 0
     if yearly_uptime_df.empty:
-        all_months = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31', freq='ME')
+        all_months = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31', freq='M')
         return pd.DataFrame({'date': all_months, 'uptime_percentage': 0})
 
     # Group by year and month, then calculate the average uptime
@@ -304,7 +304,7 @@ def calculate_monthly_average_uptime(uptime_df, year):
     monthly_avg_uptime['date'] = monthly_avg_uptime['date'].dt.to_timestamp('M')
 
     # Generate a DataFrame with all months of the selected year at the end of each month
-    all_months = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31', freq='ME')
+    all_months = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31', freq='M')
     all_months_df = pd.DataFrame({'date': all_months})
 
     # Merge with the actual data, filling missing months with zero uptime

@@ -5,15 +5,15 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Qt5Agg")
 
-working_dir = r"U:\Users\TTO\manuscripts\gubra_m4_spatial_transcriptomics\figures\figure_1"
+working_dir = r"/default/path"  # PERSONAL
 data_sheet_path = os.path.join(working_dir, "/default/path")  # PERSONAL
 
 df = pd.read_excel(data_sheet_path)
 
 # Bar plot for total number of cells in each dataset
 # Define colors for individual datasets and for stacking the total
-colors = ["cyan", "magenta", "yellow", "black"]
-stacked_colors = ["cyan", "magenta", "yellow", "black"]
+colors = ["#00FF2E", "#FF00D1", "#000FFF", "#FFF000", "black"]
+stacked_colors = ["#00FF2E", "#FF00D1", "#000FFF", "#FFF000", "black"]
 
 plt.figure(figsize=(8, 6))
 

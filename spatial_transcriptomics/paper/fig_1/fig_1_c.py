@@ -15,7 +15,7 @@ import utils.utils as ut
 from spatial_transcriptomics.utils.coordinate_manipulation import filter_points_in_3d_mask
 
 ATLAS_USED = "gubra"
-DATASETS = [1, 2, 3, 4]
+DATASETS = np.arange(1, 6, 1)
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["class", "subclass", "supertype", "cluster"]
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
@@ -54,17 +54,16 @@ for m, ccat in enumerate(CATEGORY_NAMES):
 
             ut.print_c(f"[INFO] Loading data from dataset: {dataset_n}")
 
-            dataset_id = f"Zhuang-ABCA-{dataset_n}"
+            if dataset_n < 5:
+                dataset_id = f"Zhuang-ABCA-{dataset_n}"
+            else:
+                dataset_id = f"MERFISH-C57BL6J-638850"
             url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
             manifest = json.loads(requests.get(url).text)
             metadata = manifest['file_listing'][dataset_id]['metadata']
             metadata_with_clusters = metadata['cell_metadata_with_cluster_annotation']
             metadata_ccf = manifest['file_listing'][f'{dataset_id}-CCF']['metadata']
             expression_matrices = manifest['file_listing'][dataset_id]['expression_matrices']
-            cell_metadata_path = expression_matrices[dataset_id]['log2']['files']['h5ad']['relative_path']
-            file = os.path.join(DOWNLOAD_BASE, cell_metadata_path)
-            adata = anndata.read_h5ad(file, backed='r')
-            genes = adata.var
 
             # Fetch data from cells (x, y, z) in the Allen Brain Atlas (CCF) space
             cell_metadata_path_ccf = metadata_ccf['ccf_coordinates']['files']['csv']['relative_path']
