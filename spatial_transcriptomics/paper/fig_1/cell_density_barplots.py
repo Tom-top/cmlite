@@ -34,7 +34,7 @@ META_REGION_NAMES = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY
 DOWNLOAD_BASE = r'E:\tto\spatial_transcriptomics'  # PERSONAL
 URL = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
 MANIFEST = sut.fetch_manifest(URL)
-DATASETS = np.arange(1, 5, 1)
+DATASETS = np.arange(1, 6, 1)
 
 RESOURCES_DIR = "resources"
 ATLAS_DIR = os.path.join(RESOURCES_DIR, "atlas")
@@ -81,7 +81,10 @@ region_voxel_size = {}
 
 for dataset_n in DATASETS:
 
-    dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    if dataset_n < 5:
+        dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    else:
+        dataset_id = f"MERFISH-C57BL6J-638850"
     metadata = MANIFEST['file_listing'][dataset_id]['metadata']
     metadata_with_clusters = metadata['cell_metadata_with_cluster_annotation']
     metadata_ccf = MANIFEST['file_listing'][f'{dataset_id}-CCF']['metadata']

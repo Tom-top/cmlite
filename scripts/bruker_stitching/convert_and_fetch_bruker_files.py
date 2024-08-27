@@ -16,8 +16,8 @@ raw_data_folder = r"/default/path"  # PERSONAL
 
 start_time = time.time()
 multistack = True
-downsample = False
-channels_to_stitch = [[3, 4]]
+downsample = True
+channels_to_stitch = [[5, 6]]
 
 
 def find_max_indices(folder_names):
@@ -55,11 +55,12 @@ if multistack:
             for n, channel in enumerate(channels):
                 for c in range(columns):
                     current_tile += 1
-                    c_idx = np.abs(1 - c)
+                    c_idx = np.abs((columns - 1) - c)
                     if n == 0:
                         y = c
                     else:
-                        y = c + 2
+                        y = c + columns
+                    print(n+1, r, c_idx, r, y)
                     print(f"Reading and saving data for: channel{channel}_x0{r}_y0{c_idx} :"
                           f" stack_x0{r}_y0{y}. {current_tile}/{n_tiles_to_convert}")
                     path_to_stack = os.path.join(raw_data_folder,

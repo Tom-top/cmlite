@@ -11,7 +11,7 @@ raw_directory = r"/default/path"  # PERSONAL
 parameters = {"study_params":
                   {"scanning_system": "",
                    "samples_to_process": [],
-                   "channels_to_stitch": [3],
+                   "channels_to_stitch": [5],
                    "re_process": True},
               "stitching": {"search_params": [5, 5, 5],
                             "z_subreg_alignment": [550, 600],
@@ -31,6 +31,7 @@ for sample in sample_names:
     scan_metadata = {
         "tile_x": json_metadata["processingInformation"]["image_size_vx"]["width"],
         "tile_y": json_metadata["processingInformation"]["image_size_vx"]["height"],
+        "tile_z": json_metadata["processingInformation"]["image_size_vx"]["depth"],
         "x_res": json_metadata["processingInformation"]["voxel_size_um"]["width"],
         "y_res": json_metadata["processingInformation"]["voxel_size_um"]["height"],
         "z_res": json_metadata["processingInformation"]["voxel_size_um"]["depth"],

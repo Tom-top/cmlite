@@ -32,7 +32,7 @@ NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"
 DOWNLOAD_BASE = r'E:\tto\spatial_transcriptomics'  # PERSONAL
 URL = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
 MANIFEST = sut.fetch_manifest(URL)
-DATASETS = np.arange(1, 5, 1)
+DATASETS = np.arange(1, 6, 1)
 
 RESOURCES_DIR = "resources"
 ATLAS_DIR = os.path.join(RESOURCES_DIR, "atlas")
@@ -75,7 +75,10 @@ region_voxel_size = {}
 
 for dataset_n in DATASETS:
 
-    dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    if dataset_n < 5:
+        dataset_id = f"Zhuang-ABCA-{dataset_n}"
+    else:
+        dataset_id = f"MERFISH-C57BL6J-638850"
     metadata = MANIFEST['file_listing'][dataset_id]['metadata']
     metadata_with_clusters = metadata['cell_metadata_with_cluster_annotation']
     metadata_ccf = MANIFEST['file_listing'][f'{dataset_id}-CCF']['metadata']
@@ -147,7 +150,8 @@ clipped_atlas_coronal = np.swapaxes(CLIPPED_ATLAS, 0, 1)
 cmap = plt.cm.viridis
 
 # Normalize the neuron counts to the range [0, 1] for colormap mapping
-norm = plt.Normalize(vmin=0, vmax=0.5)
+norm = plt.Normalize(vmin=0, vmax=0.78125)
+# 0.78125 = 50 cells in 100um cube
 
 for selected_plane in selected_planes:
     atlas_slice = clipped_atlas_coronal[selected_plane]
@@ -166,3 +170,5 @@ for selected_plane in selected_planes:
                      atlas_slice_rgb)
     tifffile.imwrite(os.path.join(SAVING_DIRECTORY_SLICES, f"atlas_16b_{selected_plane}_{ATLAS_USED}.tif"),
                      atlas_slice)
+
+# Convert metric to 100um cubic

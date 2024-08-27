@@ -3,7 +3,8 @@ This script generates visualizations showing the distribution of cells across fo
  as well as a combined dataset.
 For each dataset, coronal, sagittal, and horizontal views are produced with the Gubra LSFM reference in the background.
 The cells are labeled according to the ABC atlas ontology (https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
-The source of the data is from Zhang M. et al., in Nature, 2023 (DOI: 10.1038/s41586-023-06808-9).
+The source of the data is from Zhang M. et al., Nature, 2023 (DOI: 10.1038/s41586-023-06808-9) (datasets 1-4)
+and Yao Z. et al., Nature, 2023 (DOI: 10.1038/s41586-023-06812-z) (dataset 5).
 
 Author: Thomas Topilko
 """
@@ -40,9 +41,9 @@ NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"
 DOWNLOAD_BASE = r'E:\tto\spatial_transcriptomics'  # PERSONAL
 URL = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
 MANIFEST = sut.fetch_manifest(URL)
-DATASETS = np.arange(1, 5, 1)
+DATASETS = np.arange(1, 6, 1)
 N_DATASETS = len(DATASETS)
-DATASET_COLORS = ["cyan", "magenta", "yellow", "black"]
+DATASET_COLORS = ["cyan", "magenta", "yellow", "black", "orange"]
 CATEGORY_NAMES = ["class", "subclass", "supertype", "cluster"]
 
 RESOURCES_DIR = "resources"
@@ -52,9 +53,9 @@ REFERENCE = tifffile.imread(REFERENCE_FILE)
 REFERENCE_SHAPE = REFERENCE.shape
 TRANSFORM_DIR = os.path.join(RESOURCES_DIR, "abc_atlas")
 
-MAP_DIR = ut.create_dir(r"E:\tto\spatial_transcriptomics_results\whole_brain")  # PERSONAL
+MAP_DIR = ut.create_dir(r"/default/path")  # PERSONAL
 TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"whole_brain_mask.tif"))
-WORKING_DIRECTORY = ut.create_dir(os.path.join(MAP_DIR, r"results\3d_views"))  # PERSONAL
+WORKING_DIRECTORY = ut.create_dir(os.path.join(MAP_DIR, r"/default/path"))  # PERSONAL
 SAVING_DIRECTORY = ut.create_dir(os.path.join(WORKING_DIRECTORY, f"{ATLAS_USED}"))
 
 for m, ccat in enumerate(CATEGORY_NAMES):
@@ -67,14 +68,21 @@ for m, ccat in enumerate(CATEGORY_NAMES):
 
         SAVING_DIR = ut.create_dir(os.path.join(SAVING_DIRECTORY, f"mouse_{dataset_n}"))
 
-        dataset_id = f"Zhuang-ABCA-{dataset_n}"
+        if dataset_n < 5:
+            dataset_id = f"Zhuang-ABCA-{dataset_n}"
+        else:
+            dataset_id = f"MERFISH-C57BL6J-638850"
         url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
         manifest = json.loads(requests.get(url).text)
         metadata = manifest['file_listing'][dataset_id]['metadata']
         metadata_with_clusters = metadata['cell_metadata_with_cluster_annotation']
         metadata_ccf = manifest['file_listing'][f'{dataset_id}-CCF']['metadata']
         expression_matrices = manifest['file_listing'][dataset_id]['expression_matrices']
-        cell_metadata_path = expression_matrices[dataset_id]['log2']['files']['h5ad']['relative_path']
+        if dataset_n < 5:
+            cell_metadata_path = expression_matrices[dataset_id]['log2']['files']['h5ad']['relative_path']
+        else:
+            cell_metadata_path = expression_matrices["-".join(dataset_id.split("-")[1:])]['log2']['files']['h5ad'][
+                'relative_path']
         file = os.path.join(DOWNLOAD_BASE, cell_metadata_path)
         adata = anndata.read_h5ad(file, backed='r')
         genes = adata.var
