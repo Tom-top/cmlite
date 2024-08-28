@@ -546,6 +546,8 @@ def xml_import(base_directory, size, resolution=(1.0, 1.0, 1.0), origin=(0.0, 0.
 
     e = etree.Element('mechanical_displacements')
     displ = displacements(size, resolution, overlap, add_overlap, units='Microns')
+    print(size, resolution, overlap, add_overlap)
+    print(displ)
     e.set('H', str(displ[0]))
     e.set('V', str(displ[1]))
     xml.append(e)
@@ -563,6 +565,8 @@ def xml_import(base_directory, size, resolution=(1.0, 1.0, 1.0), origin=(0.0, 0.
         z_range = lambda row, col: zr
 
     displ = displacements(size, resolution, overlap, add_overlap, units='Pixel')
+    print(size, resolution, overlap, add_overlap)
+    print(displ)
 
     if tile_expression is None:
         tile_expression = lambda row, col: ''
@@ -1383,67 +1387,68 @@ def stitch_sample(sample_directory, **kwargs):
     for channel_to_stitch in kwargs["study_params"]["channels_to_stitch"]:
         processed_folder = os.path.join(sample_directory,
                                         f"processed_tiles_{channel_to_stitch}")  # Fixme: CHANGE PROCESSED NAME
-        processed_files_expression = "_".join([i for i in os.listdir(processed_folder) if
-                                               i.endswith(".tif")][0].split("_")[:-2])
         stitched_folder = os.path.join(sample_directory, f"stitched_{channel_to_stitch}")
         if os.path.exists(processed_folder) and not os.path.exists(stitched_folder):
-            ut.print_c(f"[INFO {sample_name}] Channel {channel_to_stitch}: Starting stitching!")
-            processed_directory = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
-            regular_expression = rf"{processed_files_expression}_\[(?P<row>\d+)\ x\ (?P<col>\d+)\]_{channel_to_stitch}\.tif"
+            processed_files_expression = "_".join([i for i in os.listdir(processed_folder) if
+                                                   i.endswith(".tif")][0].split("_")[:-2])
+            if os.path.exists(processed_folder) and not os.path.exists(stitched_folder):
+                ut.print_c(f"[INFO {sample_name}] Channel {channel_to_stitch}: Starting stitching!")
+                processed_directory = os.path.join(sample_directory, f"processed_tiles_{channel_to_stitch}")
+                regular_expression = rf"{processed_files_expression}_\[(?P<row>\d+)\ x\ (?P<col>\d+)\]_{channel_to_stitch}\.tif"
 
-            metadata_file = os.path.join(sample_directory, "scan_metadata.json")
-            if not os.path.exists(metadata_file):
-                raise ut.CmliteError("Metadata file is missing!")
+                metadata_file = os.path.join(sample_directory, "scan_metadata.json")
+                if not os.path.exists(metadata_file):
+                    raise ut.CmliteError("Metadata file is missing!")
+                else:
+                    with open(metadata_file, 'r') as json_file:
+                        metadata = json.load(json_file)
+
+                size = np.array([metadata["tile_x"], metadata["tile_y"]])
+                n_z_planes = metadata["tile_z"]
+                resolution = np.array([metadata["x_res"], metadata["y_res"], metadata["z_res"]])
+                overlap = size * (metadata["overlap"])
+
+                import_file = xml_file_import(processed_directory, regular_expression,
+                                              size=size,
+                                              resolution=resolution,
+                                              overlap=overlap,
+                                              xml_import_file=os.path.join(processed_directory,
+                                                                           'terastitcher_import.xml'))
+
+                import_data(import_file, verbose=False)
+
+                mdata_file = os.path.join(processed_directory, 'mdata.bin')
+                if os.path.exists(mdata_file):
+                    os.remove(mdata_file)
+
+                if len(kwargs["stitching"]["z_subreg_alignment"]) != 2:
+                    middle_plane = int(n_z_planes / 2)
+                    kwargs["stitching"]["z_subreg_alignment"] = np.array([middle_plane, middle_plane + 50])
+                align_file = align_data(import_file,
+                                        overlap=overlap.astype(int),
+                                        search=kwargs["stitching"]["search_params"],
+                                        xml_result_file=os.path.join(processed_directory, 'terastitcher_align.xml'),
+                                        sub_region=((all, all), (all, all), kwargs["stitching"]["z_subreg_alignment"]),
+                                        algorithm="MIPNCC",
+                                        verbose=False)
+
+                project_file = project_displacements(align_file,
+                                                     xml_result_file=os.path.join(processed_directory,
+                                                                                  'terastitcher_project.xml'),
+                                                     verbose=False)
+
+                thresh_file = threshold_displacements(project_file,
+                                                      xml_result_file=os.path.join(processed_directory,
+                                                                                   'TeraStitcher_threshold.xml'),
+                                                      verbose=False)
+
+                place_file = place_tiles(thresh_file,
+                                         xml_result_file=os.path.join(processed_directory, 'TeraStitcher_place.xml'),
+                                         verbose=False)
+
+                result = stitch_data(place_file, result_path=stitched_folder, filename=r'Z\d{4}.tif',
+                                     bit_depth=16, algorithm='SINBLEND')
+
             else:
-                with open(metadata_file, 'r') as json_file:
-                    metadata = json.load(json_file)
-
-            size = np.array([metadata["tile_x"], metadata["tile_y"]])
-            n_z_planes = metadata["tile_z"]
-            resolution = np.array([metadata["x_res"], metadata["y_res"], metadata["z_res"]])
-            overlap = size * (metadata["overlap"])
-
-            import_file = xml_file_import(processed_directory, regular_expression,
-                                          size=size,
-                                          resolution=resolution,
-                                          overlap=overlap,
-                                          xml_import_file=os.path.join(processed_directory,
-                                                                       'terastitcher_import.xml'))
-
-            import_data(import_file, verbose=False)
-
-            mdata_file = os.path.join(processed_directory, 'mdata.bin')
-            if os.path.exists(mdata_file):
-                os.remove(mdata_file)
-
-            if len(kwargs["stitching"]["z_subreg_alignment"]) != 2:
-                middle_plane = int(n_z_planes / 2)
-                kwargs["stitching"]["z_subreg_alignment"] = np.array([middle_plane, middle_plane + 50])
-            align_file = align_data(import_file,
-                                    overlap=overlap.astype(int),
-                                    search=kwargs["stitching"]["search_params"],
-                                    xml_result_file=os.path.join(processed_directory, 'terastitcher_align.xml'),
-                                    sub_region=((all, all), (all, all), kwargs["stitching"]["z_subreg_alignment"]),
-                                    algorithm="MIPNCC",
-                                    verbose=False)
-
-            project_file = project_displacements(align_file,
-                                                 xml_result_file=os.path.join(processed_directory,
-                                                                              'terastitcher_project.xml'),
-                                                 verbose=False)
-
-            thresh_file = threshold_displacements(project_file,
-                                                  xml_result_file=os.path.join(processed_directory,
-                                                                               'TeraStitcher_threshold.xml'),
-                                                  verbose=False)
-
-            place_file = place_tiles(thresh_file,
-                                     xml_result_file=os.path.join(processed_directory, 'TeraStitcher_place.xml'),
-                                     verbose=False)
-
-            result = stitch_data(place_file, result_path=stitched_folder, filename=r'Z\d{4}.tif',
-                                 bit_depth=16, algorithm='SINBLEND')
-
-        else:
-            ut.print_c(f"[WARNING {sample_name}] Stitching skipped for channel {channel_to_stitch}: "
-                       f"stitched_{channel_to_stitch} folder already exists!")
+                ut.print_c(f"[WARNING {sample_name}] Stitching skipped for channel {channel_to_stitch}: "
+                           f"stitched_{channel_to_stitch} folder already exists!")

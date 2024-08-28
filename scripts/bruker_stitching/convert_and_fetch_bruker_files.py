@@ -60,7 +60,7 @@ if multistack:
                         y = c
                     else:
                         y = c + columns
-                    print(n+1, r, c_idx, r, y)
+                    # print(n+1, r, c_idx, r, y)
                     print(f"Reading and saving data for: channel{channel}_x0{r}_y0{c_idx} :"
                           f" stack_x0{r}_y0{y}. {current_tile}/{n_tiles_to_convert}")
                     path_to_stack = os.path.join(raw_data_folder,
