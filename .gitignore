@@ -5,4 +5,9 @@ external/terastitcher
 resources/atlas
 resources/abc_atlas
 resources/z-score_maps
+trailmap/TrailMap/data/model-weights
+trailmap/TrailMap/data/testing
+trailmap/TrailMap/data/training
+trailmap/TrailMap/data/validation
+trailmap/TrailMap/data/tf-logs
 custom_config.yml

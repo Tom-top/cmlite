@@ -12,7 +12,7 @@ import parallel_processing.data_processing.devolve_point_list as dpl
 ### Voxelization
 ###############################################################################
 
-def voxelize(source, sink=None, shape=None, dtype=None, weights=None, intensity=False,
+def voxelize(source, sink=None, shape=None, dtype=None, weights=None, intensity=None,
              method='sphere', radius=(1, 1, 1), kernel=None,
              processes=None, verbose=False):
     """Converts a list of points into an volumetric image array

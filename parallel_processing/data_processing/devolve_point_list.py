@@ -102,22 +102,36 @@ def devolve(source, sink=None, shape=None, dtype=None,
                                         processes)
     else:
         if kernel is None:
-            if intensity:
-                # Initialize the weight_sum array
-                weight_sum = np.zeros(sink_shape, dtype=sink_buffer.dtype)
+            if intensity is not None:
+                if intensity == "mean":
+                    # Initialize the weight_sum array
+                    weight_sum = np.zeros(sink_shape, dtype=sink_buffer.dtype)
 
-                # Call devolve_weights_intensity with the weight_sum array
-                code.devolve_weights_intensity(points_buffer, weights, indices, sink_buffer, weight_sum.ravel(),
-                                               sink_shape, sink_strides, processes)
+                    # Call devolve_weights_intensity with the weight_sum array
+                    code.devolve_weights_intensity(points_buffer, weights, indices, sink_buffer, weight_sum.ravel(),
+                                                   sink_shape, sink_strides, processes)
 
-                # Reshape sink_buffer and weight_sum to their original shape
-                sink_buffer = sink_buffer.reshape(sink_shape)
-                weight_sum = weight_sum.reshape(sink_shape)
+                    # Reshape sink_buffer and weight_sum to their original shape
+                    sink_buffer = sink_buffer.reshape(sink_shape)
+                    weight_sum = weight_sum.reshape(sink_shape)
 
-                # Normalize the sink_buffer to get the average
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    sink = np.divide(sink_buffer, weight_sum, out=np.zeros_like(sink_buffer),
-                                     where=weight_sum != 0)
+                    # Normalize the sink_buffer to get the average
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        sink = np.divide(sink_buffer, weight_sum, out=np.zeros_like(sink_buffer),
+                                         where=weight_sum != 0)
+                elif intensity == "max":
+                    # Initialize the sink_buffer with zeros
+                    sink_buffer = np.zeros(sink_shape, dtype=sink_buffer.dtype)
+
+                    # Call the modified devolve_weights_max function
+                    code.devolve_weights_max(points_buffer, weights, indices, sink_buffer.ravel(), sink_shape,
+                                             sink_strides, processes)
+
+                    # Reshape sink_buffer to its original shape (if needed)
+                    sink_buffer = sink_buffer.reshape(sink_shape)
+
+                    # The sink_buffer now contains the maximum values, so no further normalization is required.
+                    sink = sink_buffer
             else:
                 code.devolve_weights(points_buffer, weights, indices, sink_buffer, sink_shape, sink_strides, processes)
         else:
