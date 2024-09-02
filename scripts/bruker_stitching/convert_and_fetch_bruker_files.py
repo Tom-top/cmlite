@@ -17,7 +17,7 @@ raw_data_folder = r"/default/path"  # PERSONAL
 start_time = time.time()
 multistack = True
 downsample = True
-channels_to_stitch = [[5, 6]]
+channels_to_stitch = [[3, 4]]
 
 
 def find_max_indices(folder_names):
@@ -77,7 +77,7 @@ if multistack:
                         x_vs, y_vs, z_vs = voxel_size["width"], voxel_size["height"], voxel_size["depth"]
                         resample_parameter = {
                             "source_resolution": (x_vs, y_vs, z_vs),
-                            "sink_resolution": (5, 5, 10),
+                            "sink_resolution": (5, 5, 5),
                             "processes": None,
                             "verbose": True,
                             "method": "memmap",

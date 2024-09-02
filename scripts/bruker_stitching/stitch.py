@@ -43,6 +43,9 @@ for sample in sample_names:
                 "overlap": 0.1298828125,
             }
             mid_z_plane = int(stack_shape[1]/2)
+            parameters["stitching"]["z_subreg_alignment"] = [mid_z_plane, mid_z_plane + 50]
+            with open(os.path.join(sample_dir, "scan_metadata.json"), 'w') as json_file:
+                json.dump(scan_metadata, json_file, indent=4)
     else:
         timestamp_folder = [os.path.join(sample_dir, i) for i in os.listdir(sample_dir)
                             if os.path.isdir(os.path.join(sample_dir, i)) and not i.startswith("processed")][0]
@@ -61,9 +64,9 @@ for sample in sample_names:
             "overlap": 0.1,
         }
         mid_z_plane = int(json_metadata["processingInformation"]["image_size_vx"]["depth"] / 2)
-    parameters["stitching"]["z_subreg_alignment"] = [mid_z_plane, mid_z_plane + 50]
-    with open(os.path.join(sample_dir, "scan_metadata.json"), 'w') as json_file:
-        json.dump(scan_metadata, json_file, indent=4)
+        parameters["stitching"]["z_subreg_alignment"] = [mid_z_plane, mid_z_plane + 50]
+        with open(os.path.join(sample_dir, "scan_metadata.json"), 'w') as json_file:
+            json.dump(scan_metadata, json_file, indent=4)
 
 start_time = time.time()
 st.stitch_samples(raw_directory, **parameters)

@@ -8,10 +8,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import anndata
-import scanpy as sc
+# import scanpy as sc
 from concurrent.futures import ProcessPoolExecutor
 
-from analysis import sc_helper_functions as sc_utils
+# from analysis import sc_helper_functions as sc_utils
 
 matplotlib.use("Agg")
 # matplotlib.use("Qt5Agg")

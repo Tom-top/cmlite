@@ -89,7 +89,8 @@ for sample_name in sample_names:
 # 5.0 STATISTICS
 ########################################################################################################################
 
-stats.run_region_wise_statistics(metadata_files, analysis_data_size_directory, **parameters)  # Fixme: metadata_files
-
-stats.generate_average_maps(analysis_data_size_directory, **parameters)
-stats.generate_pval_maps(analysis_data_size_directory, **parameters)
+#Fixme: Not implemented yet
+#stats.run_region_wise_statistics(metadata_files, analysis_data_size_directory, **parameters)  # Fixme: metadata_files
+#
+#stats.generate_average_maps(analysis_data_size_directory, **parameters)
+#stats.generate_pval_maps(analysis_data_size_directory, **parameters)

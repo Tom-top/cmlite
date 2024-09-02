@@ -38,14 +38,15 @@ ONLY_NEURONS = False  # If True: only generate plots for neurons, excluding all 
 PLOT_MOST_REPRESENTED_CATEGORIES = False
 PERCENTAGE_THRESHOLD = 50
 categories = ["cluster"]
+target_genes = ["Hcrtr1", "Hcrtr2"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
 
-DOWNLOAD_BASE = r"/default/path"  # PERSONAL
-MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
+DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
+MAP_DIR = ut.create_dir(rf"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression")  # PERSONAL
 WHOLE_REGION = True  # If true, the unprocessed mask will be used
 LABELED_MASK = False  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 PLOT_COUNTS_BY_CATEGORY = True  # If true plots the category plot
@@ -90,7 +91,7 @@ data_id_10X = "WMB-10X"  # Select the dataset
 metadata_json = manifest['file_listing'][data_id_10X]['metadata']  # Fetch metadata structure
 metadata_relative_path = metadata_json['cell_metadata_with_cluster_annotation']['files']['csv']['relative_path']
 metadata_file = os.path.join(DOWNLOAD_BASE, metadata_relative_path)  # Path to metadata file
-exp = pd.read_csv(metadata_file, low_memory=False)  # Load metadata
+exp = pd.read_csv(metadata_file)  # Load metadata
 exp.set_index('cell_label', inplace=True)  # Set cell_label as dataframe index
 
 metadata_genes_relative_path = metadata_json['gene']['files']['csv']['relative_path']
@@ -101,13 +102,19 @@ genes = pd.read_csv(metadata_gene_file)  # Load metadata
 dataset_id = "WMB-10Xv3"  # Dataset name
 metadata_exp = manifest['file_listing'][dataset_id]['expression_matrices']
 adatas = []
-print("")
 for dsn in metadata_exp:
-    ut.print_c(f"[INFO] Loading 10x data for: {dsn}", end="\r")
+    print("")
+    ut.print_c(f"[INFO] Loading 10x data for: {dsn}")
     adata = anndata.read_h5ad(os.path.join(DOWNLOAD_BASE,
                                            metadata_exp[dsn]["log2"]["files"]["h5ad"]["relative_path"]),
                               backed='r')
     adatas.append(adata)
+
+print("")
+ut.print_c("[INFO] Loading mean gene expression matrix!")
+mean_expression_matrix_path = r"resources\abc_atlas\cluster_log2_mean_gene_expression_merge.feather"
+mean_expression_matrix = pd.read_feather(mean_expression_matrix_path)
+
 colormap = plt.get_cmap("YlOrBr")
 
 ########################################################################################################################
@@ -160,9 +167,10 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     ####################################################################################################################
 
     print("")
+
     for i, dataset_n in enumerate(DATASETS):
 
-        ut.print_c(f"[INFO] Loading MERFISH dataset: {dataset_n}")
+        ut.print_c(f"[INFO] Loading dataset: {dataset_n}")
 
         # Select the correct dataset
         if dataset_n < 5:
@@ -260,71 +268,174 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     ################################################################################################################
 
     n_unique_cluster = len(unique_cells_cluster[0])
-    target_genes = genes["gene_symbol"]
-    n_target_genes = len(target_genes)
 
-    df_to_save = {}
-    duplicate_gene_entries = {}
+    for target_gene in target_genes:
+        unique_cells_cluster_colors = []
 
-    # Fixme: REMOVE THIS
-    unique_clusters = unique_cells_cluster[0]
+        for n, cluster_name in enumerate(unique_cells_cluster[0]):
+            ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
+            cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
+            try:
+                mean_expression = np.array(mean_expression_matrix[cluster_mask][target_gene])
+                if np.isnan(mean_expression):  # Fixme: This scips clusters
+                    # Fixme: ['4601 HB Calcb Chol_1', '2761 RN Spp1 Glut_1', '0120 L2/3 IT CTX Glut_4'] as they are not in the 10Xv3 datasets
+                    mean_expression = np.array([0])
+                if len(mean_expression_matrix[cluster_mask]) == 0:
+                    ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
+                    mean_expression = np.array([0])
+            except KeyError:
+                ut.print_c(f"[WARNING] {target_gene} not found in mean expression table!")
+                mean_expression = np.array([0])
+            unique_cells_cluster_colors.append(mean_expression)
+        unique_cells_cluster_colors = np.array(unique_cells_cluster_colors).flatten()
 
-    for n, cluster_name in enumerate(unique_clusters):
-        ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
-        # cluster_name = cells_cluster_merged[cluster]
-        cluster_mask = exp["cluster"] == cluster_name  # Mask of the cells belonging to the cluster
+        # for n, cluster_name in enumerate(unique_cells_cluster[0]):
+        #     ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
+        #     # cluster_name = cells_cluster_merged[cluster]
+        #     cluster_mask = exp["cluster"] == cluster_name  # Mask of the cells belonging to the cluster
+        #
+        #     # Fixme: This has to be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
+        #     library_mask = exp["library_method"] == "10Xv3"  # Mask of the library data
+        #
+        #     # Combined mask of cells in the dataset that belong to the selected cluster
+        #     cluster_and_library_mask = np.logical_and(cluster_mask, library_mask)
+        #
+        #     if np.sum(cluster_and_library_mask) > 0:
+        #         # Fetch gene expression data from the selected cluster
+        #         # cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
+        #         cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
+        #         adata_cluster_in = []  # Gene expression of cells in the selected cluster for each sub-dataset
+        #
+        #         # Loop over each sub-dataset (.h5ad files)
+        #         for adata in adatas:
+        #             mask_in = adata.obs.index.isin(cell_labels_in)  # Creates mask for the cells in the selected cluster
+        #             adata_cluster_in.append(adata[mask_in])  # Appends result
+        #
+        #         adata_cluster_in_filtered = [x for x in adata_cluster_in if len(x) > 0]  # Filters out empty anndata
+        #         combined_adata_in = anndata.concat(adata_cluster_in_filtered, axis=0)  # Combine all the datasets
+        #
+        #         combined_data_in = combined_adata_in.to_df()  # Load the expression data into memory
+        #
+        #         gene_mask = genes["gene_symbol"] == target_gene
+        #         gene_id = genes["gene_identifier"][gene_mask]
+        #         mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
+        #         unique_cells_cluster_colors.append(mean_gene_expression)
+        #     else:
+        #         mean_gene_expression = 0
+        #         unique_cells_cluster_colors.append(mean_gene_expression)
 
-        # Fixme: This has to be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
-        library_mask = exp["library_method"] == "10Xv3"  # Mask of the library data
+        np.save(os.path.join(SAVING_DIR, f"unique_cells_cluster_colors_{target_gene}.npy"), unique_cells_cluster_colors)
 
-        # Combined mask of cells in the dataset that belong to the selected cluster
-        cluster_and_library_mask = np.logical_and(cluster_mask, library_mask)
+        # min_value = min(unique_cells_cluster_colors)
+        min_value = 0
+        # max_value = max(unique_cells_cluster_colors)
+        max_value = 8
+        unique_cells_cluster_colors_norm = [(x - min_value) / (max_value - min_value) for x in unique_cells_cluster_colors]
 
-        df_to_save[cluster_name] = {}
+        # cells_cluster_merged_colors = np.zeros((np.array(cells_cluster_merged).shape[0], 3), dtype=int)
+        cells_cluster_merged_colors = np.full_like(cells_cluster_merged, "")
+        for cluster_name, cluster_color in zip(unique_cells_cluster[0], unique_cells_cluster_colors_norm):
+            cluster_mask = np.array([True if i == cluster_name else False for i in cells_cluster_merged])
+            rgb_color = colormap(cluster_color)[:3]
+            rgb_color_8b = np.array([i*255 for i in rgb_color]).astype(int)
+            cells_cluster_merged_colors[cluster_mask] = ut.rgb_to_hex(rgb_color_8b)
 
-        if np.sum(cluster_and_library_mask) > 0:
-            # Fetch gene expression data from the selected cluster
-            # cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-            cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-            adata_cluster_in = []  # Gene expression of cells in the selected cluster for each sub-dataset
+        ########################################################################################################
+        # PLOT CELLS IN 3D
+        ########################################################################################################
 
-            # Loop over each sub-dataset (.h5ad files)
-            for adata in adatas:
-                mask_in = adata.obs.index.isin(cell_labels_in)  # Creates mask for the cells in the selected cluster
-                adata_cluster_in.append(adata[mask_in])  # Appends result
+        filtered_points_merged_conc = np.array([])
+        filtered_points_merged = np.array(filtered_points_merged)
+        cell_size = 0.5
+        cell_size_global = 1
 
-            adata_cluster_in_filtered = [x for x in adata_cluster_in if len(x) > 0]  # Filters out empty anndata
-            combined_adata_in = anndata.concat(adata_cluster_in_filtered, axis=0)  # Combine all the datasets
+        if BILATERAL:
+            mirrored_filtered_points = filtered_points_merged.copy()
+            if mirrored_filtered_points.size > 0:
+                mirrored_filtered_points[:, 2] = REFERENCE.shape[0] - 1 - filtered_points_merged[:, 2]
+            if filtered_points_merged.shape[0] != filtered_points_merged_conc.shape[0]:
+                filtered_points_merged_conc = np.concatenate([filtered_points_merged, mirrored_filtered_points])
+            if non_neuronal_mask_global.shape[0] != filtered_points_merged_conc.shape[0]:
+                non_neuronal_mask_global = np.tile(non_neuronal_mask_global, 2)
 
-            combined_data_in = combined_adata_in.to_df()  # Load the expression data into memory
+        for n, cat in enumerate(categories):
 
-            for m, target_gene in enumerate(target_genes):
-                ut.print_c(f"[INFO {cluster_name}] Fetching expression data for gene: {target_gene}; {m + 1}/{n_target_genes}", end="\r")
-                gene_mask = genes["gene_symbol"] == target_gene
-                gene_id = genes["gene_identifier"][gene_mask]
-                n_gene_entries = len(gene_id)
-                if n_gene_entries > 1:
-                    ut.print_c(f"[WARNING {cluster_name}] Duplicate entry for gene: {target_gene}: {n_gene_entries}!")
-                    duplicate_gene_entries[target_gene] = n_gene_entries
-                    gene_id = gene_id.iloc[0]
-                mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
-                df_to_save[cluster_name][target_gene] = mean_gene_expression
-        else:
-            ut.print_c(f"[WARNING {cluster_name}] No overlap detected between the cluster and the 10X data!")
-            for target_gene in target_genes:
-                df_to_save[cluster_name][target_gene] = np.nan
+            if BILATERAL:
+                points_cats = np.tile(np.array(globals()[f"cells_{cat}_merged"]), 2)
+                points_colors = np.tile(cells_cluster_merged_colors, 2)
+            else:
+                points_cats = np.array(globals()[f"cells_{cat}_merged"])
+                points_colors = cells_cluster_merged_colors
 
-        if (n+1) % 500 == 0:
-            # Convert the dictionary to a DataFrame
-            df = pd.DataFrame.from_dict(df_to_save, orient='index')
-            df_dup = pd.DataFrame.from_dict(duplicate_gene_entries, orient='index')
-            # Assign a name to the index
-            df.index.name = 'cluster_name'
-            df_dup.index.name = 'gene_name'
-            # Save the DataFrame to a CSV file
-            df.to_csv(os.path.join(SAVING_DIR, f"cluster_log2_mean_gene_expression_{n+1-500}-{n+1}.csv"))
-            df_dup.to_csv(os.path.join(SAVING_DIR, f"duplicate_gene_entries_{n+1-500}-{n+1}.csv"))
-            df_to_save = {}
-            duplicate_gene_entries = {}
+            ########################################################################################################
+            # HORIZONTAL 3D VIEW
+            ########################################################################################################
+            ori = "horizontal"
+            orix, oriy, mask_axis = 2, 0, 1
+            xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[1]
 
-        # test = pd.read_csv(os.path.join(SAVING_DIR, "cluster_log2_mean_gene_expression.csv"))
+            if not ONLY_NEURONS:
+                # All cells, class colors, all experiments
+                st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                                  cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
+                                  orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                                  sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}_{target_gene}.png"),
+                                  relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                                  show_ref=SHOW_REF, surface_projection=False)
+            # Only neurons, class colors, all experiments
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim,
+                              ylim=ylim,
+                              orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                              sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}_{target_gene}.png"),
+                              relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                              show_ref=SHOW_REF, surface_projection=False)
+
+            ########################################################################################################
+            # SAGITTAL 3D VIEW
+            ########################################################################################################
+
+            ori = "sagittal"
+            orix, oriy, mask_axis = 0, 1, 2
+            xlim, ylim = REFERENCE_SHAPE[1], REFERENCE_SHAPE[2]
+
+            if not ONLY_NEURONS:
+                # All cells, class colors, all experiments
+                st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                                  cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
+                                  orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                                  sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}_{target_gene}.png"),
+                                  relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                                  show_ref=SHOW_REF, surface_projection=False)
+            # Only neurons, class colors, all experiments
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim, ylim=ylim,
+                              orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                              sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}_{target_gene}.png"),
+                              relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                              show_ref=SHOW_REF, surface_projection=False)
+
+            ########################################################################################################
+            # CORONAL 3D VIEW
+            ########################################################################################################
+
+            ori = "coronal"
+            orix, oriy, mask_axis = 2, 1, 0  # Projection = 1
+            xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[2]
+
+            if not ONLY_NEURONS:
+                # All cells, class colors, all experiments
+                st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                                  cell_categories=points_cats, non_neuronal_mask=None, xlim=xlim, ylim=ylim,
+                                  orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
+                                  sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"all_{ori}_mouse_{cat}_{target_gene}.png"),
+                                  relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                                  show_ref=SHOW_REF, surface_projection=False)
+            # Only neurons, class colors, all experiments
+            st_plt.plot_cells(filtered_points_merged_conc, REFERENCE, TISSUE_MASK, cell_colors=points_colors,
+                              cell_categories=points_cats, non_neuronal_mask=non_neuronal_mask_global, xlim=xlim,
+                              ylim=ylim,
+                              orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
+                              sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"neurons_{ori}_mouse_{cat}_{target_gene}.png"),
+                              relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                              show_ref=SHOW_REF, surface_projection=False)

@@ -44,7 +44,7 @@ def setup_plot(n, i):
 
 def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, cell_colors="black", cell_categories=None,
                xlim=0, ylim=0, orix=0, oriy=1, orip=0, ori="", mask_axis=0, s=0.5, sg=0.5, saving_path="", relevant_categories=[],
-               show_outline=False, zoom=False, plot_individual_categories=True, show_ref=True):
+               show_outline=False, zoom=False, plot_individual_categories=True, show_ref=True, surface_projection=True):
 
     # If at least one set of coordinates for a cell is given
     if filtered_points.size > 0:
@@ -262,13 +262,18 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-            sorted_z_indices = np.argsort(filtered_points_plot_z)
-            if view == 0:
-                sorted_z_indices = sorted_z_indices[::-1]
-            # Apply this sorting to the x, y, and z coordinates
-            sorted_x_z = filtered_points_plot_x[sorted_z_indices]
-            sorted_y_z = filtered_points_plot_y[sorted_z_indices]
-            sorted_colors_z = cell_colors[sorted_z_indices]
+            if surface_projection:
+                sorted_z_indices = np.argsort(filtered_points_plot_z)
+                if view == 0:
+                    sorted_z_indices = sorted_z_indices[::-1]
+                # Apply this sorting to the x, y, and z coordinates
+                sorted_x_z = filtered_points_plot_x[sorted_z_indices]
+                sorted_y_z = filtered_points_plot_y[sorted_z_indices]
+                sorted_colors_z = cell_colors[sorted_z_indices]
+            else:
+                sorted_x_z = filtered_points_plot_x
+                sorted_y_z = filtered_points_plot_y
+                sorted_colors_z = cell_colors
 
             ax.scatter(sorted_x_z, sorted_y_z, c=sorted_colors_z, s=sg,
                        lw=0, edgecolors="black", alpha=1)
