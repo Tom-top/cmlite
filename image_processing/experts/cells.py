@@ -9,6 +9,7 @@ import gc
 import cv2
 import tifffile
 import scipy.ndimage.filters as ndf
+from skimage.measure import label, regionprops
 
 import utils.utils as ut
 
@@ -52,11 +53,13 @@ default_cell_detection_parameter = dict(
                     save=False),
 
     # extended maxima detection
-    maxima_detection=dict(h_max=None,
-                          shape=7,  # Neurons: 20; Microglia: 10
-                          threshold=0,
-                          valid=True,
-                          save=None),
+    maxima_detection=dict(
+        h_max=None,  # No specific minimum peak height threshold set
+        shape=7,  # Size of the neighborhood around each pixel to consider for finding local maxima
+        threshold=0,  # Minimum intensity value for a pixel to be considered as a potential maximum
+        valid=True,  # Whether to apply a validity check to maxima
+        save=None  # Path to save the maxima detection results; if None, the results are not saved
+    ),
 
     # cell shape detection
     shape_detection=dict(threshold=700,
@@ -614,7 +617,6 @@ def filter_cells(source, sink, thresholds):
 
     return io.write(sink, cells_filtered)
 
-
 def segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
                   data_to_segment=None, save_segmented_cells=True,
                   **kwargs):
@@ -681,6 +683,9 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
             os.mkdir(analysis_sample_directory)
         shutil.copyfile(cells_filtered_path,
                         os.path.join(analysis_sample_directory, f"cells_filtered_{channel}.npy"))
+
+        if p['save_int_results']:
+            regenerate_filtered_maxima_and_shape(sample_directory, shape_detection_directory, channel)
 
         cells_filtered = io.as_source(cells_filtered_path)
         filetered_cell_coordinates = np.array([cells_filtered[c] for c in 'xyz']).T
@@ -767,3 +772,70 @@ def segment_cells(sample_name, sample_directory, annotation_files, analysis_data
             else:
                 ut.print_c(f"[WARNING {sample_name}] Skipping saving cell counts as csv for channel {channel}: "
                            f"{atlas}_cells_transformed_{channel}.csv file already exists!")
+
+
+def regenerate_filtered_maxima_and_shape(sample_directory, shape_detection_directory, channel):
+    """
+    Regenerate filtered maxima detection and shape detection images using the saved maxima_detection.tif,
+    shape_detection.tif, and filtered coordinates (cells_filtered_3.npy).
+
+    Parameters:
+    - sample_directory: The directory containing the sample data.
+    - shape_detection_directory: The directory containing shape detection results.
+    - channel: The specific channel for which to regenerate results.
+    """
+
+    # Step 1: Load the saved maxima and shape detection images
+    maxima_detection_path = os.path.join(shape_detection_directory, "maxima_detection.tif")
+    shape_detection_path = os.path.join(shape_detection_directory, "shape_detection.tif")
+
+    maxima_detection = tifffile.imread(maxima_detection_path)
+    shape_detection = tifffile.imread(shape_detection_path)
+
+    # Step 2: Load the filtered coordinates (cells_filtered_3.npy)
+    cells_filtered_path = os.path.join(shape_detection_directory, f"cells_filtered_{channel}.npy")
+    cells_filtered = np.load(cells_filtered_path)
+    filtered_coordinates = np.array([cells_filtered[c] for c in 'xyz']).T  # Extract x, y, z coordinates
+    filtered_coordinates[:, [0, 2]] = filtered_coordinates[:, [2, 0]]  # Swap x and z to match shape_detection image
+
+    # Step 3: Filter maxima and shape detection based on the filtered coordinates
+    # Create empty arrays for filtered maxima and shape detection with the same shape as the originals, using uint16
+    filtered_maxima = np.zeros_like(maxima_detection, dtype=np.uint16)
+    filtered_shape = np.zeros_like(shape_detection, dtype=np.uint16)  # Ensure dtype is uint16
+
+    # Label connected regions in the shape detection image
+    labeled_shape = label(shape_detection)
+
+    # Extract region properties to get the coordinates for each labeled region
+    regions = regionprops(labeled_shape)
+
+    # Create a dictionary to map region labels to their corresponding coordinates
+    region_map = {region.label: region.coords for region in regions}
+
+    # Filter the maxima and shape detection arrays
+    print(f"Number of filtered points: {len(filtered_coordinates)}")
+    for coord in filtered_coordinates:
+        x, y, z = coord.astype(int)  # Convert coordinates to integers
+        # Ensure the coordinates are within bounds
+        if 0 <= x < maxima_detection.shape[0] and 0 <= y < maxima_detection.shape[1] and 0 <= z < maxima_detection.shape[2]:
+            # Copy the maxima value, ensuring it fits within uint16 range
+            filtered_maxima[x, y, z] = np.clip(maxima_detection[x, y, z], 0, np.iinfo(np.uint16).max)
+
+            # Get the label value at the current coordinate in the labeled shape image
+            label_value = labeled_shape[x, y, z]
+            if label_value > 0:  # If a valid label is present
+                # Assign a random non-zero value within the uint16 range to the entire region with the same label value
+                random_value = np.random.randint(1, np.iinfo(np.uint16).max + 1, dtype=np.uint16)  # Generate random uint16
+                for region_coord in region_map[label_value]:
+                    rx, ry, rz = region_coord
+                    filtered_shape[rx, ry, rz] = random_value  # Assign random value
+
+    # Step 4: Save the filtered results
+    filtered_maxima_detection_path = os.path.join(shape_detection_directory, "maxima_detection_filtered.tif")
+    filtered_shape_detection_path = os.path.join(shape_detection_directory, "shape_detection_filtered.tif")
+
+    tifffile.imwrite(filtered_maxima_detection_path, filtered_maxima)
+    tifffile.imwrite(filtered_shape_detection_path, filtered_shape)
+
+    print(f"Filtered maxima detection saved to: {filtered_maxima_detection_path}")
+    print(f"Filtered shape detection saved to: {filtered_shape_detection_path}")

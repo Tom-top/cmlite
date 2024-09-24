@@ -1,4 +1,5 @@
 import os
+import json
 
 import numpy as np
 import pandas as pd
@@ -56,6 +57,8 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
         #  FILTER THE CELLS TO BE KEPT (ALL CELLS / NEURONS) AND FETCH
         ################################################################################################################
 
+        ut.print_c("[INFO] Filtering cells to be kept and fetches them!")
+
         if non_neuronal_mask is None:
             filtered_points_plot_x = filtered_points[:, orix]
             filtered_points_plot_y = filtered_points[:, oriy]
@@ -73,13 +76,30 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
             if cell_categories.size > 0:
                 cell_categories = cell_categories[~non_neuronal_mask]
 
-        color_counts = Counter(cell_colors)
-        sorted_color_counts = dict(sorted(color_counts.items(), key=lambda item: item[1], reverse=True))
-        colors = list(sorted_color_counts.keys())
-        if cell_categories.size > 0:
-            categories = np.array([cell_categories[cell_colors == i][0] for i in colors])
+        # category_counts = Counter(cell_categories)
+        # sorted_category_counts = dict(sorted(category_counts.items(), key=lambda item: item[1], reverse=True))
+        # categories = list(sorted_category_counts.keys())
+        categories = np.unique(cell_categories)
+        # categories = np.array(categories)
+        n_categories = len(categories)
+        if cell_colors.size > 0:
+            colors = []
+            for u, ucat in enumerate(categories):
+                ut.print_c(f"[INFO] Fetching color for category: {ucat}; {u+1}/{n_categories}")
+                colors.append(cell_colors[cell_categories == ucat][0])
+            colors = np.array(colors)
         else:
-            categories = np.array([])
+            colors = np.array([])
+
+        # color_counts = Counter(cell_colors)
+        # sorted_color_counts = dict(sorted(color_counts.items(), key=lambda item: item[1], reverse=True))
+        # colors = list(sorted_color_counts.keys())
+        # # colors = np.array([cell_colors[cell_categories == i][0] for i in cell_categories])
+        # if cell_categories.size > 0:
+        #     # categories = np.array([cell_categories[cell_colors == i][0] for i in colors])
+        #     categories = cell_categories
+        # else:
+        #     categories = np.array([])
 
         # If we keep only specific categories
         if relevant_categories:
@@ -136,12 +156,15 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
 
             for color, category in zip(colors, categories):
 
-                saving_dir = ut.create_dir(os.path.join(os.path.dirname(saving_path), category))
-                color_mask = np.array(cell_colors) == color
+                ut.print_c(f"[INFO] Plotting category: {category}!")
+                category_name_corrected = category.replace("/", "-")
+                saving_dir = ut.create_dir(os.path.join(os.path.dirname(saving_path), category_name_corrected))
+                #color_mask = np.array(cell_colors) == color
+                cat_mask = np.array(cell_categories) == category
 
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.scatter(filtered_points_plot_x[color_mask], filtered_points_plot_y[color_mask], c=color, s=sg,
+                ax.scatter(filtered_points_plot_x[cat_mask], filtered_points_plot_y[cat_mask], c=color, s=sg,
                            lw=0, edgecolors="black", alpha=1)
                 if show_outline:
                     ax.contour(max_proj_mask, levels=[0.5], colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
@@ -175,7 +198,7 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
 
                     fig = plt.figure()
                     ax = fig.add_subplot(111)
-                    ax.scatter(adjusted_points_plot_x[color_mask], adjusted_points_plot_y[color_mask], c=color, s=adjusted_size,
+                    ax.scatter(adjusted_points_plot_x[cat_mask], adjusted_points_plot_y[cat_mask], c=color, s=adjusted_size,
                                lw=0, edgecolors="black", alpha=1)
                     if show_ref:
                         ax.imshow(max_proj_reference[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
@@ -212,9 +235,9 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
                     ax.axis('off')
 
                     # Create contour plots for each of the colors
-                    x = adjusted_points_plot_x[color_mask]
-                    y = adjusted_points_plot_y[color_mask]
-                    y_flipped = cropped_ref.shape[0] - adjusted_points_plot_y[color_mask]
+                    x = adjusted_points_plot_x[cat_mask]
+                    y = adjusted_points_plot_y[cat_mask]
+                    y_flipped = cropped_ref.shape[0] - adjusted_points_plot_y[cat_mask]
 
                     if len(x) > 0 and len(y) > 0:
                         # Create a higher resolution density map
@@ -561,12 +584,14 @@ def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_
 
 
 def create_ordered_dendrogram(categories, data_categories, saving_path):
-    # Initialize variables
     hierarchy = []
-    all_labels_set = set()  # Track all unique labels added
+    node_count = 0  # Unique node count for creating the linkage matrix
+    node_dict = {}  # Map each label to a unique node index
 
-    # Function to group data based on cumulative sum logic
     def group_by_cumulative_sum(parent_count, child_df):
+        """
+        Groups child nodes based on a cumulative sum of counts that does not exceed the parent count.
+        """
         grouped_indexes = []
         current_sum = 0
 
@@ -579,79 +604,102 @@ def create_ordered_dendrogram(categories, data_categories, saving_path):
 
         return grouped_indexes
 
-    # Recursive function to traverse categories and subcategories
-    def traverse_hierarchy(level, parent_index=None):
+    def traverse_hierarchy(level, parent_indices=None, parent_label=None):
+        """
+        Recursively traverses the hierarchy to build the ordered dendrogram structure.
+        Processes all supertypes and clusters at the current level before moving to the next level.
+        """
         if level >= len(categories):
             return
 
         parent_df = hierarchy[level - 1] if level > 0 else None
         child_df = data_categories[level].copy()
 
-        if parent_df is not None and parent_index is not None:
-            # Filter child_df to only include rows related to the current parent by index
-            parent_label = parent_df['labels'][parent_index]
-        else:
-            parent_label = None
+        # Initialize parent_indices if not provided
+        if parent_indices is None:
+            parent_indices = list(range(len(child_df)))  # Start with all indices at the first level
 
-        # Group by cumulative sum based on parent count
-        level_labels = []
-        parent_labels = []
-        level_counts = []
-        level_percentages = []
-        level_colors = []
+        labels, counts, percentages, colors, parents = [], [], [], [], []
 
-        if parent_df is None:  # First level (no parent)
-            # For the first level, no cumulative sum grouping, just use the DataFrame as is
-            sorted_child_df = child_df.sort_values(by='Percentage', ascending=False)
-            level_labels.extend(sorted_child_df['Label'].tolist())
-            parent_labels.extend([None] * len(sorted_child_df))
-            level_counts.extend(sorted_child_df['Count_df'].tolist())
-            level_percentages.extend(sorted_child_df['Percentage'].tolist())
-            level_colors.extend(sorted_child_df['Color_df'].tolist())
-        else:  # Subsequent levels (with parent)
-            parent_count = parent_df['counts'][parent_index]
-            # Group child labels under the current parent by cumulative sum
-            child_indexes = group_by_cumulative_sum(parent_count, child_df)
+        print(parent_indices)
 
-            # Extract the grouped children
-            grouped_child_df = child_df.loc[child_indexes]
+        # Step 1: Process each parent cluster at the current level
+        for parent_index in parent_indices:
+            # Determine grouping based on 'Count_df'
+            if parent_df is not None:
+                if parent_index >= len(parent_df['counts']):
+                    print(f"Warning: parent_index {parent_index} is out of range for level {level}. Skipping.")
+                    continue  # Skip if parent_index is invalid
 
-            # Sort the grouped children by Percentage after grouping
-            sorted_child_df = grouped_child_df.sort_values(by='Percentage', ascending=False)
+                parent_count = parent_df['counts'][parent_index]
+                child_indexes = group_by_cumulative_sum(parent_count, child_df)
+                grouped_child_df = child_df.loc[child_indexes]
+                print(parent_df, parent_count)
+                print(child_df, child_indexes)
+                print(grouped_child_df)
+            else:
+                # First level sorted by 'Count_df'
+                grouped_child_df = child_df.sort_values(by='Count_df', ascending=False)
 
-            # Accumulate results
-            level_labels.extend(sorted_child_df['Label'].tolist())
-            parent_labels.extend([parent_label] * len(sorted_child_df))
-            level_counts.extend(sorted_child_df['Count_df'].tolist())
-            level_percentages.extend(sorted_child_df['Percentage'].tolist())
-            level_colors.extend(sorted_child_df['Color_df'].tolist())
+            # Collect details of the current grouped child data frame
+            for idx in grouped_child_df.index:
+                labels.append(grouped_child_df.loc[idx, 'Label'])
+                counts.append(grouped_child_df.loc[idx, 'Count_df'])
+                percentages.append(grouped_child_df.loc[idx, 'Percentage'])
+                colors.append(grouped_child_df.loc[idx, 'Color_df'])
+                parents.append(parent_label if parent_label else None)
 
-            # Drop the assigned rows from child_df using index labels
-            child_df = child_df.drop(index=child_indexes)
-
+        # Add the grouped data for this level to the hierarchy
         hierarchy.append({
-            'labels': level_labels,
-            'counts': level_counts,
-            'percentages': level_percentages,
-            'colors': level_colors,
-            'parent': parent_labels
+            'labels': labels,
+            'counts': counts,
+            'percentages': percentages,
+            'colors': colors,
+            'parent': parents
         })
 
-        # Recur for the next level with the first child of the current parent
-        if level_labels:
-            traverse_hierarchy(level + 1, 0)
+        # Step 2: Recursively process the next level for each unique parent_label (subtype) in this level
+        if len(labels) > 0:
+            processed_labels = set()  # Track processed parent labels to avoid duplication
+            for idx, label in enumerate(labels):
+                if label not in processed_labels:
+                    processed_labels.add(label)
 
-    # Start with the first category level
+                    # Find child indices associated with this parent label
+                    child_parent_indices = [i for i, parent in enumerate(parents) if parent == label]
+
+                    # Recursively process the next level (subtypes) for each unique parent label
+                    traverse_hierarchy(level + 1, child_parent_indices, label)
+
+    # Initialize the hierarchy traversal
     traverse_hierarchy(0)
 
-    # Building the linkage matrix for the dendrogram
+    # Save the hierarchy structure to a file for inspection
+    hierarchy_path = os.path.join(saving_path, "hierarchy_structure.json")
+    with open(hierarchy_path, "w") as f:
+        json.dump(hierarchy, f, indent=4)
+
+    print(f"Hierarchy structure saved to {hierarchy_path} for inspection.")
+
+    # Prepare the linkage matrix for the dendrogram
     Z = []
-    node_count = 0
-    node_dict = {}
-    labels_at_leaves = []  # Track labels that correspond to leaves in the dendrogram
+    labels_at_leaves = []
 
     for level, h in enumerate(hierarchy):
         for idx, label in enumerate(h['labels']):
+            if level == 0:
+                # The first level should only initialize labels and nodes
+                node_name = f"{categories[level]}_{label}"
+                node_dict[node_name] = node_count
+                labels_at_leaves.append(label)
+                node_count += 1
+                continue
+
+            # Ensure the level index is within bounds
+            if level >= len(categories):
+                print(f"Warning: Level index {level} is out of range for categories.")
+                continue
+
             node_name = f"{categories[level]}_{label}"
             node_dict[node_name] = node_count
             labels_at_leaves.append(label)
@@ -659,18 +707,19 @@ def create_ordered_dendrogram(categories, data_categories, saving_path):
 
             if h['parent'][idx] is not None:
                 parent_name = f"{categories[level - 1]}_{h['parent'][idx]}"
-                parent_node = node_dict[parent_name]
-                Z.append([parent_node, node_dict[node_name], h['percentages'][idx], 1])
+                if parent_name in node_dict:
+                    parent_node = node_dict[parent_name]
+                    Z.append([parent_node, node_dict[node_name], h['percentages'][idx], 1])
+                else:
+                    print(f"Warning: Parent {parent_name} not found for label {label} at level {level}.")
 
-    # Convert to numpy array
     Z = np.array(Z)
 
-    # Ensure the labels match the expected number of leaves
-    if len(labels_at_leaves) != Z.shape[0] + 1:
-        print(f"Mismatch in the number of labels and the expected leaves in the dendrogram.")
+    # Ensure the number of leaves in Z matches the labels
+    if Z.shape[0] != len(labels_at_leaves) - 1:
+        print(f"Mismatch in the number of leaves and labels in the dendrogram.")
         print(f"Expected: {Z.shape[0] + 1}, but got {len(labels_at_leaves)}.")
-        print(f"Labels: {labels_at_leaves}")
-        return  # Exit or handle the mismatch error as needed
+        return
 
     # Plotting the dendrogram
     plt.figure(figsize=(15, 10))
@@ -678,3 +727,5 @@ def create_ordered_dendrogram(categories, data_categories, saving_path):
     plt.savefig(os.path.join(saving_path, "dendrogram.png"), dpi=300)
     plt.savefig(os.path.join(saving_path, "dendrogram.svg"), dpi=300)
     plt.close()
+
+    print(f"Dendrogram saved to {saving_path}.")

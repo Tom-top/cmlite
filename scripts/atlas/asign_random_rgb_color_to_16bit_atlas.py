@@ -8,7 +8,12 @@ from utils.utils import assign_random_colors
 
 
 working_directory = r"/default/path"  # PERSONAL
-file_list = [os.path.join(working_directory, i) for i in os.listdir(working_directory) if i.split("_")[1] == "16b" and not i.endswith("rgb.tif")]
+file_list = []
+for f in os.listdir(working_directory):
+    f_split = f.split("_")
+    if len(f_split) > 1:
+        if f_split[1] in ["16b", "16b.tif"] and not f.endswith("rgb.tif"):
+            file_list.append(os.path.join(working_directory, f))
 
 for f in file_list:
     f_name = os.path.basename(f)

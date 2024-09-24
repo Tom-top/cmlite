@@ -22,7 +22,8 @@ CATEGORY_NAMES = ["cluster"]
 NON_NEURONAL_CELL_TYPES = [["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]]
 # NON_NEURONAL_CELL_TYPES = [["Astro"], ["Oligo"], ["Vascular"], ["Immune"], ["Epen"], ["OEC"]]
 SHOW_GLIA = False
-target_genes = ["Glp1r", "Gip", "Ramp1", "Ramp2", "Ramp3", "Calca"]
+# target_genes = ["Glp1r", "Gip", "Ramp1", "Ramp2", "Ramp3", "Calca"]
+target_genes = ["Slc17a6"]
 normalization_max_value = 8.0
 CHUNK_SIZE = 10
 

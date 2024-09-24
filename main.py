@@ -76,7 +76,9 @@ for sample_name in sample_names:
     # 3.0 SEGMENT
     ####################################################################################################################
 
-    cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory, **parameters)
+    cells.segment_cells(sample_name, sample_directory, annotation_files, analysis_data_size_directory,
+                        # data_to_segment=r"E:\tto\23-GUP030-0696\raw\ID888_an000888_g010_brain_M3\xy5p0_z5p0\2024-08-29_194534_merged\chunk_stitched_3.npy",
+                        **parameters)
 
     ####################################################################################################################
     # 4.0 VOXELIZE

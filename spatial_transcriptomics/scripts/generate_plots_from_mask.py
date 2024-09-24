@@ -33,7 +33,8 @@ BILATERAL = True  # If True: generate bilateral cell distribution in the 3D repr
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
 PERCENTAGE_THRESHOLD = 50
-categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+categories = ["cluster"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
@@ -141,7 +142,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     ####################################################################################################################
 
     for i, dataset_n in enumerate(DATASETS):
-        dataset_n = 1
+
         ut.print_c(f"[INFO] Loading dataset: {dataset_n}")
 
         # Select the correct dataset
@@ -489,10 +490,235 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             colormap="viridis",
         )
 
-        # st_plt.create_ordered_dendrogram(categories[:-1],
-        #                                  merged_data[:-1],
-        #                                  SAVING_DIR,
-        #                                  )
+        ################################################################################################################
+        # TEST
+        ################################################################################################################
+
+        class_data = merged_data[0]
+        subclass_data = merged_data[1]
+        supertype_data = merged_data[2]
+        cluster_data = merged_data[3]
+        hierarchy = {}
+
+        for cd in class_data.iterrows():
+            print("")
+            class_label = cd[-1]["Label"]
+            hierarchy[class_label] = cd[-1]  # Set the class with its data
+            hierarchy[class_label]["children"] = {}  # Set a dummy dictionary for potential children
+            class_counts = cd[-1]["Count_df"]
+            ut.print_c(f"[INFO] Class {class_label} count: {class_counts}")
+
+            subclass_indices = []  # Set a list for the subclass indices to be removed on the next iteration
+            cumulative_subclass_counts = 0  # Counter to keep track of the cumulative counts for the subclasses
+            for scd in subclass_data.iterrows():  # Iterate over each subclass
+                if class_counts > cumulative_subclass_counts:
+                    subclass_label = scd[-1]["Label"]
+                    cumulative_subclass_counts += scd[-1]["Count_df"]
+                    subclass_counts = scd[-1]["Count_df"]
+                    subclass_indices.append(scd[0])
+                    hierarchy[class_label]["children"][subclass_label] = scd[-1]
+                    hierarchy[class_label]["children"][subclass_label]["children"] = {}  # Set a dummy dictionary for potential children
+
+                    supertype_indices = []  # Set a list for the supertype indices to be removed on the next iteration
+                    cumulative_supertype_counts = 0  # Counter to keep track of the cumulative counts for the supertypes
+                    for sptd in supertype_data.iterrows():  # Iterate over each supertype
+                        if subclass_counts > cumulative_supertype_counts:
+                            supertype_label = sptd[-1]["Label"]
+                            cumulative_supertype_counts += sptd[-1]["Count_df"]
+                            supertype_counts = sptd[-1]["Count_df"]
+                            supertype_indices.append(sptd[0])
+                            hierarchy[class_label]["children"][subclass_label]["children"][supertype_label] = sptd[-1]
+                            hierarchy[class_label]["children"][subclass_label]["children"][supertype_label]["children"] = {}
+
+                            cluster_indices = []  # Set a list for the cluster indices to be removed on the next iteration
+                            cumulative_cluster_counts = 0  # Counter to keep track of the cumulative counts for the clusters
+                            for cld in cluster_data.iterrows():  # Iterate over each cluster
+                                if supertype_counts > cumulative_cluster_counts:
+                                    cluster_label = cld[-1]["Label"]
+                                    cumulative_cluster_counts += cld[-1]["Count_df"]
+                                    cluster_counts = cld[-1]["Count_df"]
+                                    cluster_indices.append(cld[0])
+                                    ut.print_c(
+                                        f"[INFO] {class_label}: {class_counts};"
+                                        f" {subclass_label}: {cumulative_subclass_counts};"
+                                        f" {supertype_label}: {cumulative_supertype_counts};"
+                                        f" {cluster_label}: {cumulative_cluster_counts}")
+                                    hierarchy[class_label]["children"][subclass_label]["children"][supertype_label]["children"][cluster_label] = cld[-1]
+                            cluster_data = cluster_data.drop(cluster_indices)
+                    supertype_data = supertype_data.drop(supertype_indices)
+            subclass_data = subclass_data.drop(subclass_indices)
+
+        import networkx as nx
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Rectangle
+        from matplotlib import cm
+        import os
+        from networkx.drawing.nx_pydot import graphviz_layout
+
+
+        def filter_hierarchy_by_percentage(hierarchy, min_percentage=0.5):
+            """
+            Filters the hierarchy to remove clusters with a 'Percentage' <= min_percentage
+            and removes supertypes without any clusters after filtering.
+            If a class (root node) does not have any linked cluster, it is also removed.
+
+            Args:
+            - hierarchy (dict): The original hierarchical data.
+            - min_percentage (float): The minimum percentage threshold for clusters.
+
+            Returns:
+            - dict: The filtered hierarchy.
+            """
+            filtered_hierarchy = {}
+
+            # Filter each root class
+            for root_class, root_data in hierarchy.items():
+                filtered_subclasses = {}
+
+                # Filter each subclass
+                for subclass, subclass_data in root_data["children"].items():
+                    filtered_supertypes = {}
+
+                    # Filter each supertype
+                    for supertype, supertype_data in subclass_data["children"].items():
+                        # Filter clusters based on the percentage
+                        filtered_clusters = {
+                            cluster: cluster_data for cluster, cluster_data in supertype_data["children"].items()
+                            if cluster_data.get("Percentage", 0) > min_percentage
+                        }
+
+                        # Only add the supertype if it has remaining clusters
+                        if filtered_clusters:
+                            filtered_supertypes[supertype] = {
+                                "Label": supertype_data["Label"],
+                                "Percentage": supertype_data.get("Percentage", 0),
+                                # Fetch directly from the hierarchy data
+                                "children": filtered_clusters
+                            }
+
+                    # Only add the subclass if it has remaining supertypes
+                    if filtered_supertypes:
+                        filtered_subclasses[subclass] = {
+                            "Label": subclass_data["Label"],
+                            "Percentage": subclass_data.get("Percentage", 0),  # Fetch directly from the hierarchy data
+                            "children": filtered_supertypes
+                        }
+
+                # Only add the root class if it has remaining subclasses
+                if filtered_subclasses:
+                    filtered_hierarchy[root_class] = {
+                        "Label": root_data["Label"],
+                        "Percentage": root_data.get("Percentage", 0),  # Fetch directly from the hierarchy data
+                        "children": filtered_subclasses
+                    }
+
+            return filtered_hierarchy
+
+
+        def plot_linear_tree(hierarchy, save_path):
+            """
+            Plots a linear dendrogram-like tree using the hierarchy dictionary with clear separation of initial nodes.
+
+            Args:
+            - hierarchy (dict): Nested dictionary representing the hierarchical structure.
+            - save_path (str): Path to save the output image.
+            """
+            # Create a directed graph
+            G = nx.DiGraph()
+
+            # Function to recursively add nodes and edges to the graph
+            def add_edges(parent, data, level):
+                """
+                Recursively add nodes and edges to the graph while keeping track of levels and percentages.
+                """
+                # Ensure the parent node is added with its 'level' and 'percentage' attributes
+                G.add_node(parent, level=level, percentage=data.get('Percentage', 0))  # Correctly assign the percentage
+
+                for child, child_data in data.get("children", {}).items():
+                    # Add each child node with its 'level' attribute and 'percentage' directly from the data
+                    G.add_node(child, level=level + 1,
+                               percentage=child_data.get("Percentage", 0))  # Fetch directly from data
+                    G.add_edge(parent, child)
+                    # Recursively add the children
+                    add_edges(child, child_data, level + 1)
+
+            # Add edges starting from the root classes in the hierarchy
+            for root_class, data in hierarchy.items():
+                if "children" in data:
+                    add_edges(root_class, data, 0)  # Root level is 0
+
+            # Extract levels and percentages from nodes
+            levels = nx.get_node_attributes(G, 'level')
+            percentages = nx.get_node_attributes(G, 'percentage')
+
+            # Ensure all nodes have the 'level' attribute
+            for node in G.nodes():
+                if 'level' not in G.nodes[node]:
+                    raise ValueError(f"Node {node} does not have 'level' attribute.")
+
+            # Normalize percentages globally (0-100 range)
+            min_percentage = 0
+            max_percentage = 60
+            norm = plt.Normalize(vmin=min_percentage, vmax=max_percentage)
+            cmap = cm.viridis  # Use viridis colormap
+
+            # Generate a hierarchy layout for a linear tree with increased separation between levels
+            pos = nx.multipartite_layout(G, subset_key='level', scale=5, align='vertical')
+
+            # Draw the graph with clear separation of root nodes
+            plt.figure(figsize=(13, 10))
+            ax = plt.gca()
+
+            # Draw edges first so they appear behind the nodes
+            nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='gray', alpha=0.7,  width=1.5)
+
+            # Draw rectangular nodes for all nodes with width adjusted by label length
+            min_x = np.inf
+            max_x = -np.inf
+            for node in G.nodes():
+                x, y = pos[node]
+                if x < min_x:
+                    min_x = x
+                if x > max_x:
+                    max_x = x
+
+                # Dynamically calculate width based on text length
+                label = node
+                width = len(label) * 0.017  # Scale the width by a factor (adjust as needed)
+                height = 0.25  # Fixed height
+
+                # Determine color based on the globally normalized percentage
+                percentage = percentages.get(node, 0)  # Use the directly fetched percentage
+                color = cmap(norm(percentage))
+
+                # Draw rectangle
+                ax.add_patch(Rectangle((x - width / 2, y - height / 2), width, height,
+                                       edgecolor='black', facecolor=color, lw=1, zorder=1))
+                # Draw label with white text
+                if percentage >= 40:
+                    plt.text(x, y, label, ha='center', va='center', fontsize=8, fontweight='bold', color='black',
+                             zorder=2)
+                else:
+                    plt.text(x, y, label, ha='center', va='center', fontsize=8, fontweight='bold', color='white',
+                             zorder=2)
+
+            # Save and show the plot
+            plt.title("Dendrogram-Like Tree with Viridis-Colored Nodes (Based on Percentage)")
+            # plt.tight_layout()
+            ax.set_xlim(min_x-0.3, max_x+0.3)
+            plt.savefig(save_path)
+            plt.show()
+
+
+        # Filter the hierarchy based on the 'Percentage' value
+        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=40)
+        # Plot the dendrogram
+        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.png"))
+        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.svg"))
+
+        ################################################################################################################
+        # TEST
+        ################################################################################################################
 
         # EXTRACT THE RELEVANT CATEGORIES TO DISPLAY
         relevant_categories = []
@@ -516,7 +742,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     filtered_points_merged_conc = np.array([])
     filtered_points_merged = np.array(filtered_points_merged)
     cell_size = 0.5
-    cell_size_global = 0.1
+    cell_size_global = 0.5
 
     if BILATERAL:
         mirrored_filtered_points = filtered_points_merged.copy()

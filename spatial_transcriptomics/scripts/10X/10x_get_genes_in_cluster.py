@@ -8,10 +8,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import anndata
-# import scanpy as sc
+import scanpy as sc
 from concurrent.futures import ProcessPoolExecutor
 
-# from analysis import sc_helper_functions as sc_utils
+from spatial_transcriptomics.to_check.analysis import sc_helper_functions as sc_utils
 
 matplotlib.use("Agg")
 # matplotlib.use("Qt5Agg")
@@ -21,38 +21,56 @@ matplotlib.use("Agg")
 ########################################################################################################################
 
 # Name of the cluster and category: class/subclass/supertype/cluster
-cluster_names = ["23 P Glut",
-                 "217 PB Lmx1a Glut",
-                 "0898 PB Lmx1a Glut_4",
-                 "0899 PB Lmx1a Glut_5",
-                 "4198 PG-TRN-LRN Fat2 Glut_1",
-                 "4199 PG-TRN-LRN Fat2 Glut_1",
-                 "079 CEA-BST Six3 Cyp26b1 Gaba",
-                 "082 CEA-BST Ebf1 Pdyn Gaba",
-                 "135 STN-PSTN Pitx2 Glut",
-                 "064 STR-PAL Chst9 Gaba",
-                 "014 LA-BLA-BMA-PA Glut",
-                 "238 NTS Phox2b Glut",
-                 "252 DMX VII Tbx20 Chol",
-                 "300 PARN-MDRNd-NTS Gbx2 Gly-Gaba",
-                 "304 NTS-PARN Neurod2 Gly-Gaba",
+cluster_names = [
+                 "2286 DMH-LHA Vgll2 Glut_2",
+                 # "2620 PVT-PT Ntrk1 Glut_2",
+                 # "1334 CEA-BST Six3 Cyp26b1 Gaba_2",
+                 # "1341 CEA-BST Six3 Cyp26b1 Gaba_4",
+                 # "1394 CEA-BST Ebf1 Pdyn Gaba_3",
+                 # "3936 PB Lmx1a Glut_4",
+                 # "4055 PB Evx4 Glut_5",
+                 # "4065 PB Evx4 Glut_6",
+                 # "23 P Glut",
+                 # "217 PB Lmx1a Glut",
+                 # "0898 PB Lmx1a Glut_4",
+                 # "0899 PB Lmx1a Glut_5",
+                 # "4198 PG-TRN-LRN Fat2 Glut_1",
+                 # "4199 PG-TRN-LRN Fat2 Glut_1",
+                 # "079 CEA-BST Six3 Cyp26b1 Gaba",
+                 # "082 CEA-BST Ebf1 Pdyn Gaba",
+                 # "135 STN-PSTN Pitx2 Glut",
+                 # "064 STR-PAL Chst9 Gaba",
+                 # "014 LA-BLA-BMA-PA Glut",
+                 # "238 NTS Phox2b Glut",
+                 # "252 DMX VII Tbx20 Chol",
+                 # "300 PARN-MDRNd-NTS Gbx2 Gly-Gaba",
+                 # "304 NTS-PARN Neurod2 Gly-Gaba",
                  ]
 
-categories = ["class",
-              "subclass",
-              "supertype",
-              "supertype",
+categories = [
               "cluster",
-              "cluster",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
-              "subclass",
+              # "cluster",
+              # "cluster",
+              # "cluster",
+              # "cluster",
+              # "cluster",
+              # "cluster",
+              # "cluster",
+              # "class",
+              # "subclass",
+              # "supertype",
+              # "supertype",
+              # "cluster",
+              # "cluster",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
+              # "subclass",
               ]
 
 for cluster_name, category in zip(cluster_names, categories):
@@ -62,7 +80,7 @@ for cluster_name, category in zip(cluster_names, categories):
     ########################################################################################################################
 
     dataset_id = "WMB-10X"  # Select the dataset
-    download_base = r'E:\tto'  # Path to data on the local drive
+    download_base = r'E:\tto\spatial_transcriptomics'  # Path to data on the local drive
     saving_dir = r"U:\Users\TTO\spatial_transcriptomics\neuropedia\maps\10x"  # Saving directory
     saving_folder = os.path.join(saving_dir, f"{category}_{cluster_name}")
     if not os.path.exists(saving_folder):
@@ -108,6 +126,7 @@ for cluster_name, category in zip(cluster_names, categories):
 
     res = ax.set_title(f"{cluster_name}_{category}")  # Set title
     plt.savefig(os.path.join(saving_folder, f"10x_highlight_{cluster_name}_{category}.png"), dpi=300)  # Save result
+    plt.savefig(os.path.join(saving_folder, f"10x_highlight_{cluster_name}_{category}.svg"), dpi=300)  # Save result
     # plt.show()  # Show plot
 
     ########################################################################################################################
@@ -215,6 +234,9 @@ for cluster_name, category in zip(cluster_names, categories):
     plt.tight_layout()
     plt.savefig(os.path.join(saving_folder,
                              f"10x_top_{number_of_enriched_genes}_enriched_genes_{cluster_name}_{category}.png"),
+                dpi=300)
+    plt.savefig(os.path.join(saving_folder,
+                             f"10x_top_{number_of_enriched_genes}_enriched_genes_{cluster_name}_{category}.svg"),
                 dpi=300)  # Save result
     # plt.show()
 

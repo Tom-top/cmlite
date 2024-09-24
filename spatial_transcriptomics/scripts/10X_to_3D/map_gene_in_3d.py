@@ -34,19 +34,18 @@ N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster"]
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
-ONLY_NEURONS = False  # If True: only generate plots for neurons, excluding all non-neuronal cells
-PLOT_MOST_REPRESENTED_CATEGORIES = False
+ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PERCENTAGE_THRESHOLD = 50
 categories = ["cluster"]
-target_genes = ["Hcrtr1", "Hcrtr2"]
+target_genes = ["Slc17a6"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
 
-DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
-MAP_DIR = ut.create_dir(rf"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression")  # PERSONAL
+DOWNLOAD_BASE = r"/default/path"  # PERSONAL
+MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
 WHOLE_REGION = True  # If true, the unprocessed mask will be used
 LABELED_MASK = False  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 PLOT_COUNTS_BY_CATEGORY = True  # If true plots the category plot
@@ -115,7 +114,8 @@ ut.print_c("[INFO] Loading mean gene expression matrix!")
 mean_expression_matrix_path = r"resources\abc_atlas\cluster_log2_mean_gene_expression_merge.feather"
 mean_expression_matrix = pd.read_feather(mean_expression_matrix_path)
 
-colormap = plt.get_cmap("YlOrBr")
+# colormap = plt.get_cmap("YlOrRd")
+colormap = plt.get_cmap("gist_heat_r")
 
 ########################################################################################################################
 # ITERATE OVER EVERY BLOB (LABEL)
@@ -289,56 +289,42 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             unique_cells_cluster_colors.append(mean_expression)
         unique_cells_cluster_colors = np.array(unique_cells_cluster_colors).flatten()
 
-        # for n, cluster_name in enumerate(unique_cells_cluster[0]):
-        #     ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
-        #     # cluster_name = cells_cluster_merged[cluster]
-        #     cluster_mask = exp["cluster"] == cluster_name  # Mask of the cells belonging to the cluster
-        #
-        #     # Fixme: This has to be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
-        #     library_mask = exp["library_method"] == "10Xv3"  # Mask of the library data
-        #
-        #     # Combined mask of cells in the dataset that belong to the selected cluster
-        #     cluster_and_library_mask = np.logical_and(cluster_mask, library_mask)
-        #
-        #     if np.sum(cluster_and_library_mask) > 0:
-        #         # Fetch gene expression data from the selected cluster
-        #         # cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-        #         cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-        #         adata_cluster_in = []  # Gene expression of cells in the selected cluster for each sub-dataset
-        #
-        #         # Loop over each sub-dataset (.h5ad files)
-        #         for adata in adatas:
-        #             mask_in = adata.obs.index.isin(cell_labels_in)  # Creates mask for the cells in the selected cluster
-        #             adata_cluster_in.append(adata[mask_in])  # Appends result
-        #
-        #         adata_cluster_in_filtered = [x for x in adata_cluster_in if len(x) > 0]  # Filters out empty anndata
-        #         combined_adata_in = anndata.concat(adata_cluster_in_filtered, axis=0)  # Combine all the datasets
-        #
-        #         combined_data_in = combined_adata_in.to_df()  # Load the expression data into memory
-        #
-        #         gene_mask = genes["gene_symbol"] == target_gene
-        #         gene_id = genes["gene_identifier"][gene_mask]
-        #         mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
-        #         unique_cells_cluster_colors.append(mean_gene_expression)
-        #     else:
-        #         mean_gene_expression = 0
-        #         unique_cells_cluster_colors.append(mean_gene_expression)
-
         np.save(os.path.join(SAVING_DIR, f"unique_cells_cluster_colors_{target_gene}.npy"), unique_cells_cluster_colors)
 
+
+        # NORMALIZE
+        unique_cells_cluster_colors = [2**i for i in unique_cells_cluster_colors]
+        unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
+        unique_cells_cluster_colors[unique_cells_cluster_colors >= 1500] = 1500
         # min_value = min(unique_cells_cluster_colors)
         min_value = 0
+        # min_value = 0
         # max_value = max(unique_cells_cluster_colors)
-        max_value = 8
+        max_value = 1500
+        # max_value = 8
         unique_cells_cluster_colors_norm = [(x - min_value) / (max_value - min_value) for x in unique_cells_cluster_colors]
 
-        # cells_cluster_merged_colors = np.zeros((np.array(cells_cluster_merged).shape[0], 3), dtype=int)
+        # cells_cluster_merged_colors = np.full_like(cells_cluster_merged, "")
+        # for m, (cluster_name, cluster_color) in enumerate(zip(unique_cells_cluster[0], unique_cells_cluster_colors_norm)):
+        #     ut.print_c(f"[INFO] Applying colormap for cluster: {cluster_name}; {m + 1}/{n_unique_cluster}")
+        #     cluster_mask = np.array([True if i == cluster_name else False for i in cells_cluster_merged])
+        #     rgb_color = colormap(cluster_color)[:3]
+        #     rgb_color_8b = np.array([i*255 for i in rgb_color]).astype(int)
+        #     cells_cluster_merged_colors[cluster_mask] = ut.rgb_to_hex(rgb_color_8b)
+
         cells_cluster_merged_colors = np.full_like(cells_cluster_merged, "")
-        for cluster_name, cluster_color in zip(unique_cells_cluster[0], unique_cells_cluster_colors_norm):
-            cluster_mask = np.array([True if i == cluster_name else False for i in cells_cluster_merged])
-            rgb_color = colormap(cluster_color)[:3]
-            rgb_color_8b = np.array([i*255 for i in rgb_color]).astype(int)
-            cells_cluster_merged_colors[cluster_mask] = ut.rgb_to_hex(rgb_color_8b)
+        cells_cluster_merged_arr = np.array(cells_cluster_merged)
+        # Precompute RGB colors in 8-bit format for all clusters at once
+        rgb_colors_8b = np.array(
+            [np.array(colormap(cluster_color)[:3]) * 255 for cluster_color in unique_cells_cluster_colors_norm]).astype(
+            int)
+        # Precompute hex colors from the RGB 8-bit values
+        hex_colors = np.array([ut.rgb_to_hex(rgb_color) for rgb_color in rgb_colors_8b])
+        # Vectorized assignment of colors
+        for m, cluster_name in enumerate(unique_cells_cluster[0]):
+            ut.print_c(f"[INFO] Applying colormap for cluster: {cluster_name}; {m + 1}/{n_unique_cluster}")
+            # Apply mask and assign hex colors
+            cells_cluster_merged_colors[cells_cluster_merged_arr == str(cluster_name)] = hex_colors[m]
 
         ########################################################################################################
         # PLOT CELLS IN 3D
@@ -347,7 +333,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         filtered_points_merged_conc = np.array([])
         filtered_points_merged = np.array(filtered_points_merged)
         cell_size = 0.5
-        cell_size_global = 1
+        cell_size_global = 0.5
 
         if BILATERAL:
             mirrored_filtered_points = filtered_points_merged.copy()
@@ -358,7 +344,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             if non_neuronal_mask_global.shape[0] != filtered_points_merged_conc.shape[0]:
                 non_neuronal_mask_global = np.tile(non_neuronal_mask_global, 2)
 
-        for n, cat in enumerate(categories):
+        for cat in categories:
 
             if BILATERAL:
                 points_cats = np.tile(np.array(globals()[f"cells_{cat}_merged"]), 2)
