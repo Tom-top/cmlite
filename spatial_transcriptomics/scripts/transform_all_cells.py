@@ -9,8 +9,10 @@ import anndata
 
 import alignment.align as elx
 
-# dataset_ns = np.arange(1, 6, 1)
-dataset_ns = np.array([2])
+# DOWNLOAD DATA FROM: aws s3 cp s3://allen-brain-cell-atlas E:\tto\spatial_transcriptomics --no-sign-request --recursive
+
+dataset_ns = np.arange(1, 6, 1)
+# dataset_ns = np.array([2])
 
 for n in dataset_ns:
 
@@ -49,7 +51,7 @@ for n in dataset_ns:
     scaling = 25 * 1.6
 
     coordinates = []
-    colors = []
+    # colors = []
     for n, cl in enumerate(cell_labels):
         cell_data = cell_metadata_ccf.loc[cl]
         x, y, z = int(cell_data["x"] * scaling), int(cell_data["y"] * scaling), int(cell_data["z"] * scaling)
@@ -58,8 +60,17 @@ for n in dataset_ns:
         # colors.append(color)
         print(f"Fetching cell: {n + 1}/{n_cells_ccf}: x:{x}, y:{y}, z:{z}")
     coordinates = np.array(coordinates)
-    colors = np.array(colors)
+    # colors = np.array(colors)
     new_coordinates = np.flip(coordinates)
+
+    np.save(fr"E:\tto\transformed_data\cells_{dataset_n}.npy",
+            new_coordinates)
+
+for n in dataset_ns:
+
+    dataset_n = n
+
+    new_coordinates = np.load(fr"E:\tto\transformed_data\cells_{dataset_n}.npy")
 
     # transformed_coordinates = elx.transform_points_with_transformix(new_coordinates, sink=None, indices=False,
     #                                                                 transform_parameter_file=transform_parameter_file,
@@ -68,13 +79,22 @@ for n in dataset_ns:
     # TRANSFORM THE POINTS
     ####################################################################################################################
 
-    elx.write_points(os.path.join(elx.elastix_output_folder, "outputpoints.txt"), new_coordinates)
-    transform_directory = r"resources\atlas\atlas_transformations\gubra_to_aba"
+    elx.write_points(os.path.join(elx.elastix_output_folder, "outputpoints.txt"), new_coordinates, binary=False)
+    # transform_directory = r"resources\atlas\atlas_transformations\gubra_to_aba"
+    transform_directory = r"C:\Users\MANDOUDNA\PycharmProjects\cmlite\resources\atlas\atlas_transformations\transform_files_elastix"
 
+    # transformed_coordinates, _ = elx.transform_points_with_transformix(
+    #     os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
+    #     elx.elastix_output_folder,
+    #     os.path.join(transform_directory, "TransformParameters.0.txt"),
+    #     transformix_input=False,
+    # )
     transformed_coordinates, _ = elx.transform_points_with_transformix(
         os.path.join(elx.elastix_output_folder, "outputpoints.txt"),
         elx.elastix_output_folder,
-        os.path.join(transform_directory, "TransformParameters.0.txt"),
+        # os.path.join(transform_directory, "TransformParameters.0.txt"),
+        os.path.join(transform_directory, "ccfv3_orig_2_lsfm_transform.txt"),
+        # os.path.join(transform_directory, "lsfm_2_ccfv3_transform.txt"),
         transformix_input=False,
     )
     # transformed_coordinates, _ = elx.transform_points_with_transformix(

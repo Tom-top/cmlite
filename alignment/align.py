@@ -328,7 +328,8 @@ def transform_images(source, sink=[], transform_parameter_file=None, transform_d
     transform_parameter_dir, transform_parameter_file = transform_directory_and_file(
         transform_parameter_file=transform_parameter_file, transform_directory=transform_directory)
 
-    set_path_transform_files(transform_parameter_dir)
+    if not transform_parameter_file:  # FIXME: unstable
+        set_path_transform_files(transform_parameter_dir)
 
     # transformix -in inputImage.ext -out outputDirectory -tp TransformParameters.txx
     cmd = '%s -in %s -out %s -tp %s' % (transformix_binary, imgname, resultdirname, transform_parameter_file)
@@ -597,8 +598,8 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
             with open(os.path.join(reference_to_auto_directory, "TransformParameters.0.txt"), 'r') \
                     as file:
                 data = file.read()
-                data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
-                                    "(FinalBSplineInterpolationOrder 0.000000)")
+                data = data.replace("(FinalBSplineInterpolationOrder 3)",
+                                    "(FinalBSplineInterpolationOrder 0)")
             with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.0.txt"),
                       'w') as file:
                 file.write(data)
@@ -606,8 +607,8 @@ def run_alignments(sample_name, sample_directory, annotation_files, reference_fi
             with open(os.path.join(reference_to_auto_directory, "TransformParameters.1.txt"), 'r') \
                     as file:
                 data = file.read()
-                data = data.replace("(FinalBSplineInterpolationOrder 3.000000)",
-                                    "(FinalBSplineInterpolationOrder 0.000000)")
+                data = data.replace("(FinalBSplineInterpolationOrder 3)",
+                                    "(FinalBSplineInterpolationOrder 0)")
             with open(os.path.join(reference_to_auto_directory, "TransformParameters_ni.1.txt"),
                       'w') as file:
                 file.write(data)

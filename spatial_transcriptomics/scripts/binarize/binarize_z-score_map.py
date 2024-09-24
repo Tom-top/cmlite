@@ -12,11 +12,11 @@ import spatial_transcriptomics.utils.utils as sut
 
 # Define paths and cutoff value for binarization
 zscore_maps_directory = r"/default/path"  # PERSONAL
-zscore_map_name = "Semaglutide"
+zscore_map_name = "Bromocriptine"
 zscore_map_directory = os.path.join(zscore_maps_directory, zscore_map_name)
 zscore_map_path = os.path.join(zscore_map_directory, "result.nii.gz")
 analysis_directory = ut.create_dir(fr"/default/path")  # PERSONAL
-cutoff = 320  # Value above which all pixels will be kept for the mask (z-score * 100)
+cutoff = 300  # Value above which all pixels will be kept for the mask (z-score * 100)
 
 # Load and transpose the image
 zscore_map_nii = nib.load(zscore_map_path)

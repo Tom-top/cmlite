@@ -33,8 +33,9 @@ with open(os.path.join(atlas_path, "gubra_annotation_mouse.json"), "r") as f:
     metadata = json.load(f)
     metadata = metadata["msg"][0]
 
-transformed_cells_data_path = r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged" \
-                              r"\shape_detection_150\mouse_gubra_cells_transformed_5.csv"
+transformed_cells_data_dir = r"E:\tto\23-GUP030-0696\raw\ID888_an000888_g010_brain_M3\xy5p0_z5p0" \
+                             r"\2024-08-29_194534_merged\shape_detection_350"
+transformed_cells_data_path = os.path.join(transformed_cells_data_dir, "mouse_gubra_cells_transformed_3.csv")
 transformed_cells_data = pd.read_csv(transformed_cells_data_path, delimiter=";", quotechar='"')
 
 annotation = tifffile.imread(os.path.join(atlas_path, "gubra_annotation_mouse.tif"))
@@ -114,9 +115,9 @@ ax.axhline(mean_density, color='black', linestyle='--', linewidth=1)
 
 # Align the y-axis labels
 fig.tight_layout()
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_density_per_region.png"), dpi=300)
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_density_per_region.svg"), dpi=300)
 plt.show()
 
@@ -138,9 +139,9 @@ ax.axhline(mean_density, color='black', linestyle='--', linewidth=1)
 
 # Align the y-axis labels
 fig.tight_layout()
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_density_per_region_sorted.png"), dpi=300)
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_density_per_region_sorted.svg"), dpi=300)
 plt.show()
 
@@ -158,9 +159,9 @@ ax.invert_xaxis()  # Flip the x-axis to make the bars grow leftwards
 
 # Align the y-axis labels
 fig.tight_layout()
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_volume_per_region.png"), dpi=300)
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_volume_per_region.svg"), dpi=300)
 plt.show()
 
@@ -178,9 +179,9 @@ ax.invert_xaxis()  # Flip the x-axis to make the bars grow leftwards
 
 # Align the y-axis labels
 fig.tight_layout()
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_intensity_per_region.png"), dpi=300)
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_intensity_per_region.svg"), dpi=300)
 plt.show()
 
@@ -203,8 +204,8 @@ ax.set_xlabel('Volume')
 ax.set_ylabel('Frequency')
 
 plt.tight_layout()
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_volume_distribution.png"), dpi=300)
-plt.savefig(os.path.join(r"E:\tto\23-GUP030-0696-bruker\processed\ID039\xy5p0_z5p0\20240611-131019_Task_1_merged\shape_detection_150",
+plt.savefig(os.path.join(transformed_cells_data_dir,
                          "microglial_volume_distribution.svg"), dpi=300)
 plt.show()

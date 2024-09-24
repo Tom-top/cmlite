@@ -18,6 +18,50 @@ matplotlib.use("Agg")
 import utils.utils as ut
 
 
+# optimal_channel_times = {
+#     "488": 100,  # MILLISECONDS PER PLANE (EXPOSURE)
+#     "561": 100,  # MILLISECONDS PER PLANE (EXPOSURE)
+#     "642": 100,  # MILLISECONDS PER PLANE (EXPOSURE)
+#     "785": 1000,  # MILLISECONDS PER PLANE (EXPOSURE)
+# }
+
+# optimal_scan_times = {
+#     "brain": {
+#         "488": 0.5,  # HOURS
+#         "561": 0.5,  # HOURS
+#         "642": 1.5,  # HOURS
+#         "785": 2,  # HOURS
+#     },
+#     "heart": {
+#         "488": 0.5,  # HOURS
+#         "561": 0.5,  # HOURS
+#         "642": 1.5,  # HOURS
+#         "785": 2,  # HOURS
+#     },
+#     "kidney": {
+#         "488": 0.5,  # HOURS
+#         "561": 0.5,  # HOURS
+#         "642": 1.5,  # HOURS
+#         "785": 2,  # HOURS
+#     }
+# }
+
+optimal_scan_times = {
+        "488": 0.5,  # HOURS
+        "561": 0.5,  # HOURS
+        "642": 1.5,  # HOURS
+        "785": 2,  # HOURS
+}
+
+colors_per_channel = {
+        "488": "#00f7ff",  # HOURS
+        "561": "#c6ff00",  # HOURS
+        "642": "#ff1600",  # HOURS
+        "785": "#610000",  # HOURS
+}
+
+
+
 def extract_timestamps(working_directory, studies, scanning_system):
     """
     Extract timestamps, durations, valid scan percentages, and sample counts from the given directory and studies.
@@ -32,59 +76,122 @@ def extract_timestamps(working_directory, studies, scanning_system):
     durations = []
     date_to_study = {}
     valid_scan_percentages = {}
+    performance_scores = {}
     sample_counts = {}
 
     if not studies:
         studies = [i for i in os.listdir(working_directory) if i.startswith("24-") or i.startswith("23-")
                    or i.startswith("22-")]
 
-    for folder in os.listdir(working_directory):
-        if folder in studies:
-            study_dir = os.path.join(working_directory, folder)
-            keep_dir = os.path.join(study_dir, ".keep")
-            if os.path.exists(keep_dir):
+    for folder in os.listdir(working_directory):  # ITERATE OVER EVERY FOLDER IN NITROGEN
+        if folder in studies:  # IF THE FOLDER IS A STUDY
+            study_dir = os.path.join(working_directory, folder)  # SET PATH TO THE STUDY DIRECTORY
+            keep_dir = os.path.join(study_dir, ".keep")  # SET PATH TO THE KEEP DIRECTORY
+            if os.path.exists(keep_dir):  # IF A KEEP DIRECTORY EXISTS
                 ut.print_c(f"[INFO {folder}] Found .keep folder!")
-                scan_summary_qc_file = os.path.join(keep_dir, "scan_summary_QC.csv")
-                if os.path.exists(scan_summary_qc_file):
+
+                ########################################################################################################
+                # FIND THE SCAN SUMMARY QC FILE ON NITROGEN
+                ########################################################################################################
+
+                scan_summary_qc_file = os.path.join(keep_dir, "scan_summary_QC.csv")  # SET PATH TO SCAN SUMMARY QC FILE
+                if os.path.exists(scan_summary_qc_file):  # IF THE SCAN SUMMARY FILE EXISTS
                     print("")
                     ut.print_c(f"[INFO {folder}] Found QC summary file: {scan_summary_qc_file}!")
-                    scan_summary_qc = pd.read_csv(scan_summary_qc_file)
+                    scan_summary_qc = pd.read_csv(scan_summary_qc_file)  # READ THE SCAN SUMMARY FILE
 
+                    ####################################################################################################
                     # ATTEMPT TO FIND QC SUMMARY IN U DRIVE
-                    year_suffix = folder.split("-")[0]
-                    year = "20" + str(year_suffix)
-                    year_dir_u = os.path.join(r'U:\\', year)
-                    if os.path.exists(year_dir_u):
-                        if folder.endswith("bruker"):
+                    ####################################################################################################
+
+                    year_suffix = folder.split("-")[0]  # GET THE YEAR SUFFIX FROM STUDY FOLDER NAME
+                    year = "20" + str(year_suffix)  # EXTRACT THE YEAR
+                    year_dir_u = os.path.join(r'U:\\', year)  # SET PATH TO THE RELEVANT YEAR FOLDER ON U DRIVE
+                    if os.path.exists(year_dir_u):  # IF THE YEAR FOLDER EXISTS
+                        if folder.endswith("bruker"):  # IF THE STUDY WAS SCANNED ON BRUKER
+                            # SET PATH TO THE STUDY FOLDER ON U DRIVE
                             study_dir_u = os.path.join(year_dir_u, "-".join(folder.split("-")[:-1]))
-                        else:
-                            study_dir_u = os.path.join(year_dir_u, folder)
-                        if os.path.exists(study_dir_u):
-                            scan_summary_qc_files = [os.path.join(study_dir_u, i) for i in os.listdir(study_dir_u)
-                                                     if i.startswith("scan_summary") and i.endswith(".csv")]
-                            # scan_summary_qc_file = os.path.join(study_dir_u, "scan_summary_QC_tto.csv")
-                            if len(scan_summary_qc_files) >= 1:
-                                ut.print_c(f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary files!")
-                                # scan_summary_qc_path = os.path.join(study_dir_u, scan_summary_qc_file)
-                                # scan_summary_qc = pd.read_csv(scan_summary_qc_path)
-                                scan_summary_qc = merge_csv_files(scan_summary_qc_files)
+                            microscope = "bruker"
+                        else:  # ELSE THE STUDY IS SCANNED ON LAVISION
+                            study_dir_u = os.path.join(year_dir_u, folder)  # SET PATH TO THE STUDY FOLDER ON U DRIVE
+                            microscope = "lavision"
+                        if microscope == "bruker":
+                            if os.path.exists(study_dir_u):  # IF THE STUDY FOLDER EXISTS ON U DRIVE
+                                # FIXME: THE MERGING OF SCAN SUMMARY QC FILES SHOULD BE REMOVED
+                                # FIND ALL SCAN SUMMARY QC FILES TO MERGE THEM
+                                scan_summary_qc_files = [os.path.join(study_dir_u, i) for i in os.listdir(study_dir_u)
+                                                         if i.startswith("scan_summary") and i.endswith(".csv")]
+                                if len(scan_summary_qc_files) >= 1:  # IF AT LEAST 1 SCAN SUMMARY QC FILE WAS DETECTED
+                                    ut.print_c(f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary files!")
+                                    scan_summary_qc = merge_csv_files(scan_summary_qc_files)  # MERGE THE SCAN SUMMARY QC FILES
+                                    scan_summary_qc.to_csv(os.path.join(study_dir_u, "merged_scan_summary.csv"))
 
-                                # Calculate the percentage of valid scans
-                                for_analysis_col = scan_summary_qc["for analysis"]
-                                all_scans = len(for_analysis_col)
-                                valid_scans = np.sum(for_analysis_col == "x")
-                                percent_valid_scans = (valid_scans / all_scans) * 100
-                                valid_scan_percentages[folder] = percent_valid_scans
+                                    # FIXME: THIS IS NOT ROBUST
+                                    try:
+                                        ########################################################################################
+                                        # CALCULATE THE NUMBER & PERCENTAGE OF VALID SCANS
+                                        ########################################################################################
 
-                                # Count the number of samples in the study
-                                # sample_counts[folder] = all_scans  # That is not accurate: sum of scans and rescans
-                                sample_counts[folder] = valid_scans
-                            else:
-                                valid_scan_percentages[folder] = None
-                                sample_counts[folder] = None
-                        else:
-                            valid_scan_percentages[folder] = None
-                            sample_counts[folder] = None
+                                        # FETCH THE "FOR ANALYSIS" COLUMN INFO IN THE SCAN SUMMARY QC FILE
+                                        for_analysis_col = scan_summary_qc["for analysis"]
+                                        all_scans = len(for_analysis_col)  # CALCULATE THE TOTAL NUMBER OF SCANS
+                                        valid_scans = np.sum(for_analysis_col == "x")  # CALCULATE THE NUMBER OF SCANS SELECTED FOR ANALYSIS
+                                        sample_counts[folder] = valid_scans  # SAVE THE NUMBER OF VALID SCANS IN DICT
+                                        percent_valid_scans = (valid_scans / all_scans) * 100  # GET PERCENTAGE VALID SCANS
+                                        valid_scan_percentages[folder] = percent_valid_scans  # SAVE THE PERCENTAGE OF VALID SCANS IN DICT
+
+                                        ########################################################################################
+                                        # GET THE USED CHANNELS & METADATA
+                                        ########################################################################################
+
+                                        performance_scores[folder] = {}  # Initialize for each study (folder)
+
+                                        for n, sample in scan_summary_qc.iterrows():  # ITERATE OVER EVERY SAMPLE
+                                            sample_name = sample["sample name"]
+                                            performance_scores[folder][sample_name] = {}
+                                            n_wavelengths = sample["n_wavelengths"]  # GET THE NUMBER OF WAVELENGTHS USED
+                                            # n_channels = sample["n_channels"]
+                                            excitation_wavelengths = [i for i in sample.keys() if i.startswith("excitation w")]  # FETCH ALL THE EXCITATION WAVELENGTH VALUES
+                                            wavelengths_used = [sample[i] for i in excitation_wavelengths if not np.isnan(sample[i])]  # GET THE USED WAVELENGTHS
+                                            wavelengths_used_mask = [True if not np.isnan(sample[i]) else False for i in excitation_wavelengths]  # GET THE USED WAVELENGTHS
+                                            excitation_wavelengths_used = np.array(excitation_wavelengths)[wavelengths_used_mask]
+                                            n_wavelengths_used = len(wavelengths_used)  # GET THE NUMBER OF USED WAVELENGTHS
+                                            scanning_time = sample["scan time [secs]"]
+                                            total_exposure = 0
+                                            if n_wavelengths == n_wavelengths_used:  # IF THE NUMBER OF USED WAVELENGTHS MATCHED THE METADATA
+                                                for excitation_wavelength in excitation_wavelengths_used:
+                                                    wavelength_value = excitation_wavelength.split(" ")[1]
+                                                    try:
+                                                        used_exposure = sample[f"exposure {wavelength_value} [ms]"]
+                                                    except KeyError:
+                                                        used_exposure = sample[f"exposure [ms]"]
+                                                    total_exposure += used_exposure
+                                                for excitation_wavelength in excitation_wavelengths_used:
+                                                    wavelength_value = excitation_wavelength.split(" ")[1]
+                                                    try:
+                                                        used_exposure = sample[f"exposure {wavelength_value} [ms]"]
+                                                    except KeyError:
+                                                        used_exposure = sample[f"exposure [ms]"]
+                                                    relative_exposure = used_exposure/total_exposure
+                                                    wavelength_used = sample[excitation_wavelength]
+                                                    # target_exposure = optimal_channel_times[str(wavelength_used)]
+                                                    # wavelength_performance_score = used_exposure/target_exposure
+                                                    wavelength_scanning_time = relative_exposure * scanning_time
+                                                    target_scanning_time = optimal_scan_times[str(int(wavelength_used))]*3600
+                                                    wavelength_performance_score = target_scanning_time/wavelength_scanning_time
+                                                    performance_scores[folder][sample_name][str(int(wavelength_used))] = wavelength_performance_score
+                                            else:  # IF THE NUMBER OF USED WAVELENGTHS DOES NOT MATCH THE METADATA
+                                                ut.print_c(f"[WARNING {folder}] Number of wavelengths used does not match metadata!")
+                                    except:
+                                        ut.print_c("[WARNING {folder}] INVALID SCAN SUMMARY FILE")
+                                else:  # IF NO SCAN SUMMARY QC FILE WERE DETECTED
+                                    valid_scan_percentages[folder] = None  # SET VALID SCAN PERCENTAGE TO NONE
+                                    sample_counts[folder] = None  # SET SAMPLE COUNTS TO NONE
+                            else:   # IF THE STUDY FOLDER DOES NOT EXIST ON U DRIVE
+                                valid_scan_percentages[folder] = None  # SET VALID SCAN PERCENTAGE TO NONE
+                                sample_counts[folder] = None  # SET SAMPLE COUNTS TO NONE
+                    else:  # IF THE YEAR FOLDER DOES NOT EXIST
+                        ut.CmliteError(f"[ERROR {folder}] Year folder {year} does not exist on U drive!")
 
                     if os.path.isdir(study_dir):
                         raw_dir = os.path.join(study_dir, ".raw")
@@ -139,7 +246,7 @@ def extract_timestamps(working_directory, studies, scanning_system):
                                     ut.print_c(
                                         f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")
 
-    return timestamps, durations, date_to_study, valid_scan_percentages, sample_counts
+    return timestamps, durations, date_to_study, valid_scan_percentages, sample_counts, performance_scores
 
 
 def calculate_daily_uptime(date_to_study):
@@ -412,6 +519,77 @@ def plot_valid_scan_percentages(valid_scan_percentages, sample_counts, saving_di
     plt.close()
 
 
+def plot_performance_per_study(performance_scores, scanning_system, saving_dir):
+    """
+    Plot the efficiency for each study. Each group of bars represents a study,
+    and each bar within the group represents the average performance across samples for each channel.
+
+    :param performance_scores: A dictionary with study names as keys and dictionaries of performance scores as values.
+    :param saving_dir: The directory where the plot will be saved.
+    """
+
+    # Dictionary to store average performances for each study and each channel
+    study_channel_performance = {}
+
+    # Calculate average performance for each channel in each study
+    for study, samples in performance_scores.items():
+        channel_performance = {}
+
+        # Aggregate performance scores by channel
+        for sample, channels in samples.items():
+            for channel, performance in channels.items():
+                if channel not in channel_performance:
+                    channel_performance[channel] = []
+                channel_performance[channel].append(performance)
+
+        # Calculate average performance for each channel
+        avg_performance = {channel: np.mean(scores) for channel, scores in channel_performance.items()}
+        study_channel_performance[study] = avg_performance
+
+    # Get the list of all unique channels across all studies
+    all_channels = sorted(set(channel for study in study_channel_performance.values() for channel in study.keys()))
+
+    # Set the positions and width for the bars
+    num_studies = len(study_channel_performance)
+    num_channels = len(all_channels)
+    bar_width = 1
+    group_width = num_channels * bar_width + 0.5  # Increase space between groups of studies
+    index = np.arange(num_studies) * group_width  # Adjust index for separation between study groups
+
+    # Create the plot
+    plt.figure(figsize=(14, 8))
+
+
+    # Plot bars for each channel within each study group
+    for i, (study, avg_performance) in enumerate(study_channel_performance.items()):
+        for j, channel in enumerate(all_channels):
+            # Get the average performance for the current channel in the current study
+            performance = avg_performance.get(channel, 0)
+            # Set the position for the current bar
+            position = index[i] + j * bar_width
+            # Plot the bar with the specific color for each channel
+            plt.bar(position, performance, bar_width, color=colors_per_channel[channel], edgecolor="black",
+                    linewidth=0.5, alpha=0.5, label=f'{study} - {channel}' if i == 0 else "")
+
+    # Set the labels and title
+    plt.xlabel('Studies')
+    plt.ylabel('Average Performance')
+    plt.title('Average Performance per Channel for Each Study')
+
+    # Set x-ticks to be centered on each study group
+    plt.xticks(index + (num_channels - 1) * bar_width / 2, study_channel_performance.keys(), rotation=90)
+    # plt.legend(title='Channels')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.ylim(0, 1)
+
+    # Save the plot
+    plt.tight_layout()
+    # plt.savefig(f"{saving_dir}/efficiency_all_studies_plot_{scanning_system}.png", dpi=300)
+    plt.savefig(f"{saving_dir}/efficiency_all_studies_plot.png", dpi=300)
+    # plt.show()  # Uncomment to display the plot
+    plt.close()
+
+
 def merge_csv_files(file_paths):
     """
     Merge multiple CSV files so that if a scan is labeled in the "for analysis" column with an "x",
@@ -423,7 +601,6 @@ def merge_csv_files(file_paths):
     merged_df = pd.DataFrame()
 
     for file in file_paths:
-        # print(f"Processing: {file}")
         # Read the CSV file
         df = pd.read_csv(file)
 
@@ -444,18 +621,23 @@ def merge_csv_files(file_paths):
             if col not in df.columns:
                 df[col] = ''  # Add the missing column with empty values
 
-        # Merge dataframes on relevant columns, ensuring that 'x' is retained in 'for analysis'
-        merge_keys = [col for col in required_columns if col != 'comments']
-
+        # Merge dataframes on 'sample name' and retain all columns
         if merged_df.empty:
             merged_df = df
         else:
-            merged_df = pd.merge(merged_df, df, on=merge_keys, how='outer', suffixes=('', '_new'))
+            merged_df = pd.merge(merged_df, df, on='sample name', how='outer', suffixes=('', '_new'))
 
-            # Safely combine the 'for analysis' columns
-            if 'for analysis_new' in merged_df.columns:
-                merged_df['for analysis'] = merged_df[['for analysis', 'for analysis_new']].apply(
-                    lambda x: 'x' if 'x' in x.values else '', axis=1)
-                merged_df = merged_df.drop(columns=['for analysis_new'])
+            # Combine columns with the same name
+            for col in df.columns:
+                if col != 'sample name' and col + '_new' in merged_df.columns:
+                    # If the column is 'for analysis', ensure 'x' is retained
+                    if col == 'for analysis':
+                        merged_df[col] = merged_df[[col, col + '_new']].apply(
+                            lambda x: 'x' if 'x' in x.values else '', axis=1)
+                    else:
+                        # Merge other columns without data loss
+                        merged_df[col] = merged_df[[col, col + '_new']].bfill(axis=1).iloc[:, 0]
+                    # Drop the new column suffix
+                    merged_df = merged_df.drop(columns=[col + '_new'])
 
     return merged_df

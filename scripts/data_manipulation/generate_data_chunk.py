@@ -11,10 +11,10 @@ x_s, y_s, z_s = 200, 200, 200
 res_ratio = 2.5
 delta = 600
 io.generate_npy_chunk(
-    os.path.join(working_directory, "stitched_5.npy"),
+    os.path.join(working_directory, "stitched_3.npy"),
     np.array([[x_s * res_ratio, x_s * res_ratio + delta],
               [y_s * res_ratio, y_s * res_ratio + delta],
               [z_s * res_ratio, z_s * res_ratio + delta]]),
-    os.path.join(working_directory, "chunk_stitched_5.npy"))
-chunk = np.load(os.path.join(working_directory, "chunk_stitched_5.npy"))
-tifffile.imwrite(os.path.join(working_directory, "chunk_stitched_5.tif"), chunk)
+    os.path.join(working_directory, "chunk_stitched_3.npy"))
+chunk = np.load(os.path.join(working_directory, "chunk_stitched_3.npy"))
+tifffile.imwrite(os.path.join(working_directory, "chunk_stitched_3.tif"), chunk)

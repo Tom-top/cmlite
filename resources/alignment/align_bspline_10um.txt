@@ -10,8 +10,8 @@
 (Registration "MultiResolutionRegistration")
 (FixedImagePyramid "FixedRecursiveImagePyramid")
 (MovingImagePyramid "MovingRecursiveImagePyramid")
-(FixedImagePyramidSchedule 8 8 4 4 2 2 1 1)
-(MovingImagePyramidSchedule 8 8 4 4 2 2 1 1)
+(FixedImagePyramidSchedule 16 16 8 8 4 4 2 2 1 1)
+(MovingImagePyramidSchedule 16 16 8 8 4 4 2 2 1 1)
 (Interpolator "BSplineInterpolator")
 (Metric "AdvancedMattesMutualInformation")
 (Optimizer "AdaptiveStochasticGradientDescent")
@@ -22,10 +22,10 @@
 (ErodeMask "false")
 
 // Number of resolutions
-(NumberOfResolutions 3)
+(NumberOfResolutions 4)
 
 // Grid Spacing
-(FinalGridSpacingInVoxels 10.0 10.0 10.0)
+(FinalGridSpacingInVoxels 4.0 4.0 4.0)
 
 // Disable Jacobian Preconditioning
 (UseJacobianPreconditioning "false")
@@ -34,16 +34,21 @@
 (AutomaticParameterEstimation "false")
 (MaximumStepLength 0.01)
 
+// Increase number of iterations for finer detail optimization
+(MaximumNumberOfIterations 20000)
+
 // Reduce number of Jacobian and Gradient measurements
 (NumberOfJacobianMeasurements 10000)
 (NumberOfGradientMeasurements 10000)
 
-// ASGD settings
-(ASGDParameterEstimationMethod "Original")
+// ASGD settings for finer optimization
+(SP_a 2500.0)
+(SP_A 25.0)
+(SP_alpha 0.6)
 
-// Image sampler - Required for metric
+// Image sampler - increase the number of samples for high-resolution data
 (ImageSampler "RandomCoordinate")
-(NumberOfSpatialSamples 10000)
+(NumberOfSpatialSamples 50000)
 
 // BSpline interpolation order
 (BSplineInterpolationOrder 3)
@@ -51,8 +56,3 @@
 
 // Default pixel value for padding
 (DefaultPixelValue -1024)
-
-// SP parameters
-(SP_a 5000.0)
-(SP_A 50.0)
-(SP_alpha 0.6)
