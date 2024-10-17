@@ -31,7 +31,7 @@ def process_gene(gene_name, datasets_paths, exp, saving_folder, cluster_name, ca
     # Plotting
     fig, ax = plt.subplots()
     fig.set_size_inches(8, 8)
-    scatter = ax.scatter(sorted_x, sorted_y, s=0.1, c=sorted_exp_values, marker='.', cmap=plt.cm.magma_r)
+    scatter = ax.scatter(sorted_x, sorted_y, s=0.1, c=sorted_exp_values, marker='.', cmap=plt.cm.gist_heat_r)
 
     ax.axis('equal')
     ax.set_xlim(-18, 27)
@@ -69,10 +69,10 @@ def plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp, saving_fold
 
     # NORMALIZE
     ut.print_c(f"[INFO] Min/Max expression: {np.min(exp_values)}/{np.max(exp_values)}")
-    # exp_values = (exp_values - np.min(exp_values)) / (np.max(exp_values) - np.min(exp_values))
-    exp_values = np.array(exp_values)
-    exp_values[exp_values >= 1500] = 1500
-    exp_values = (exp_values - 0) / (1500 - 0)
+    exp_values_norm = (exp_values - np.min(exp_values)) / (np.max(exp_values) - np.min(exp_values))
+    exp_values_norm = np.array(exp_values_norm)
+    # exp_values[exp_values >= 1500] = 1500
+    # exp_values = (exp_values - 0) / (1500 - 0)
 
     # Prepare the dataframe containing cell coordinates
     exp_df = exp[['x', 'y', 'class', 'cluster']]
@@ -96,22 +96,22 @@ def plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp, saving_fold
 
         non_masked_cells_x = sorted_exp_df['x'][~mask]
         non_masked_cells_y = sorted_exp_df['y'][~mask]
-        non_masked_exp_values = exp_values[~mask]
+        non_masked_exp_values = exp_values_norm[~mask]
 
         # Sort non-masked cells by expression values
         sorted_indices_non_masked = non_masked_exp_values.argsort()
-        # sorted_x_non_masked = non_masked_cells_x.values[sorted_indices_non_masked]
-        sorted_x_non_masked = non_masked_cells_x
-        # sorted_y_non_masked = non_masked_cells_y.values[sorted_indices_non_masked]
-        sorted_y_non_masked = non_masked_cells_y
-        # sorted_exp_values_non_masked = non_masked_exp_values[sorted_indices_non_masked]
-        sorted_exp_values_non_masked = non_masked_exp_values
+        sorted_x_non_masked = non_masked_cells_x.values[sorted_indices_non_masked]
+        # sorted_x_non_masked = non_masked_cells_x
+        sorted_y_non_masked = non_masked_cells_y.values[sorted_indices_non_masked]
+        # sorted_y_non_masked = non_masked_cells_y
+        sorted_exp_values_non_masked = non_masked_exp_values[sorted_indices_non_masked]
+        # sorted_exp_values_non_masked = non_masked_exp_values
     else:
         # Sort all cells by expression values if no mask is provided
-        sorted_indices = exp_values.argsort()
+        sorted_indices = exp_values_norm.argsort()
         sorted_x_non_masked = sorted_exp_df['x'].values[sorted_indices]
         sorted_y_non_masked = sorted_exp_df['y'].values[sorted_indices]
-        sorted_exp_values_non_masked = exp_values[sorted_indices]
+        sorted_exp_values_non_masked = exp_values_norm[sorted_indices]
 
     # Create the figure and axis
     fig, ax = plt.subplots()

@@ -24,8 +24,8 @@ for scanning_system in scanning_systems:
     # Ensure there are enough timestamps to calculate uptime
     if len(timestamps) > 1:
         uptime_df = mut.calculate_daily_uptime(date_to_study)
-        time_frame = 'year'  # Change to 'year', 'month', or 'week' as needed
-        value = (2024)  # Change to the specific year, month, or week as needed
+        time_frame = 'month'  # Change to 'year', 'month', or 'week' as needed
+        value = (2024, 9)  # Change to the specific year, month, or week as needed
         if isinstance(value, int):
             year = value
         else:

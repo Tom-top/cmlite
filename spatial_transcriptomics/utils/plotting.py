@@ -489,7 +489,7 @@ def bar_plot(cells_color, unique_cells, unique_cells_color, saving_path, n_bars=
 
 
 def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_to_generate=["categories"],
-                                colormap="viridis"):
+                                colormap="viridis", max_range=100):
     saving_directory = saving_path
     cmap = plt.get_cmap(colormap)  # You can choose different colormaps like 'plasma', 'inferno', etc.
     lw = 0.05
@@ -523,7 +523,9 @@ def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_
                     left += full_opacity_width
                 elif plot.startswith("percentage"):
                     full_opacity_width = row['Count_df']
-                    normalized = float(row['Percentage'] / 100)
+                    percentage = row['Percentage']
+                    percentage[percentage > max_range] = max_range
+                    normalized = float(row['Percentage'] / max_range)
                     colors = cmap(normalized)
                     bar_full_opacity = ax.barh(0, full_opacity_width, left=left, color=colors,  #row['Color_df']
                                                edgecolor="black", lw=lw, zorder=1)
@@ -562,7 +564,7 @@ def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_
 
         # Add a single colorbar to the entire figure
         if plot.startswith("percentage"):
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=100))
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=max_range))
             sm.set_array([])
             cbar_ax = fig.add_subplot(gs[:, 1])  # Allocate the colorbar area on the right
             cbar = fig.colorbar(sm, cax=cbar_ax, orientation='vertical')

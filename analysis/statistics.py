@@ -291,7 +291,7 @@ def extract_data(node, atlas_id, ids=None, names=None, acronyms=None, colors=Non
     return ids, names, acronyms, colors
 
 
-def run_region_wise_statistics(metadata_files, analysis_data_size_directory, **kwargs):
+def run_region_wise_statistics(metadata_files, analysis_data_size_directory, atlas_colors=True, **kwargs):
     for metadata in metadata_files:
         stat_params = kwargs["statistics"]
         # Parse the JSON data
@@ -382,10 +382,13 @@ def run_region_wise_statistics(metadata_files, analysis_data_size_directory, **k
                 for i in range(2):
                     fig = plt.figure()
                     ax = plt.subplot(111)
-                    # ax.scatter(x_sign_up, y_sign_up, s=10, color="#FF5733") #one color
-                    ax.scatter(x_sign_up, y_sign_up, s=10, color=color_up)  # brain atlas color code
-                    # ax.scatter(x_sign_down, y_sign_down, s=10, color="#A7C7E7") #one color
-                    ax.scatter(x_sign_down, y_sign_down, s=10, color=color_down)  # brain atlas color code
+                    if atlas_colors:
+                        ax.scatter(x_sign_up, y_sign_up, s=10, color=color_up)  # brain atlas color code
+                        ax.scatter(x_sign_down, y_sign_down, s=10, color=color_down)  # brain atlas color code
+                    else:
+                        ax.scatter(x_sign_up, y_sign_up, s=10, color="#FF5733")  #one color
+                        ax.scatter(x_sign_down, y_sign_down, s=10, color="#A7C7E7")  #one color
+
                     ax.scatter(x_sign_ns, y_sign_ns, s=10, color="gray")
                     if i == 0:
                         for x, y, acro in zip(x_sign_up, y_sign_up, acro_up):
