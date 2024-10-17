@@ -7,12 +7,15 @@ import pandas as pd
 import anndata
 # import tifffile
 
+import utils.utils as ut
+
 import alignment.align as elx
 
 # DOWNLOAD DATA FROM: aws s3 cp s3://allen-brain-cell-atlas E:\tto\spatial_transcriptomics --no-sign-request --recursive
 
-dataset_ns = np.arange(1, 6, 1)
-# dataset_ns = np.array([2])
+# dataset_ns = np.arange(1, 6, 1)
+dataset_ns = np.array([5])
+saving_directory = ut.create_dir(r"E:\tto\mapping_aba_to_gubra_3")
 
 for n in dataset_ns:
 
@@ -63,14 +66,14 @@ for n in dataset_ns:
     # colors = np.array(colors)
     new_coordinates = np.flip(coordinates)
 
-    np.save(fr"E:\tto\transformed_data\cells_{dataset_n}.npy",
+    np.save(os.path.join(saving_directory, fr"cells_{dataset_n}.npy"),
             new_coordinates)
 
 for n in dataset_ns:
 
     dataset_n = n
 
-    new_coordinates = np.load(fr"E:\tto\transformed_data\cells_{dataset_n}.npy")
+    new_coordinates = np.load(os.path.join(saving_directory, fr"cells_{dataset_n}.npy"))
 
     # transformed_coordinates = elx.transform_points_with_transformix(new_coordinates, sink=None, indices=False,
     #                                                                 transform_parameter_file=transform_parameter_file,
@@ -106,7 +109,7 @@ for n in dataset_ns:
 
     transformed_coordinates_flipped = transformed_coordinates.copy()
     transformed_coordinates_flipped[:, [0, 2]] = transformed_coordinates_flipped[:, [2, 0]]
-    np.save(fr"E:\tto\transformed_data\all_transformed_cells_gubra_{dataset_n}.npy",
+    np.save(os.path.join(saving_directory, fr"all_transformed_cells_gubra_{dataset_n}.npy"),
             transformed_coordinates_flipped)  # PERSONAL
     # np.save(fr"/default/path", colors[::-1])  # PERSONAL
 

@@ -33,8 +33,8 @@ BILATERAL = True  # If True: generate bilateral cell distribution in the 3D repr
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
 PERCENTAGE_THRESHOLD = 50
-# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
-categories = ["cluster"]
+categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+# categories = ["cluster"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
@@ -60,8 +60,8 @@ if LABELED_MASK:  # Each label will be processed separately.
 else:
     labels = [1]
     if WHOLE_REGION:
-        TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
-        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
+        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
+        TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"peri-pag_mask.tif"))
     else:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
     TISSUE_MASKS = [TISSUE_MASK]
@@ -615,7 +615,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             return filtered_hierarchy
 
 
-        def plot_linear_tree(hierarchy, save_path):
+        def plot_linear_tree(hierarchy, save_path, percentage_thresh=40):
             """
             Plots a linear dendrogram-like tree using the hierarchy dictionary with clear separation of initial nodes.
 
@@ -658,7 +658,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
             # Normalize percentages globally (0-100 range)
             min_percentage = 0
-            max_percentage = 60
+            max_percentage = percentage_thresh
             norm = plt.Normalize(vmin=min_percentage, vmax=max_percentage)
             cmap = cm.viridis  # Use viridis colormap
 
@@ -695,7 +695,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                 ax.add_patch(Rectangle((x - width / 2, y - height / 2), width, height,
                                        edgecolor='black', facecolor=color, lw=1, zorder=1))
                 # Draw label with white text
-                if percentage >= 40:
+                if percentage >= max_percentage:
                     plt.text(x, y, label, ha='center', va='center', fontsize=8, fontweight='bold', color='black',
                              zorder=2)
                 else:
@@ -711,10 +711,13 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
 
         # Filter the hierarchy based on the 'Percentage' value
-        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=40)
+        min_percentage = 10
+        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=min_percentage)
         # Plot the dendrogram
-        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.png"))
-        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.svg"))
+        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.png"),
+                         percentage_thresh=min_percentage)
+        plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.svg"),
+                         percentage_thresh=min_percentage)
 
         ################################################################################################################
         # TEST

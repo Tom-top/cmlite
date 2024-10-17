@@ -22,19 +22,29 @@ DATASETS = np.arange(1, 6, 1)
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["cluster"]
 NON_NEURONAL_CELL_TYPES = [["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]]
-# NON_NEURONAL_CELL_TYPES = [["Astro"], ["Oligo"], ["Vascular"], ["Immune"], ["Epen"], ["OEC"]]
+# NON_NEURONAL_CELL_TYPES = [["Oligo"], ["Astro"], ["Vascular"], ["Immune"], ["Epen"], ["OEC"]]
+# NON_NEURONAL_CELL_TYPES = [["Oligo"]]
 SHOW_GLIA = False
-# target_genes = ["Olig2", "Mbp", "Map2", "Eno2"]
-# target_genes = ["Slc17a6"]
-target_genes = ["Glp1r", "Gipr",  # TIRZEPATIDE
-                "Calcr", "Ramp1", "Ramp2", "Ramp3",  # AMYLIN
-                "Hcrt", "Hcrtr1", "Hcrtr2",  # OREXIN
-                "Drd1", "Drd2", "Drd3", "Drd4", "Drd5",  # DOPAMINE
-                "Htr1a", "Htr1b", "Htr1d", "Htr1f", "Htr2a", "Htr2b", "Htr2c", "Htr3a", "Htr3b", "Htr4",  # SEROTONIN
-                "Klb", "Fgf21",  # FGF's
-                "Tfrc",  # TfR
-                "Th", "Slc6a3", "Slc6a2", # TH, DAT, NET
-                ]
+target_genes = ["Lepr"]
+# target_genes = [["Glp1r", "Gipr"]]
+# target_genes = ["Skor2", "Crabp1", "Nccrp1", "Ntrk1", "Hpse", "Pax2", "Hnf4g"]
+# target_genes = ["Ucn", "Ucn2", "Ucn3", "Crhr1", "Crhr2"]
+# target_genes = ["Glp1r", "Gipr",  # TIRZEPATIDE
+#                 "Calcr", "Ramp1", "Ramp2", "Ramp3",  # AMYLIN
+#                 "Hcrt", "Hcrtr1", "Hcrtr2",  # OREXIN
+#                 "Drd1", "Drd2", "Drd3", "Drd4", "Drd5",  # DOPAMINE
+#                 "Htr1a", "Htr1b", "Htr1d", "Htr1f", "Htr2a", "Htr2b", "Htr2c", "Htr3a", "Htr3b", "Htr4",  # SEROTONIN
+#                 "Klb", "Fgf21",  # FGF's
+#                 "Tfrc",  # TfR
+#                 "Th", "Slc6a3", "Slc6a2", # TH, DAT, NET
+#                 ]
+# target_genes = ["Mc4r", "Pomc",
+#                 "Mchr1",
+#                 "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
+#                 "Trem2", "Glp1r",
+#                 "Bdnf", ["Bdnf", "Glp1r"],
+#                 "Ntrk2", ["Ntrk2", "Glp1r"]]
+linear_scale = True
 
 DOWNLOAD_BASE = r"/default/path"  # PERSONAL
 MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
@@ -183,27 +193,68 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
     n_unique_cluster = len(unique_cell_clusters[0])
 
     for target_gene in target_genes:
-        SAVING_DIRECTORY = ut.create_dir(GENE_EXPRESSION_DIR, target_gene)
+        # Initialize a dictionary to store the data
+        mean_expression_data = {}
+        SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, target_gene))
 
-        for n, cluster_name in enumerate(unique_cell_clusters[0]):
-            cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
-            try:
-                mean_expression = np.array(mean_expression_matrix[cluster_mask][target_gene])[0]
-                if np.isnan(mean_expression):
+        if isinstance(target_gene, list):
+            mean_co_expressions = []
+            for n, cluster_name in enumerate(unique_cell_clusters[0]):
+                cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
+                mean_expressions = []
+                for tg in target_gene:
+                    try:
+                        mean_expression = np.array(mean_expression_matrix[cluster_mask][tg])[0]
+                        if np.isnan(mean_expression):
+                            ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
+                            mean_expression = 0
+                        else:
+                            ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
+                    except IndexError:
+                        ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
+                        mean_expression = 0
+                    mean_expressions.append(mean_expression)
+                    mean_expression_data.setdefault(cluster_name, {})[tg] = mean_expression
+                mean_co_expression = np.prod(mean_expressions)
+                mean_co_expressions.append(mean_co_expression)
+                unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_co_expression
+                # Store mean expression in dictionary
+                mean_expression_data.setdefault(cluster_name, {})["co-expression"] = mean_co_expression
+
+        else:
+            for n, cluster_name in enumerate(unique_cell_clusters[0]):
+                cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
+                try:
+                    mean_expression = np.array(mean_expression_matrix[cluster_mask][target_gene])[0]
+                    if np.isnan(mean_expression):
+                        ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
+                        mean_expression = 0
+                    else:
+                        ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
+                except IndexError:
                     ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
                     mean_expression = 0
-                else:
-                    ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
-            except IndexError:
-                ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
-                mean_expression = 0
-            unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_expression
+                unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_expression
+                # Store mean expression in dictionary
+                print(mean_expression)
+                mean_expression_data.setdefault(cluster_name, {})[target_gene] = mean_expression
+
+        # Convert dictionary to DataFrame
+        mean_expression_df = pd.DataFrame.from_dict(mean_expression_data, orient='index')
+        # Save to CSV
+        mean_expression_df.to_csv(os.path.join(SAVING_DIRECTORY, "mean_expression_data.csv"))
+        # Save to Excel
+        mean_expression_df.to_excel(os.path.join(SAVING_DIRECTORY, "mean_expression_data.xlsx"))
 
         # REVERT TO LINEAR SCALE
-        unique_cells_cluster_colors = [2**(x) for x in unique_cells_cluster_colors]
+        if linear_scale:
+            ut.print_c("[WARNING] LINEAR SCALE SELECTED!")
+            unique_cells_cluster_colors = [2**(x) for x in unique_cells_cluster_colors]
+        else:
+            ut.print_c("[WARNING] LOG2 SCALE SELECTED!")
         unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
 
-        fixed_min_max = [0, 500]
+        fixed_min_max = [0, 100]
         dynamic_min_max = [min(unique_cells_cluster_colors), max(unique_cells_cluster_colors)]
         ratio = fixed_min_max[1]/dynamic_min_max[1]
 
@@ -211,6 +262,7 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
 
             if m == 0:
                 norm_name = "fixed"
+                unique_cells_cluster_colors[unique_cells_cluster_colors > min_max[1]] = min_max[1]
             else:
                 norm_name = "dynamic"
 

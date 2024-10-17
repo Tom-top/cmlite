@@ -20,9 +20,13 @@ matplotlib.use("Agg")
 # Selected cluster and category to analyze
 ########################################################################################################################
 
+genes_to_plot = "Gipr"
+saving_dir = fr"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\10X_mapped_gene_expression\{genes_to_plot}"  # Saving directory
+
 # Name of the cluster and category: class/subclass/supertype/cluster
 cluster_names = [
-                 "2286 DMH-LHA Vgll2 Glut_2",
+                 "3864 SNc-VTA-RAmb Foxa1 Dopa_4",
+                 # "2286 DMH-LHA Vgll2 Glut_2",
                  # "2620 PVT-PT Ntrk1 Glut_2",
                  # "1334 CEA-BST Six3 Cyp26b1 Gaba_2",
                  # "1341 CEA-BST Six3 Cyp26b1 Gaba_4",
@@ -49,6 +53,7 @@ cluster_names = [
 
 categories = [
               "cluster",
+              # "supertype",
               # "cluster",
               # "cluster",
               # "cluster",
@@ -81,7 +86,6 @@ for cluster_name, category in zip(cluster_names, categories):
 
     dataset_id = "WMB-10X"  # Select the dataset
     download_base = r'E:\tto\spatial_transcriptomics'  # Path to data on the local drive
-    saving_dir = r"U:\Users\TTO\spatial_transcriptomics\neuropedia\maps\10x"  # Saving directory
     saving_folder = os.path.join(saving_dir, f"{category}_{cluster_name}")
     if not os.path.exists(saving_folder):
         os.mkdir(saving_folder)

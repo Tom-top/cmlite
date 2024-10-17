@@ -14,7 +14,7 @@ resampled = True
 parameters = {"study_params":
                   {"scanning_system": "",
                    "samples_to_process": [],
-                   "channels_to_stitch": [5],
+                   "channels_to_stitch": [3],
                    "re_process": True},
               "stitching": {"search_params": [10, 10, 10],
                             },

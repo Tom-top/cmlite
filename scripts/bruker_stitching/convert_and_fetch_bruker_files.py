@@ -77,7 +77,7 @@ if multistack:
                         x_vs, y_vs, z_vs = voxel_size["width"], voxel_size["height"], voxel_size["depth"]
                         resample_parameter = {
                             "source_resolution": (x_vs, y_vs, z_vs),
-                            "sink_resolution": (5, 5, 5),
+                            "sink_resolution": (5, 5, 10),
                             "processes": None,
                             "verbose": True,
                             "method": "memmap",

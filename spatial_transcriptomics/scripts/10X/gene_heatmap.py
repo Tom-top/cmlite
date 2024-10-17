@@ -14,7 +14,7 @@ from spatial_transcriptomics.to_check.analysis import sc_helper_functions as sc_
 
 # genes_to_plot = ["Glp1r", "Gipr", "Ramp1", "Ramp2", "Ramp3"]
 # genes_to_plot = ["Slc17a6", "Klb", "Lepr", "Calcr"]
-genes_to_plot = ["Slc17a6"]
+genes_to_plot = ["Gipr"]
 # genes_to_plot = ["Hcrt", "Hcrtr1", "Hcrtr2", "Hcrtr3"]
 saving_directory = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results" \
                    r"\10X_mapped_gene_expression"
@@ -47,13 +47,13 @@ with ProcessPoolExecutor(max_workers=None) as executor:
 with ProcessPoolExecutor(max_workers=None) as executor:
     for n, gene_name in enumerate(genes_to_plot):
         executor.submit(sc_utils.plot_gene_expression_in_10X_data, gene_name, datasets_paths, exp,
-                        saving_directory, saving_name="_non_neurons", mask_name="non_neurons", cluster_name="")
+                        saving_directory, saving_name="_neurons", mask_name="non_neurons", cluster_name="")
 
 # Plot Neurons
 with ProcessPoolExecutor(max_workers=None) as executor:
     for n, gene_name in enumerate(genes_to_plot):
         executor.submit(sc_utils.plot_gene_expression_in_10X_data, gene_name, datasets_paths, exp,
-                        saving_directory, saving_name="_neurons", mask_name="neurons", cluster_name="")
+                        saving_directory, saving_name="_non_neurons", mask_name="neurons", cluster_name="")
 
 ########################################################################################################################
 # PLOT SPECIFIC CLUSTER
@@ -61,5 +61,5 @@ with ProcessPoolExecutor(max_workers=None) as executor:
 
 for n, gene_name in enumerate(genes_to_plot):
     sc_utils.plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp,
-                                              saving_directory, saving_name="_cluster_0343", mask_name="",
-                                              cluster_name="0343 L2/3 IT RSP Glut_2")
+                                              saving_directory, saving_name="_cluster_3864", mask_name="",
+                                              cluster_name="3864 SNc-VTA-RAmb Foxa1 Dopa_4")

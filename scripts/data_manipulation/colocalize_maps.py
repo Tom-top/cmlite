@@ -26,13 +26,13 @@ def calculate_overlap(array1, array2):
     return overlap
 
 
-saving_dir = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression"
+saving_dir = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\Semaglutide_Glp1r"
 
 # Example usage:
 # Create two random 3D arrays with values between 0 and 1
-array1 = tifffile.imread(r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\heatmap_Glp1r_neurons_dynamic_bin.tif")
+array1 = tifffile.imread(os.path.join(saving_dir, r"normalized_heatmap_Glp1r_neurons_dynamic_bin.tif"))
 norm_array1 = (array1 - array1.min()) / (array1.max() - array1.min())
-array2 = tifffile.imread(r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\heatmap_Gipr_neurons_dynamic_bin.tif")
+array2 = tifffile.imread(os.path.join(saving_dir,  r"normalized_Semaglutide.tif"))
 norm_array2 = (array2 - array2.min()) / (array2.max() - array2.min())
 
 # # Set random values to 1 or 0
@@ -42,4 +42,4 @@ norm_array2 = (array2 - array2.min()) / (array2.max() - array2.min())
 # Calculate the overlap
 result = calculate_overlap(norm_array1, norm_array2)
 
-tifffile.imwrite(os.path.join(saving_dir, "glp1r_merfish_gipr_merfish_overlap.tif"), result)
+tifffile.imwrite(os.path.join(saving_dir, "semaglutide_zscore_glp1r_merfish_overlap.tif"), result)

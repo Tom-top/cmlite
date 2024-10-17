@@ -25,7 +25,8 @@ from spatial_transcriptomics.utils.coordinate_manipulation import filter_points_
 import spatial_transcriptomics.utils.plotting as st_plt
 
 ATLAS_USED = "gubra"
-DATASETS = np.arange(1, 6, 1)
+# DATASETS = np.arange(1, 6, 1)
+DATASETS = np.array([5])
 N_DATASETS = len(DATASETS)
 DATASET_COLORS = ["#00FF2E", "#FF00D1", "#000FFF", "#FFF000", "black"]
 CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster"]
@@ -53,10 +54,12 @@ else:
     TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
 TISSUE_MASKS = [TISSUE_MASK]
 
-MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results")
+MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results_4")
 RESULTS_DIR = ut.create_dir(os.path.join(MAIN_RESULTS_DIR, "3d_views"))
 
-TRANSFORM_DIR = r"resources/abc_atlas"
+# TRANSFORM_DIR = r"resources/abc_atlas"
+TRANSFORM_DIR = r"E:\tto\mapping_aba_to_gubra_3"
+# TRANSFORM_DIR = r"resources\abc_atlas"
 REFERENCE_FILE = fr"resources/atlas/{ATLAS_USED}_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 REFERENCE_SHAPE = REFERENCE.shape

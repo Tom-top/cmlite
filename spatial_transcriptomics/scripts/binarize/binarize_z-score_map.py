@@ -1,5 +1,6 @@
 import os
 
+from natsort import natsorted
 import numpy as np
 import tifffile
 import nibabel as nib
@@ -12,15 +13,18 @@ import spatial_transcriptomics.utils.utils as sut
 
 # Define paths and cutoff value for binarization
 zscore_maps_directory = r"/default/path"  # PERSONAL
-zscore_map_name = "Bromocriptine"
+zscore_map_name = "GUS2022-189-LY"
 zscore_map_directory = os.path.join(zscore_maps_directory, zscore_map_name)
-zscore_map_path = os.path.join(zscore_map_directory, "result.nii.gz")
+# zscore_map_path = os.path.join(zscore_map_directory, "/default/path")  # PERSONAL
+zscore_map_path = os.path.join(zscore_map_directory, "/default/path")  # PERSONAL
 analysis_directory = ut.create_dir(fr"/default/path")  # PERSONAL
-cutoff = 300  # Value above which all pixels will be kept for the mask (z-score * 100)
+cutoff = 196  # Value above which all pixels will be kept for the mask (z-score * 100)
 
 # Load and transpose the image
-zscore_map_nii = nib.load(zscore_map_path)
-zscore_map = zscore_map_nii.get_fdata()
+# zscore_map_nii = nib.load(zscore_map_path)
+# zscore_map = zscore_map_nii.get_fdata()  # (369, 512, 268)
+zscore_map = np.array([tifffile.imread(os.path.join(zscore_map_path, i)) for i in natsorted(os.listdir(zscore_map_path))])
+zscore_map = np.swapaxes(zscore_map, 0, 2)
 zscore_map = np.flip(np.transpose(zscore_map, (1, 2, 0)), 1)
 
 # Binarize the image based on the cutoff

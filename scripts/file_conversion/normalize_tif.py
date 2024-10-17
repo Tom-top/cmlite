@@ -5,7 +5,7 @@ import numpy as np
 
 # Load the 3D TIFF file using tifffile
 working_directory = r"/default/path"  # PERSONAL
-input_tif = os.path.join(working_directory, 'heatmap_Hcrtr2_neurons_dynamic_bin.tif')  # Replace with the path to your 3D TIFF file
+input_tif = os.path.join(working_directory, 'heatmap_Glp1r_neurons_dynamic_bin.tif')  # Replace with the path to your 3D TIFF file
 file_name = os.path.basename(input_tif).split(".")[0]
 img_data = tiff.imread(input_tif)  # This will load the entire 3D image stack as a numpy array
 
