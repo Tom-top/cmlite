@@ -1,15 +1,18 @@
+"""
+This script voxelizes any gene from the scRNAsea data of the ABC-Atlas in 3D
+"""
+
 import os
 import json
 import requests
+
 import numpy as np
 import pandas as pd
-import tifffile
 import anndata
 from scipy.ndimage import gaussian_filter
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+import tifffile
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # Headless mode (no pop-up plots)
 
 import utils.utils as ut
 
@@ -17,34 +20,23 @@ import analysis.measurements.voxelization as vox
 
 from spatial_transcriptomics.utils.coordinate_manipulation import filter_points_in_3d_mask
 
-ATLAS_USED = "gubra"
-DATASETS = np.arange(1, 6, 1)
+ATLAS_USED = "gubra"  # Atlas to be used: gubra/aba
+DATASETS = np.arange(1, 6, 1)  # Selected datasets to fetch from
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["cluster"]
 NON_NEURONAL_CELL_TYPES = [["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]]
 # NON_NEURONAL_CELL_TYPES = [["Oligo"], ["Astro"], ["Vascular"], ["Immune"], ["Epen"], ["OEC"]]
-# NON_NEURONAL_CELL_TYPES = [["Oligo"]]
+# NON_NEURONAL_CELL_TYPES = [["Vascular"]]
 SHOW_GLIA = False
-target_genes = ["Lepr"]
-# target_genes = [["Glp1r", "Gipr"]]
-# target_genes = ["Skor2", "Crabp1", "Nccrp1", "Ntrk1", "Hpse", "Pax2", "Hnf4g"]
-# target_genes = ["Ucn", "Ucn2", "Ucn3", "Crhr1", "Crhr2"]
-# target_genes = ["Glp1r", "Gipr",  # TIRZEPATIDE
-#                 "Calcr", "Ramp1", "Ramp2", "Ramp3",  # AMYLIN
-#                 "Hcrt", "Hcrtr1", "Hcrtr2",  # OREXIN
-#                 "Drd1", "Drd2", "Drd3", "Drd4", "Drd5",  # DOPAMINE
-#                 "Htr1a", "Htr1b", "Htr1d", "Htr1f", "Htr2a", "Htr2b", "Htr2c", "Htr3a", "Htr3b", "Htr4",  # SEROTONIN
-#                 "Klb", "Fgf21",  # FGF's
-#                 "Tfrc",  # TfR
-#                 "Th", "Slc6a3", "Slc6a2", # TH, DAT, NET
-#                 ]
 # target_genes = ["Mc4r", "Pomc",
 #                 "Mchr1",
 #                 "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
 #                 "Trem2", "Glp1r",
 #                 "Bdnf", ["Bdnf", "Glp1r"],
 #                 "Ntrk2", ["Ntrk2", "Glp1r"]]
-linear_scale = True
+target_genes = ["Drd1", "Drd2", "Drd3", "Drd4", "Drd5"]
+
+data_scaling = ["linear", "log2"]
 
 DOWNLOAD_BASE = r"/default/path"  # PERSONAL
 MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
@@ -78,6 +70,10 @@ print("")
 ut.print_c("[INFO] Loading mean gene expression matrix!")
 mean_expression_matrix_path = r"resources\abc_atlas\cluster_log2_mean_gene_expression_merge.feather"
 mean_expression_matrix = pd.read_feather(mean_expression_matrix_path)
+
+########################################################################################################################
+# FETCH THE DATA FOR ALL THE FIVE DATASETS FROM THE ABC-ATLAS
+########################################################################################################################
 
 metadata_views = []
 transformed_cells = []
@@ -127,14 +123,7 @@ for dsn in metadata_exp:
                               backed='r')
     adatas.append(adata)
 
-CHUNK_SIZE = 10
 print("")
-
-chunks_start = np.arange(0, TISSUE_MASK.shape[0], CHUNK_SIZE)
-chunks_end = np.arange(CHUNK_SIZE, TISSUE_MASK.shape[0], CHUNK_SIZE)
-if chunks_end[-1] != TISSUE_MASK.shape[0]:
-    chunks_end = np.append(chunks_end, TISSUE_MASK.shape[0])
-n_chunks = len(chunks_start)
 
 for cell_type in NON_NEURONAL_CELL_TYPES:
 
@@ -142,6 +131,7 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
     filtered_points_dataset = []
     # Cluster
     cells_cluster_dataset = []
+    cells_cluster_color_dataset = []
     chunk_mask = TISSUE_MASK.copy()
 
     for i, dataset_n in enumerate(DATASETS):
@@ -161,6 +151,7 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
         # Extract data for each category
         cell_classes = filtered_metadata_views["class"].tolist()
         cell_categories = filtered_metadata_views["cluster"].tolist()
+        cell_category_colors = filtered_metadata_views["cluster_color"].tolist()
 
         if SHOW_GLIA:
             non_neuronal_mask = np.array(
@@ -172,12 +163,15 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
         if filtered_points.size > 0:
             filtered_points_dataset.append(filtered_points[~non_neuronal_mask])
             cells_cluster_dataset.append(np.array(cell_categories)[~non_neuronal_mask])
+            cells_cluster_color_dataset.append(np.array(cell_category_colors)[~non_neuronal_mask])
         else:
             filtered_points_dataset.append(np.array([]))
             cells_cluster_dataset.append(np.array([]))
+            cells_cluster_color_dataset.append(np.array([]))
 
     filtered_points_dataset = np.concatenate(filtered_points_dataset)
     cells_cluster_dataset = np.concatenate(cells_cluster_dataset)
+    cells_cluster_color_dataset = np.concatenate(cells_cluster_color_dataset)
 
     ############################################################################################################
     # SAVE FLYTHROUGH IN CORONAL
@@ -192,17 +186,18 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
     unique_cell_clusters = np.unique(cells_cluster_dataset, return_index=True)
     n_unique_cluster = len(unique_cell_clusters[0])
 
-    for target_gene in target_genes:
+    for gene_name in target_genes:
         # Initialize a dictionary to store the data
         mean_expression_data = {}
-        SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, target_gene))
 
-        if isinstance(target_gene, list):
+        if isinstance(gene_name, list):
+            saving_name = "_".join(gene_name)
+            SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
             mean_co_expressions = []
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
                 cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
                 mean_expressions = []
-                for tg in target_gene:
+                for tg in gene_name:
                     try:
                         mean_expression = np.array(mean_expression_matrix[cluster_mask][tg])[0]
                         if np.isnan(mean_expression):
@@ -220,12 +215,17 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_co_expression
                 # Store mean expression in dictionary
                 mean_expression_data.setdefault(cluster_name, {})["co-expression"] = mean_co_expression
+                # Add cell category color to the dictionary
+                color_idx = np.where(cells_cluster_dataset == cluster_name)[0][0]
+                mean_expression_data[cluster_name]["cluster_color"] = cells_cluster_color_dataset[color_idx]
 
         else:
+            saving_name = gene_name
+            SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
                 cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
                 try:
-                    mean_expression = np.array(mean_expression_matrix[cluster_mask][target_gene])[0]
+                    mean_expression = np.array(mean_expression_matrix[cluster_mask][gene_name])[0]
                     if np.isnan(mean_expression):
                         ut.print_c(f"[WARNING] Missing data for cluster {cluster_name}!")
                         mean_expression = 0
@@ -236,8 +236,10 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                     mean_expression = 0
                 unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_expression
                 # Store mean expression in dictionary
-                print(mean_expression)
-                mean_expression_data.setdefault(cluster_name, {})[target_gene] = mean_expression
+                mean_expression_data.setdefault(cluster_name, {})[gene_name] = mean_expression
+                # Add cell category color to the dictionary
+                color_idx = np.where(cells_cluster_dataset == cluster_name)[0][0]
+                mean_expression_data[cluster_name]["cluster_color"] = cells_cluster_color_dataset[color_idx]
 
         # Convert dictionary to DataFrame
         mean_expression_df = pd.DataFrame.from_dict(mean_expression_data, orient='index')
@@ -246,115 +248,196 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
         # Save to Excel
         mean_expression_df.to_excel(os.path.join(SAVING_DIRECTORY, "mean_expression_data.xlsx"))
 
-        # REVERT TO LINEAR SCALE
-        if linear_scale:
-            ut.print_c("[WARNING] LINEAR SCALE SELECTED!")
-            unique_cells_cluster_colors = [2**(x) for x in unique_cells_cluster_colors]
-        else:
-            ut.print_c("[WARNING] LOG2 SCALE SELECTED!")
-        unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
-
-        fixed_min_max = [0, 100]
-        dynamic_min_max = [min(unique_cells_cluster_colors), max(unique_cells_cluster_colors)]
-        ratio = fixed_min_max[1]/dynamic_min_max[1]
-
-        for m, min_max in enumerate([fixed_min_max, dynamic_min_max]):
-
-            if m == 0:
-                norm_name = "fixed"
-                unique_cells_cluster_colors[unique_cells_cluster_colors > min_max[1]] = min_max[1]
+        for scale in data_scaling:
+            SCALE_DIRECTORY = ut.create_dir(os.path.join(SAVING_DIRECTORY, scale))
+            # REVERT TO LINEAR SCALE
+            if scale == "linear":
+                ut.print_c("[WARNING] LINEAR SCALE SELECTED!")
+                scaled_unique_cells_cluster_colors = np.array([2 ** (x) for x in unique_cells_cluster_colors])
             else:
-                norm_name = "dynamic"
+                ut.print_c("[WARNING] LOG2 SCALE SELECTED!")
+                scaled_unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
 
-            if len(unique_cells_cluster_colors) > 0:
-                min_value = min_max[0]
-                max_value = min_max[1]
-                unique_cells_cluster_colors_norm = [(x - min_value) / (max_value - min_value) for x in
-                                                    unique_cells_cluster_colors]
-                unique_cells_cluster_colors_norm = np.array(unique_cells_cluster_colors_norm)
-                np.save(os.path.join(SAVING_DIRECTORY, f"min_max_{target_gene}_{norm_name}.npy"),
-                        np.array([min_value, max_value]))
+            fixed_min_max = [0, 2000]
+            dynamic_min_max = [min(scaled_unique_cells_cluster_colors), max(scaled_unique_cells_cluster_colors)]
+            ratio = fixed_min_max[1]/dynamic_min_max[1]
 
-            # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm * 100
-            # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm * (2**16 - 1)
-            # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm.astype("uint16")
+            for m, min_max in enumerate([fixed_min_max, dynamic_min_max]):
 
-
-            voxelization_parameter = dict(
-                shape=np.transpose(tifffile.imread(REFERENCE_FILE), (1, 2, 0)).shape,
-                dtype="float",
-                weights=unique_cells_cluster_colors_norm,
-                method='sphere',
-                radius=np.array([5, 3, 3]),
-                kernel=None,
-                processes=None,
-                verbose=True,
-                intensity="max",  # If None, perform count voxelization, otherwise 'mean' or 'max' intensity
-            )
-
-            if SHOW_GLIA:
-                if len(cell_type) == 1:
-                    hm_path_all = os.path.join(SAVING_DIRECTORY, f"heatmap_{target_gene}_{cell_type[0]}_{norm_name}.tif")
+                if m == 0:
+                    norm_name = "fixed"
+                    scaled_unique_cells_cluster_colors[scaled_unique_cells_cluster_colors > min_max[1]] = min_max[1]
                 else:
-                    hm_path_all = os.path.join(SAVING_DIRECTORY, f"heatmap_{target_gene}_glia_{norm_name}.tif")
-            else:
-                hm_path_all = os.path.join(SAVING_DIRECTORY, f"heatmap_{target_gene}_neurons_{norm_name}.tif")
+                    norm_name = "dynamic"
 
-            if os.path.exists(hm_path_all):
-                os.remove(hm_path_all)
-            hm = vox.voxelize(filtered_points_dataset,
-                              **voxelization_parameter)
+                if len(scaled_unique_cells_cluster_colors) > 0:
+                    min_value = min_max[0]
+                    max_value = min_max[1]
+                    unique_cells_cluster_colors_norm = [(x - min_value) / (max_value - min_value) for x in
+                                                        scaled_unique_cells_cluster_colors]
+                    unique_cells_cluster_colors_norm = np.array(unique_cells_cluster_colors_norm)
+                    np.save(os.path.join(SCALE_DIRECTORY, f"min_max_{saving_name}_{norm_name}.npy"),
+                            np.array([min_value, max_value]))
 
-            # Create the colormap using the list of colors
-            # colors = [(0, 0, 0), (0, 0.2, 0), (0, 0.6, 0), (0, 1, 0)]  # Black to Green
-            # n_bins = 256  # Number of color bins
-            # cmap = LinearSegmentedColormap.from_list('BlackToGreen', colors, N=n_bins)
+                # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm * 100
+                # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm * (2**16 - 1)
+                # unique_cells_cluster_colors_norm = unique_cells_cluster_colors_norm.astype("uint16")
 
-            cmap = matplotlib.colormaps["gist_heat_r"]
-            # Convert the original colormap to a list of RGBA values
-            colors = cmap(np.linspace(0, 1, cmap.N))
-            # Modify the first color to be white (1.0, 1.0, 1.0, 1.0)
-            colors[0] = (1.0, 1.0, 1.0, 1.0)
-            # Create a new colormap from the modified colors
-            modified_cmap = matplotlib.colors.ListedColormap(colors)
-            new_cmap = modified_cmap
+                # test = np.full_like(unique_cells_cluster_colors_norm, 1)
 
-            # Define the sigma for Gaussian blur; you can adjust it for more or less blurring
-            sigma = (3, 3, 3)  # Example value; adjust as needed for your data
-            # Apply the Gaussian blur
-            hm_blurred = gaussian_filter(hm, sigma=sigma)
+                if SHOW_GLIA:
+                    if len(cell_type) == 1:
+                        hm_path_all = os.path.join(SCALE_DIRECTORY,
+                                                   f"heatmap_{saving_name}_{cell_type[0]}_{norm_name}.tif")
+                        hm_path_all_sag = os.path.join(SCALE_DIRECTORY,
+                                                       f"heatmap_{saving_name}_{cell_type[0]}_{norm_name}_sagittal.tif")
+                    else:
+                        hm_path_all = os.path.join(SCALE_DIRECTORY, f"heatmap_{saving_name}_glia_{norm_name}.tif")
+                        hm_path_all_sag = os.path.join(SCALE_DIRECTORY,
+                                                       f"heatmap_{saving_name}_glia_{norm_name}_sagittal.tif")
+                else:
+                    hm_path_all = os.path.join(SCALE_DIRECTORY, f"heatmap_{saving_name}_neurons_{norm_name}.tif")
+                    hm_path_all_sag = os.path.join(SCALE_DIRECTORY,
+                                                   f"heatmap_{saving_name}_neurons_{norm_name}_sagittal.tif")
 
-            # Step 1: Normalize the array to the range [0, 1]
-            hm_min = hm_blurred.min()
-            hm_max = hm_blurred.max()
-            if m == 0:
-                hm_max = hm_max*ratio
+                cmap = matplotlib.colormaps["gist_heat_r"]
+                # Convert the original colormap to a list of RGBA values
+                colors = cmap(np.linspace(0, 1, cmap.N))
+                # Modify the first color to be white (1.0, 1.0, 1.0, 1.0)
+                colors[0] = (1.0, 1.0, 1.0, 1.0)
+                # Create a new colormap from the modified colors
+                modified_cmap = matplotlib.colors.ListedColormap(colors)
+                new_cmap = modified_cmap
 
-            print(f"MIN: {hm_min}; MAX:{hm_max}")
+                ########################################################################################################
+                # VOXELIZE AT 1, 1, 1 sphere to check the data quality
+                ########################################################################################################
 
-            # Avoid division by zero in case data_min == data_max
-            if hm_max > hm_min:
-                normalized_hm = (hm_blurred - hm_min) / (hm_max - hm_min)
-            else:
-                normalized_hm = np.zeros_like(hm_blurred)
+                voxelization_parameter = dict(
+                    shape=np.transpose(tifffile.imread(REFERENCE_FILE), (1, 2, 0)).shape,
+                    dtype="float",
+                    weights=unique_cells_cluster_colors_norm,
+                    method='sphere',
+                    radius=np.array([1, 1, 1]),
+                    kernel=None,
+                    processes=None,
+                    verbose=True,
+                    intensity="max",  # If None, perform count voxelization, otherwise 'mean' or 'max' intensity
+                )
 
-            if m != 0:
-                new_path = hm_path_all.split(".")[0]
-                tifffile.imwrite(new_path + "_bin.tif", normalized_hm)
-            # Apply the colormap to the normalized data
-            # colormap expects 2D input, so flatten the data
-            # REFERENCE_INV = (255 - REFERENCE)/4
-            # flipped_ref = np.swapaxes(np.rot90(REFERENCE_INV, 1)[::-1], 1, 2)
-            # normalized_ref = (flipped_ref - flipped_ref.min()) / (flipped_ref.max() - flipped_ref.min())
-            # Create an array to hold the RGBA data with the new shape (512, 268, 369, 4)
-            # rgba_ref = np.zeros((512, 268, 369, 4), dtype=float)
-            # Fill the first three channels with the original data and add an alpha channel
-            # for i in range(normalized_ref.shape[-1]):
-                # Assume data[:, :, i] is grayscale or single-channel image data
-                # rgba_ref[:, :, i, :3] = np.stack([normalized_ref[:, :, i]] * 3, axis=-1)  # Copy grayscale to RGB
-                # rgba_ref[:, :, i, 3] = 1  # Set the alpha channel to 255 (fully opaque)
-            colored_hm = new_cmap(normalized_hm)
-            # colored_hm[:, :, int(colored_hm.shape[2]/2):] = rgba_ref[:, :, int(rgba_ref.shape[2]/2):]
-            colored_hm[:, :, int(colored_hm.shape[2]/2):] = np.flip(colored_hm[:, :, :int(colored_hm.shape[2]/2)+1], 2)
-            # colored_hm[:, :, int(colored_hm.shape[2]/2):] = 0
-            tifffile.imwrite(hm_path_all, colored_hm)
+                hm = vox.voxelize(filtered_points_dataset,
+                                  **voxelization_parameter)
+
+                if m != 0:
+                    raw_hm_min = hm.min()
+                    raw_hm_max = hm.max()
+                    print(f"Raw MIN: {raw_hm_min}; MAX:{raw_hm_max}")
+                    # Avoid division by zero in case data_min == data_max
+                    if raw_hm_max > raw_hm_min:
+                        normalized_raw_hm = (hm - raw_hm_min) / (raw_hm_max - raw_hm_min)
+                    else:
+                        normalized_raw_hm = np.zeros_like(hm)
+                    new_path = hm_path_all.split(".")[0]
+                    tifffile.imwrite(new_path + "_raw_111_bin.tif", normalized_raw_hm)
+
+                    colored_raw_hm = new_cmap(normalized_raw_hm)
+                    colored_raw_hm[:, :, int(colored_raw_hm.shape[2] / 2):] = np.flip(
+                        colored_raw_hm[:, :, :int(colored_raw_hm.shape[2] / 2) + 1], 2)
+                    tifffile.imwrite(new_path + "_111_raw.tif", colored_raw_hm)
+
+                ########################################################################################################
+                #
+                ########################################################################################################
+
+                voxelization_parameter = dict(
+                    shape=np.transpose(tifffile.imread(REFERENCE_FILE), (1, 2, 0)).shape,
+                    dtype="float",
+                    weights=unique_cells_cluster_colors_norm,
+                    # weights=test,
+                    method='sphere',
+                    # radius=np.array([5, 3, 3]),
+                    radius=np.array([3, 2, 2]),
+                    kernel=None,
+                    processes=None,
+                    verbose=True,
+                    intensity="max",  # If None, perform count voxelization, otherwise 'mean' or 'max' intensity
+                )
+
+                if os.path.exists(hm_path_all):
+                    os.remove(hm_path_all)
+                if os.path.exists(hm_path_all_sag):
+                    os.remove(hm_path_all_sag)
+                hm = vox.voxelize(filtered_points_dataset,
+                                  **voxelization_parameter)
+
+
+                ########################################################################################################
+                # SAVE THE RAW VOXELIZED RESULT
+                ########################################################################################################
+
+                cmap = matplotlib.colormaps["gist_heat_r"]
+                # Convert the original colormap to a list of RGBA values
+                colors = cmap(np.linspace(0, 1, cmap.N))
+                # Modify the first color to be white (1.0, 1.0, 1.0, 1.0)
+                colors[0] = (1.0, 1.0, 1.0, 1.0)
+                # Create a new colormap from the modified colors
+                modified_cmap = matplotlib.colors.ListedColormap(colors)
+                new_cmap = modified_cmap
+
+                if m != 0:
+                    raw_hm_min = hm.min()
+                    raw_hm_max = hm.max()
+                    print(f"Raw MIN: {raw_hm_min}; MAX:{raw_hm_max}")
+                    # Avoid division by zero in case data_min == data_max
+                    if raw_hm_max > raw_hm_min:
+                        normalized_raw_hm = (hm - raw_hm_min) / (raw_hm_max - raw_hm_min)
+                    else:
+                        normalized_raw_hm = np.zeros_like(hm)
+                    new_path = hm_path_all.split(".")[0]
+                    tifffile.imwrite(new_path + "_raw_bin.tif", normalized_raw_hm)
+
+                    colored_raw_hm = new_cmap(normalized_raw_hm)
+                    colored_raw_hm[:, :, int(colored_raw_hm.shape[2] / 2):] = np.flip(
+                        colored_raw_hm[:, :, :int(colored_raw_hm.shape[2] / 2) + 1], 2)
+                    tifffile.imwrite(new_path + "_raw.tif", colored_raw_hm)
+
+                # Define the sigma for Gaussian blur; you can adjust it for more or less blurring
+                sigma = (3, 3, 3)  # Example value; adjust as needed for your data
+                # Apply the Gaussian blur
+                hm_blurred = gaussian_filter(hm, sigma=sigma)
+
+                # Step 1: Normalize the array to the range [0, 1]
+                hm_min = hm_blurred.min()
+                hm_max = hm_blurred.max()
+                if m == 0:
+                    hm_max = hm_max*ratio
+
+                print(f"MIN: {hm_min}; MAX:{hm_max}")
+
+                # Avoid division by zero in case data_min == data_max
+                if hm_max > hm_min:
+                    normalized_hm = (hm_blurred - hm_min) / (hm_max - hm_min)
+                else:
+                    normalized_hm = np.zeros_like(hm_blurred)
+
+                if m != 0:
+                    new_path = hm_path_all.split(".")[0]
+                    tifffile.imwrite(new_path + "_bin.tif", normalized_hm)
+
+                # Apply the colormap to the normalized data
+                # colormap expects 2D input, so flatten the data
+                # REFERENCE_INV = (255 - REFERENCE)/4
+                # flipped_ref = np.swapaxes(np.rot90(REFERENCE_INV, 1)[::-1], 1, 2)
+                # normalized_ref = (flipped_ref - flipped_ref.min()) / (flipped_ref.max() - flipped_ref.min())
+                # Create an array to hold the RGBA data with the new shape (512, 268, 369, 4)
+                # rgba_ref = np.zeros((512, 268, 369, 4), dtype=float)
+                # Fill the first three channels with the original data and add an alpha channel
+                # for i in range(normalized_ref.shape[-1]):
+                    # Assume data[:, :, i] is grayscale or single-channel image data
+                    # rgba_ref[:, :, i, :3] = np.stack([normalized_ref[:, :, i]] * 3, axis=-1)  # Copy grayscale to RGB
+                    # rgba_ref[:, :, i, 3] = 1  # Set the alpha channel to 255 (fully opaque)
+                colored_hm = new_cmap(normalized_hm)
+                # colored_hm[:, :, int(colored_hm.shape[2]/2):] = rgba_ref[:, :, int(rgba_ref.shape[2]/2):]
+                colored_hm[:, :, int(colored_hm.shape[2]/2):] = np.flip(colored_hm[:, :, :int(colored_hm.shape[2]/2)+1], 2)
+                # colored_hm[:, :, int(colored_hm.shape[2]/2):] = 0
+                tifffile.imwrite(hm_path_all, colored_hm)

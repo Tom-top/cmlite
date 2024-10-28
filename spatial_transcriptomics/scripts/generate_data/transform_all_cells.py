@@ -15,7 +15,7 @@ import alignment.align as elx
 
 # dataset_ns = np.arange(1, 6, 1)
 dataset_ns = np.array([5])
-saving_directory = ut.create_dir(r"E:\tto\mapping_aba_to_gubra_3")
+saving_directory = ut.create_dir(r"E:\tto\mapping_aba_to_gubra")
 
 for n in dataset_ns:
 

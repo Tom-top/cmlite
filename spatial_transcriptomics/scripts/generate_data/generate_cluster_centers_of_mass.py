@@ -1,26 +1,13 @@
-"""
-This script generates visualizations showing the distribution of the cells within the combined datasets
- in a restricted binary mask.
-For each dataset, coronal, sagittal, and horizontal views are produced with the Gubra LSFM reference in the background.
-The cells are labeled according to the ABC atlas ontology (https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
-The source of the data is from Zhang M. et al., in Nature, 2023 (DOI: 10.1038/s41586-023-06808-9).
-
-Author: Thomas Topilko
-"""
-
 import os
 import json
 import requests
+
+import csv
 import numpy as np
 import pandas as pd
 import tifffile
 from collections import Counter
-import anndata
-# from multiprocessing import Pool
-from joblib import Parallel, delayed
-import matplotlib.pyplot as plt
 import matplotlib
-
 matplotlib.use("Agg")
 
 import utils.utils as ut
@@ -34,11 +21,11 @@ N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster"]
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
-ONLY_NEURONS = False  # If True: only generate plots for neurons, excluding all non-neuronal cells
+ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
-PERCENTAGE_THRESHOLD = 50
+PERCENTAGE_THRESHOLD = 15
+# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
 categories = ["cluster"]
-co_expressed_genes = ["Lepr", "Gipr"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
@@ -52,7 +39,7 @@ LABELED_MASK = False  # If true the TISSUE_MASK is a labeled 32bit mask, not a b
 PLOT_COUNTS_BY_CATEGORY = True  # If true plots the category plot
 SHOW_OUTLINE = False
 ZOOM = False
-SHOW_REF = False
+SHOW_REF = True
 
 if WHOLE_REGION:
     LABELED_MASK = False
@@ -65,7 +52,7 @@ else:
     labels = [1]
     if WHOLE_REGION:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
-        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
+        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"peri-pag_mask.tif"))
     else:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
     TISSUE_MASKS = [TISSUE_MASK]
@@ -84,34 +71,6 @@ SUBCLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_
 SUPERTYPE_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_supertype.xlsx"))
 CLUSTER_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_cluster.xlsx"))
 NEUROTRANSMITTER_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_neurotransmitter.xlsx"))
-
-url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
-manifest = json.loads(requests.get(url).text)
-data_id_10X = "WMB-10X"  # Select the dataset
-metadata_json = manifest['file_listing'][data_id_10X]['metadata']  # Fetch metadata structure
-metadata_relative_path = metadata_json['cell_metadata_with_cluster_annotation']['files']['csv']['relative_path']
-metadata_file = os.path.join(DOWNLOAD_BASE, metadata_relative_path)  # Path to metadata file
-exp = pd.read_csv(metadata_file, low_memory=False)  # Load metadata
-exp.set_index('cell_label', inplace=True)  # Set cell_label as dataframe index
-
-metadata_genes_relative_path = metadata_json['gene']['files']['csv']['relative_path']
-metadata_gene_file = os.path.join(DOWNLOAD_BASE, metadata_genes_relative_path)  # Path to metadata file
-genes = pd.read_csv(metadata_gene_file)  # Load metadata
-
-# Fixme: This should be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
-dataset_id = "WMB-10Xv3"  # Dataset name
-metadata_exp = manifest['file_listing'][dataset_id]['expression_matrices']
-adatas = []
-print("")
-for dsn in metadata_exp:
-    ut.print_c(f"[INFO] Loading 10x data for: {dsn}", end="\r")
-    adata = anndata.read_h5ad(os.path.join(DOWNLOAD_BASE,
-                                           metadata_exp[dsn]["log2"]["files"]["h5ad"]["relative_path"]),
-                              backed='r')
-    adatas.append(adata)
-colormap = plt.get_cmap("YlOrBr")
-
-# mean_gene_expression_data = pd.read_feather(r"resources\abc_atlas\cluster_log2_mean_gene_expression_merge.feather")
 
 ########################################################################################################################
 # ITERATE OVER EVERY BLOB (LABEL)
@@ -153,25 +112,37 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
     # Create buffers for the merged datasets
     filtered_points_merged = []
+    # Neurotransmitter
+    cells_neurotransmitter_merged = []
+    cells_neurotransmitter_colors_merged = []
     # Class
     cells_class_merged = []
+    cells_class_colors_merged = []
+    # Subclass
+    cells_subclass_merged = []
+    cells_subclass_colors_merged = []
+    # Supertype
+    cells_supertype_merged = []
+    cells_supertype_colors_merged = []
     # Cluster
     cells_cluster_merged = []
+    cells_cluster_colors_merged = []
 
     ####################################################################################################################
     # ITERATE OVER EVERY DATASET
     ####################################################################################################################
 
-    print("")
     for i, dataset_n in enumerate(DATASETS):
 
-        ut.print_c(f"[INFO] Loading MERFISH dataset: {dataset_n}")
+        ut.print_c(f"[INFO] Loading dataset: {dataset_n}")
 
         # Select the correct dataset
         if dataset_n < 5:
             dataset_id = f"Zhuang-ABCA-{dataset_n}"
         else:
             dataset_id = f"MERFISH-C57BL6J-638850"
+        url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
+        manifest = json.loads(requests.get(url).text)
         metadata = manifest['file_listing'][dataset_id]['metadata']
 
         # Fetch labels for each cell in the selected dataset
@@ -190,9 +161,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
         cell_metadata_views.set_index('cell_label', inplace=True)
 
         # Fetch the transformed coordinates from the selected dataset
-        # transformed_coordinates = np.load(os.path.join(TRANSFORM_DIR, f"all_transformed_cells_{ATLAS_USED}_{dataset_n}.npy"))
-        transformed_coordinates = np.load(
-            os.path.join(TRANSFORM_DIR, f"all_transformed_cells_{ATLAS_USED}_{dataset_n}.npy"))
+        transformed_coordinates = np.load(os.path.join(TRANSFORM_DIR, f"all_transformed_cells_{ATLAS_USED}_{dataset_n}.npy"))
 
         # Pre-calculate the chunks to run through in the selected dataset
         chunk_size = 10  # Size of each data chunk (voxels)
@@ -204,9 +173,18 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         # Create buffers for the selected dataset
         filtered_points_dataset = []
+        # Neurotransmitter
+        cells_neurotransmitter_dataset = []
+        cells_neurotransmitter_colors_dataset = []
         # Class
         cells_class_dataset = []
         cells_class_colors_dataset = []
+        # Subclass
+        cells_subclass_dataset = []
+        cells_subclass_colors_dataset = []
+        # Supertype
+        cells_supertype_dataset = []
+        cells_supertype_colors_dataset = []
         # Cluster
         cells_cluster_dataset = []
         cells_cluster_colors_dataset = []
@@ -230,11 +208,26 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             filtered_metadata_views = cell_metadata_views.loc[filtered_labels]
 
             # Extract data for each category
+            # Neurotransmitter
+            cells_neurotransmitter = filtered_metadata_views["neurotransmitter"].tolist()
+            cells_neurotransmitter_color = filtered_metadata_views["neurotransmitter_color"].tolist()
+            cells_neurotransmitter_dataset.extend(cells_neurotransmitter)
+            cells_neurotransmitter_colors_dataset.extend(cells_neurotransmitter_color)
             # Class
             cells_class = filtered_metadata_views["class"].tolist()
             cells_cls_color = filtered_metadata_views["class_color"].tolist()
             cells_class_dataset.extend(cells_class)
             cells_class_colors_dataset.extend(cells_cls_color)
+            # Subclass
+            cells_subclass = filtered_metadata_views["subclass"].tolist()
+            cells_subcls_color = filtered_metadata_views["subclass_color"].tolist()
+            cells_subclass_dataset.extend(cells_subclass)
+            cells_subclass_colors_dataset.extend(cells_subcls_color)
+            # Supertype
+            cells_supertype = filtered_metadata_views["supertype"].tolist()
+            cells_supertype_color = filtered_metadata_views["supertype_color"].tolist()
+            cells_supertype_dataset.extend(cells_supertype)
+            cells_supertype_colors_dataset.extend(cells_supertype_color)
             # Cluster
             cells_cluster = filtered_metadata_views["cluster"].tolist()
             cells_cluster_color = filtered_metadata_views["cluster_color"].tolist()
@@ -243,90 +236,137 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         # Extend the buffers for the merged datasets
         filtered_points_merged.extend(filtered_points_dataset)
+        # Neurotransmitter
+        cells_neurotransmitter_merged.extend(cells_neurotransmitter_dataset)
+        cells_neurotransmitter_colors_merged.extend(cells_neurotransmitter_colors_dataset)
         # Class
         cells_class_merged.extend(cells_class_dataset)
+        cells_class_colors_merged.extend(cells_class_colors_dataset)
+        # Subclass
+        cells_subclass_merged.extend(cells_subclass_dataset)
+        cells_subclass_colors_merged.extend(cells_subclass_colors_dataset)
+        # Supertype
+        cells_supertype_merged.extend(cells_supertype_dataset)
+        cells_supertype_colors_merged.extend(cells_supertype_colors_dataset)
         # Cluster
         cells_cluster_merged.extend(cells_cluster_dataset)
+        cells_cluster_colors_merged.extend(cells_cluster_colors_dataset)
 
     # Get unique occurrences in each category
+    # Neurotransmitter
+    unique_cells_neurotransmitter, unique_indices = np.unique(cells_neurotransmitter_merged, return_index=True)
+    unique_cells_neurotransmitter_color = np.array(cells_neurotransmitter_colors_merged)[unique_indices]
     # Class
-    unique_cells_class = np.unique(cells_class_merged, return_index=True)
+    unique_cells_class, unique_indices = np.unique(cells_class_merged, return_index=True)
+    unique_cells_class_color = np.array(cells_class_colors_merged)[unique_indices]
+    # Subclass
+    unique_cells_subclass, unique_indices = np.unique(cells_subclass_merged, return_index=True)
+    unique_cells_subclass_color = np.array(cells_subclass_colors_merged)[unique_indices]
+    # Supertype
+    unique_cells_supertype, unique_indices = np.unique(cells_supertype_merged, return_index=True)
+    unique_cells_supertype_color = np.array(cells_supertype_colors_merged)[unique_indices]
     # Cluster
-    unique_cells_cluster = np.unique(cells_cluster_merged, return_index=True)
+    unique_cells_cluster, unique_indices = np.unique(cells_cluster_merged, return_index=True)
+    unique_cells_cluster_color = np.array(cells_cluster_colors_merged)[unique_indices]
 
-    # Create masks for neuronal cells
-    non_neuronal_mask_global = np.array(
-        [True if any([j in i for j in NON_NEURONAL_CELL_TYPES]) else False for i in cells_class_merged])
+    ########################################################################################################################
+    # CALCULATE CENTER OF MASS FOR ALL CLUSTERS
+    ########################################################################################################################
 
-    ################################################################################################################
-    # FETCH GENE EXPRESSION DATA FOR CLUSTER
-    ################################################################################################################
+    # Convert for np array
+    filtered_points_merged = np.array(filtered_points_merged)
 
-    n_unique_cluster = len(unique_cells_cluster[0])
-    target_genes = genes["gene_symbol"]
-    n_target_genes = len(target_genes)
+    # List to store center of mass data for each cluster
+    center_of_mass_data = []
+    n_unique_cells_cluster = len(unique_cells_cluster)
 
-    df_to_save = {}
-    duplicate_gene_entries = {}
+    for n, (cluster_name, cluster_color) in enumerate(zip(unique_cells_cluster, unique_cells_cluster_color)):
+        ut.print_c(f"[INFO] Computing center of mass for cluster: {cluster_name}; {n+1}/{n_unique_cells_cluster}!")
 
-    # Fixme: REMOVE THIS
-    unique_clusters = unique_cells_cluster[0]
+        # Mask to filter cells in the selected cluster
+        cluster_mask = np.array([True if i == cluster_name else False for i in cells_cluster_merged])
 
-    for n, cluster_name in enumerate(unique_clusters):
-        # if cluster_name not in mean_gene_expression_data["cluster_name"]:
-        ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
-        # cluster_name = cells_cluster_merged[cluster]
-        cluster_mask = exp["cluster"] == cluster_name  # Mask of the cells belonging to the cluster
+        # Filter the cells in the selected cluster
+        cells_in_cluster = filtered_points_merged[cluster_mask]
 
-        # Fixme: This has to be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
-        library_mask = exp["library_method"] == "10Xv3"  # Mask of the library data
+        # Calculate the center of mass
+        center_of_mass = np.mean(cells_in_cluster, axis=0)
 
-        # Combined mask of cells in the dataset that belong to the selected cluster
-        cluster_and_library_mask = np.logical_and(cluster_mask, library_mask)
+        # Append data to the list
+        center_of_mass_data.append([cluster_name, *center_of_mass, cluster_color])
 
-        df_to_save[cluster_name] = {}
+    # Specify the CSV file path
+    csv_file_path = os.path.join(RESULTS_DIR, "centers_of_mass_for_clusters.csv")
 
-        if np.sum(cluster_and_library_mask) > 0:
-            # Fetch gene expression data from the selected cluster
-            # cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-            cell_labels_in = exp[cluster_and_library_mask].index  # Cell labels in the selected cluster
-            adata_cluster_in = []  # Gene expression of cells in the selected cluster for each sub-dataset
+    # Write data to CSV
+    with open(csv_file_path, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        # Write header
+        writer.writerow(["Cluster Name", "Center of Mass X", "Center of Mass Y", "Center of Mass Z", "Cluster Color"])
+        # Write data rows
+        writer.writerows(center_of_mass_data)
 
-            # Loop over each sub-dataset (.h5ad files)
-            for adata in adatas:
-                mask_in = adata.obs.index.isin(cell_labels_in)  # Creates mask for the cells in the selected cluster
-                adata_cluster_in.append(adata[mask_in])  # Appends result
+    print(f"Center of mass data saved to {csv_file_path}")
 
-            adata_cluster_in_filtered = [x for x in adata_cluster_in if len(x) > 0]  # Filters out empty anndata
-            combined_adata_in = anndata.concat(adata_cluster_in_filtered, axis=0)  # Combine all the datasets
 
-            combined_data_in = combined_adata_in.to_df()  # Load the expression data into memory
+########################################################################################################################
+# PLOT ALL THE CLUSTERS
+########################################################################################################################
 
-            for m, target_gene in enumerate(target_genes):
-                ut.print_c(f"[INFO {cluster_name}] Fetching expression data for gene: {target_gene}; {m + 1}/{n_target_genes}", end="\r")
-                gene_mask = genes["gene_symbol"] == target_gene
-                gene_id = genes["gene_identifier"][gene_mask]
-                n_gene_entries = len(gene_id)
-                if n_gene_entries > 1:
-                    ut.print_c(f"[WARNING {cluster_name}] Duplicate entry for gene: {target_gene}: {n_gene_entries}!")
-                    duplicate_gene_entries[target_gene] = n_gene_entries
-                    gene_id = gene_id.iloc[0]
-                mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
-                df_to_save[cluster_name][target_gene] = mean_gene_expression
-        else:
-            ut.print_c(f"[WARNING {cluster_name}] No overlap detected between the cluster and the 10X data!")
-            for target_gene in target_genes:
-                df_to_save[cluster_name][target_gene] = np.nan
+cell_size = 5
+cell_size_global = 5
 
-        if (n+1) % 500 == 0:
-            # Convert the dictionary to a DataFrame
-            df = pd.DataFrame.from_dict(df_to_save, orient='index')
-            df_dup = pd.DataFrame.from_dict(duplicate_gene_entries, orient='index')
-            # Assign a name to the index
-            df.index.name = 'cluster_name'
-            df_dup.index.name = 'gene_name'
-            # Save the DataFrame to a CSV file
-            df.to_csv(os.path.join(SAVING_DIR, f"cluster_log2_mean_gene_expression_{n+1-500}-{n+1}.csv"))
-            df_dup.to_csv(os.path.join(SAVING_DIR, f"duplicate_gene_entries_{n+1-500}-{n+1}.csv"))
-            df_to_save = {}
-            duplicate_gene_entries = {}
+for n, (cat_name, x, y, z, cat_color) in enumerate(center_of_mass_data):
+
+    center_of_mass = np.array([x, y, z])
+    saving_cat_name = cat_name.replace("/", "-")
+    SAVING_DIR = ut.create_dir(os.path.join(RESULTS_DIR, saving_cat_name))
+
+    ########################################################################################################
+    # HORIZONTAL 3D VIEW
+    ########################################################################################################
+    ori = "horizontal"
+    orix, oriy, mask_axis = 2, 0, 1
+    xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[1]
+
+    # Only neurons, class colors, all experiments
+    st_plt.plot_cells(np.array([center_of_mass]), REFERENCE, TISSUE_MASK, cell_colors=np.array([cat_color]),
+                      cell_categories=np.array([cat_name]), non_neuronal_mask=None, xlim=xlim,
+                      ylim=ylim,
+                      orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                      sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"cluster_{saving_cat_name}_{ori}.png"),
+                      relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                      show_ref=SHOW_REF)
+
+    ########################################################################################################
+    # SAGITTAL 3D VIEW
+    ########################################################################################################
+
+    ori = "sagittal"
+    orix, oriy, mask_axis = 0, 1, 2
+    xlim, ylim = REFERENCE_SHAPE[1], REFERENCE_SHAPE[2]
+
+    # Only neurons, class colors, all experiments
+    st_plt.plot_cells(np.array([center_of_mass]), REFERENCE, TISSUE_MASK, cell_colors=np.array([cat_color]),
+                      cell_categories=np.array([cat_name]), non_neuronal_mask=None, xlim=xlim, ylim=ylim,
+                      orix=orix, oriy=oriy, orip=orix, ori=ori, mask_axis=mask_axis, s=cell_size,
+                      sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"cluster_{saving_cat_name}_{ori}.png"),
+                      relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                      show_ref=SHOW_REF)
+
+    ########################################################################################################
+    # CORONAL 3D VIEW
+    ########################################################################################################
+
+    ori = "coronal"
+    orix, oriy, mask_axis = 2, 1, 0  # Projection = 1
+    xlim, ylim = REFERENCE_SHAPE[0], REFERENCE_SHAPE[2]
+
+    # Only neurons, class colors, all experiments
+    st_plt.plot_cells(np.array([center_of_mass]), REFERENCE, TISSUE_MASK, cell_colors=np.array([cat_color]),
+                      cell_categories=np.array([cat_name]), non_neuronal_mask=None, xlim=xlim,
+                      ylim=ylim,
+                      orix=orix, oriy=oriy, orip=oriy, ori=ori, mask_axis=mask_axis, s=cell_size,
+                      sg=cell_size_global, saving_path=os.path.join(SAVING_DIR, f"cluster_{saving_cat_name}_{ori}.png"),
+                      relevant_categories=[], show_outline=SHOW_OUTLINE, zoom=ZOOM,
+                      show_ref=SHOW_REF)
