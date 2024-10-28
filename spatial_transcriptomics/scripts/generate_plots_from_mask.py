@@ -16,6 +16,13 @@ import pandas as pd
 import tifffile
 from collections import Counter
 import matplotlib
+from matplotlib import cm
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+import matplotlib.colors as mcolors
+from matplotlib.cm import ScalarMappable
+import networkx as nx
+from networkx.drawing.nx_pydot import graphviz_layout
 
 matplotlib.use("Agg")
 
@@ -32,9 +39,9 @@ NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
-PERCENTAGE_THRESHOLD = 50
-categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
-# categories = ["cluster"]
+PERCENTAGE_THRESHOLD = 15
+# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+categories = ["cluster"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
@@ -60,8 +67,8 @@ if LABELED_MASK:  # Each label will be processed separately.
 else:
     labels = [1]
     if WHOLE_REGION:
-        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
-        TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"peri-pag_mask.tif"))
+        TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
+        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"peri-pag_mask.tif"))
     else:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
     TISSUE_MASKS = [TISSUE_MASK]
@@ -488,6 +495,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             SAVING_DIR,
             plots_to_generate=["categories", "categories_labeled", "percentage"],  # , "percentage"
             colormap="viridis",
+            max_range=PERCENTAGE_THRESHOLD,
         )
 
         ################################################################################################################
@@ -547,13 +555,6 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
                             cluster_data = cluster_data.drop(cluster_indices)
                     supertype_data = supertype_data.drop(supertype_indices)
             subclass_data = subclass_data.drop(subclass_indices)
-
-        import networkx as nx
-        import matplotlib.pyplot as plt
-        from matplotlib.patches import Rectangle
-        from matplotlib import cm
-        import os
-        from networkx.drawing.nx_pydot import graphviz_layout
 
 
         def filter_hierarchy_by_percentage(hierarchy, min_percentage=0.5):
@@ -711,13 +712,115 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
 
         # Filter the hierarchy based on the 'Percentage' value
-        min_percentage = 10
-        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=min_percentage)
+        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=PERCENTAGE_THRESHOLD)
         # Plot the dendrogram
         plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.png"),
-                         percentage_thresh=min_percentage)
+                         percentage_thresh=PERCENTAGE_THRESHOLD)
         plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.svg"),
-                         percentage_thresh=min_percentage)
+                         percentage_thresh=PERCENTAGE_THRESHOLD)
+
+        ################################################################################################################
+        # PLOT THE TOP PERCENTAGE OVERLAPPING CELLS
+        ################################################################################################################
+
+        # Neurotransmitter data
+        neurotransmitter_data = merged_data[4]
+
+        # Sort first dataframe by Percentage
+        df_sorted = cluster_data.sort_values('Percentage', ascending=False)
+
+        # Sort second dataframe based on the first dataframe's order
+        second_df_sorted = neurotransmitter_data.loc[df_sorted.index]  # Align sorting with the first dataframe
+
+        # Hardcoded limits for the colormap
+        vmin = 0  # Minimum value for colormap
+
+        # Viridis colormap and color normalization for the first plot (percentage-based colors)
+        norm = mcolors.Normalize(vmin=vmin, vmax=PERCENTAGE_THRESHOLD)  # Force the color map to use vmin and vmax
+        cmap = plt.cm.viridis
+        sm = ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+
+        # Create the figure and two subplots side by side
+        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(4, 8))
+
+        # First plot: Single vertical stacked bar with black borders and colors based on percentage
+        bars1 = ax1.bar([0], df_sorted['Count_df'], color=[cmap(norm(p)) for p in df_sorted['Percentage']],
+                        edgecolor='black', width=0.5, bottom=np.cumsum([0] + df_sorted['Count_df'].tolist()[:-1]))
+
+        # Add labels inside the bar segments for the first plot
+        for bar, label in zip(bars1, df_sorted['Label']):
+            bar_height = bar.get_height()
+            bottom = bar.get_y()
+            ax1.text(bar.get_x() + bar.get_width() / 2, bottom + bar_height / 2, label,
+                     ha='center', va='center', color='black', fontsize=8, rotation=0)
+
+        # Add colorbar for the first plot (force vmin to vmax range)
+        cbar1 = plt.colorbar(sm, ax=ax1)
+        cbar1.set_label('Percentage')
+        cbar1.set_ticks([vmin, PERCENTAGE_THRESHOLD])  # Set ticks to cover the range of the colormap
+        cbar1.ax.set_ylim([vmin, PERCENTAGE_THRESHOLD])  # Set the limits of the colorbar
+
+        # Label the first plot
+        ax1.set_title('Bar Plot 1 (Percentage-based)')
+        ax1.set_ylabel('Total Count')
+
+        # Remove x-axis ticks and y-axis ticks for clarity
+        ax1.set_xticks([])
+        ax1.set_xticklabels([])
+        ax1.set_yticks([])
+
+        # Remove outer box (spines) from the first plot
+        for spine in ax1.spines.values():
+            spine.set_visible(False)
+
+        # Invert the y-axis for the first plot
+        ax1.invert_yaxis()
+
+        # Second plot: Single vertical stacked bar with black borders and colors from Color_df in the second dataframe
+        bars2 = ax2.bar([0], second_df_sorted['Count_df'], color=second_df_sorted['Color_df'],
+                        edgecolor='black', width=0.5,
+                        bottom=np.cumsum([0] + second_df_sorted['Count_df'].tolist()[:-1]))
+
+        # Add labels inside the bar segments for the second plot
+        for bar, label in zip(bars2, second_df_sorted['Label_df']):
+            bar_height = bar.get_height()
+            bottom = bar.get_y()
+            ax2.text(bar.get_x() + bar.get_width() / 2, bottom + bar_height / 2, label,
+                     ha='center', va='center', color='black', fontsize=8, rotation=0)
+
+        # Label the second plot
+        ax2.set_title('Bar Plot 2 (Color_df-based)')
+        ax2.set_ylabel('Total Count')
+
+        # Remove x-axis ticks and y-axis ticks for clarity in the second plot
+        ax2.set_xticks([])
+        ax2.set_xticklabels([])
+        ax2.set_yticks([])
+
+        # Remove outer box (spines) from the second plot
+        for spine in ax2.spines.values():
+            spine.set_visible(False)
+
+        # Invert the y-axis for the second plot
+        ax2.invert_yaxis()
+
+        # Save the plot with labels
+        plt.tight_layout()
+        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_with_labels.png"))
+        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_with_labels.svg"))
+
+        # Remove the labels and save the plot without labels
+        for ax in [ax1, ax2]:
+            for text in ax.texts:
+                text.set_visible(False)
+
+        # Save the plot without labels
+        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_without_labels.png"))
+        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_without_labels.svg"))
+
+        # Show the plot
+        plt.show()
 
         ################################################################################################################
         # TEST

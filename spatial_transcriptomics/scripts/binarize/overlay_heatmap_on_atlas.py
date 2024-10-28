@@ -5,19 +5,23 @@ import nibabel as nib
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm  # Import colormap module
+matplotlib.use("Agg")
 
 ########################################################################################################################
 # GENERATE IMAGES OF THE MASK
 ########################################################################################################################
 
-analysis_directory = r"E:\tto\GUS2022-189-LY"
-mask_path = os.path.join(os.path.join(analysis_directory, "g006_against_g001_zscore_full_signal_threshold_3.nii.gz"))
+analysis_directory = r"E:\tto\test"
+# mask_path = os.path.join(os.path.join(analysis_directory, "g006_against_g001_zscore_full_signal_threshold_3.nii.gz"))
+mask_path = os.path.join(os.path.join(analysis_directory, "result_8b.tif"))
 f_name = os.path.basename(mask_path)
 new_f_name = "rgb_" + f_name.split(".")[0] + "." + f_name.split(".")[-1]
 # Load the 16-bit grayscale image
-grayscale_image = nib.load(mask_path).get_fdata()
-grayscale_image = np.swapaxes(grayscale_image, 0, 2)
+# grayscale_image = nib.load(mask_path).get_fdata()
+grayscale_image = tifffile.imread(mask_path)
+# grayscale_image = np.swapaxes(grayscale_image, 0, 2)
 grayscale_image = np.swapaxes(grayscale_image, 0, 1)
+grayscale_image = np.flip(grayscale_image, 2)
 
 REFERENCE_FILE = r"resources/atlas/gubra_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
@@ -27,9 +31,10 @@ orix, oriy = 2, 0
 xlim, ylim = 369, 512
 
 # Clip the grayscale image to remove low values and set transparency gradient
-clip_min = 1.96  # Set the minimum value to retain
-adjust_max = 1.96
+clip_min = 70  # Set the minimum value to retain
+adjust_max = 70
 clipped_grayscale_image = np.clip(grayscale_image, clip_min, None)
+# clipped_grayscale_image = np.where(grayscale_image < clip_min, 0, grayscale_image)
 
 # Normalize the clipped grayscale image to range [0, 1] for proper display
 normalized_grayscale_image = (clipped_grayscale_image - adjust_max) / (np.max(clipped_grayscale_image) - adjust_max)
@@ -43,7 +48,7 @@ rgba_image = np.zeros_like(colored_image, dtype=np.float32)
 rgba_image[..., :3] = colored_image[..., :3]  # Copy the RGB channels from the colormap output
 
 # Specify the range of grayscale values for the alpha gradient
-alpha_min = 1.96  # Lower bound of the range
+alpha_min = 50  # Lower bound of the range
 alpha_max = grayscale_image.max()  # Upper bound of the range
 
 # Create a gradient for the alpha channel based on the specified range

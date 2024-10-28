@@ -14,7 +14,8 @@ from spatial_transcriptomics.to_check.analysis import sc_helper_functions as sc_
 
 # genes_to_plot = ["Glp1r", "Gipr", "Ramp1", "Ramp2", "Ramp3"]
 # genes_to_plot = ["Slc17a6", "Klb", "Lepr", "Calcr"]
-genes_to_plot = ["Gipr"]
+# genes_to_plot = ["Gipr", "Lepr"]
+genes_to_plot = ["Pde1a"]
 # genes_to_plot = ["Hcrt", "Hcrtr1", "Hcrtr2", "Hcrtr3"]
 saving_directory = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results" \
                    r"\10X_mapped_gene_expression"
@@ -59,7 +60,12 @@ with ProcessPoolExecutor(max_workers=None) as executor:
 # PLOT SPECIFIC CLUSTER
 ########################################################################################################################
 
-for n, gene_name in enumerate(genes_to_plot):
-    sc_utils.plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp,
-                                              saving_directory, saving_name="_cluster_3864", mask_name="",
-                                              cluster_name="3864 SNc-VTA-RAmb Foxa1 Dopa_4")
+clusters = ["0951 STR D1 Gaba_3", "0960 STR D1 Gaba_7", "0962 STR D1 Gaba_8"]
+genes_to_plot = ["Slit2"]
+
+for cluster in clusters:
+    cluster_n = cluster.split(" ")[0]
+    for n, gene_name in enumerate(genes_to_plot):
+        sc_utils.plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp,
+                                                  saving_directory, saving_name=f"_cluster_{cluster_n}", mask_name="",
+                                                  cluster_name=cluster, no_bg=True, vmax=500)

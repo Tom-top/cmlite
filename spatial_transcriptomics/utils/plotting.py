@@ -45,7 +45,8 @@ def setup_plot(n, i):
 
 def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, cell_colors="black", cell_categories=None,
                xlim=0, ylim=0, orix=0, oriy=1, orip=0, ori="", mask_axis=0, s=0.5, sg=0.5, saving_path="", relevant_categories=[],
-               show_outline=False, zoom=False, plot_individual_categories=True, show_ref=True, surface_projection=True):
+               show_outline=False, zoom=False, plot_individual_categories=True, show_ref=True, surface_projection=True,
+               show_cluster_name=False):
 
     # If at least one set of coordinates for a cell is given
     if filtered_points.size > 0:
@@ -293,13 +294,22 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
                 sorted_x_z = filtered_points_plot_x[sorted_z_indices]
                 sorted_y_z = filtered_points_plot_y[sorted_z_indices]
                 sorted_colors_z = cell_colors[sorted_z_indices]
+                sorted_categories = cell_categories[sorted_z_indices]
             else:
                 sorted_x_z = filtered_points_plot_x
                 sorted_y_z = filtered_points_plot_y
                 sorted_colors_z = cell_colors
+                sorted_categories = cell_categories
 
             ax.scatter(sorted_x_z, sorted_y_z, c=sorted_colors_z, s=sg,
                        lw=0, edgecolors="black", alpha=1)
+
+            # Add cluster names
+            if show_cluster_name:
+                for cluster_name, center_x, center_y, text_color in zip(sorted_categories, sorted_x_z, sorted_y_z,
+                                                                        sorted_colors_z):
+                    ax.text(center_x, center_y, cluster_name, fontsize=3, ha='center', va='center', color=text_color)
+
             if show_outline:
                 ax.contour(max_proj_mask, levels=[0.5], colors='black', linewidths=1, alpha=0.5, linestyles='dashed')
             if show_ref:
@@ -524,8 +534,10 @@ def stacked_horizontal_bar_plot(categories, data_categories, saving_path, plots_
                 elif plot.startswith("percentage"):
                     full_opacity_width = row['Count_df']
                     percentage = row['Percentage']
-                    percentage[percentage > max_range] = max_range
-                    normalized = float(row['Percentage'] / max_range)
+                    print(percentage)
+                    if percentage > max_range:
+                        percentage = max_range
+                    normalized = float(percentage / max_range)
                     colors = cmap(normalized)
                     bar_full_opacity = ax.barh(0, full_opacity_width, left=left, color=colors,  #row['Color_df']
                                                edgecolor="black", lw=lw, zorder=1)

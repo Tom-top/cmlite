@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 
@@ -16,7 +17,6 @@ import matplotlib
 matplotlib.use("Agg")
 
 import utils.utils as ut
-
 
 # optimal_channel_times = {
 #     "488": 100,  # MILLISECONDS PER PLANE (EXPOSURE)
@@ -47,22 +47,39 @@ import utils.utils as ut
 # }
 
 optimal_scan_times = {
-        "488": 0.5,  # HOURS
-        "561": 0.5,  # HOURS
-        "642": 1.5,  # HOURS
-        "785": 2,  # HOURS
+    "488": 0.5,  # HOURS
+    "561": 0.5,  # HOURS
+    "642": 1.5,  # HOURS
+    "785": 2,  # HOURS
 }
 
 colors_per_channel = {
-        "488": "#00f7ff",  # HOURS
-        "561": "#c6ff00",  # HOURS
-        "642": "#ff1600",  # HOURS
-        "785": "#610000",  # HOURS
+    "488": "#00f7ff",  # HOURS
+    "561": "#c6ff00",  # HOURS
+    "642": "#ff1600",  # HOURS
+    "785": "#610000",  # HOURS
 }
 
+available_scanners = ["M1", "M2", "M3", "M4"]
 
 
-def extract_timestamps(working_directory, studies, scanning_system):
+def reset_logging(log_file_path):
+    # Get the root logger
+    logger = logging.getLogger()
+
+    # Remove any existing handlers associated with the logger
+    while logger.hasHandlers():
+        logger.handlers[0].close()
+        logger.removeHandler(logger.handlers[0])
+
+    # Set up the new logging configuration (overwrite the old log file)
+    logging.basicConfig(filename=log_file_path,
+                        filemode='w',  # 'w' ensures the log file is overwritten each time
+                        level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+def extract_timestamps(working_directory, studies, scanning_system, saving_dir):
     """
     Extract timestamps, durations, valid scan percentages, and sample counts from the given directory and studies.
 
@@ -72,6 +89,14 @@ def extract_timestamps(working_directory, studies, scanning_system):
     :return: A list of timestamps, durations, a dictionary mapping dates to studies,
              a dictionary of valid scan percentages, and a dictionary of sample counts.
     """
+
+    # Reset logging for each function call
+    log_file_path = os.path.join(saving_dir, 'output.log')
+    reset_logging(log_file_path)
+
+    # Example of how logging would now work after resetting the log file
+    logging.info(f"Starting extraction for scanning system: {scanning_system}")
+
     timestamps = []
     durations = []
     date_to_study = {}
@@ -84,11 +109,14 @@ def extract_timestamps(working_directory, studies, scanning_system):
                    or i.startswith("22-")]
 
     for folder in os.listdir(working_directory):  # ITERATE OVER EVERY FOLDER IN NITROGEN
+        print("")
+        logging.info("")
         if folder in studies:  # IF THE FOLDER IS A STUDY
             study_dir = os.path.join(working_directory, folder)  # SET PATH TO THE STUDY DIRECTORY
             keep_dir = os.path.join(study_dir, ".keep")  # SET PATH TO THE KEEP DIRECTORY
             if os.path.exists(keep_dir):  # IF A KEEP DIRECTORY EXISTS
                 ut.print_c(f"[INFO {folder}] Found .keep folder!")
+                logging.info(f"[INFO {folder}] Found .keep folder!")
 
                 ########################################################################################################
                 # FIND THE SCAN SUMMARY QC FILE ON NITROGEN
@@ -96,8 +124,8 @@ def extract_timestamps(working_directory, studies, scanning_system):
 
                 scan_summary_qc_file = os.path.join(keep_dir, "scan_summary_QC.csv")  # SET PATH TO SCAN SUMMARY QC FILE
                 if os.path.exists(scan_summary_qc_file):  # IF THE SCAN SUMMARY FILE EXISTS
-                    print("")
                     ut.print_c(f"[INFO {folder}] Found QC summary file: {scan_summary_qc_file}!")
+                    logging.info(f"[INFO {folder}] Found QC summary file: {scan_summary_qc_file}!")
                     scan_summary_qc = pd.read_csv(scan_summary_qc_file)  # READ THE SCAN SUMMARY FILE
 
                     ####################################################################################################
@@ -122,23 +150,49 @@ def extract_timestamps(working_directory, studies, scanning_system):
                                 scan_summary_qc_files = [os.path.join(study_dir_u, i) for i in os.listdir(study_dir_u)
                                                          if i.startswith("scan_summary") and i.endswith(".csv")]
                                 if len(scan_summary_qc_files) >= 1:  # IF AT LEAST 1 SCAN SUMMARY QC FILE WAS DETECTED
-                                    ut.print_c(f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary files!")
-                                    scan_summary_qc = merge_csv_files(scan_summary_qc_files)  # MERGE THE SCAN SUMMARY QC FILES
+                                    ut.print_c(
+                                        f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary file(s)!")
+                                    logging.info(
+                                        f"[INFO {folder}] Found {len(scan_summary_qc_files)} QC summary file(s)!")
+                                    scan_summary_qc = merge_csv_files(
+                                        scan_summary_qc_files)  # MERGE THE SCAN SUMMARY QC FILES
                                     scan_summary_qc.to_csv(os.path.join(study_dir_u, "merged_scan_summary.csv"))
 
                                     # FIXME: THIS IS NOT ROBUST
                                     try:
+
+                                        ########################################################################################
+                                        #  GET THE SCANNING SYSTEM
+                                        ########################################################################################
+
+                                        sample_names = scan_summary_qc["sample name"]
+                                        study_scanning_systems = [i.split("_")[-1] for i in sample_names]
+                                        study_scanning_systems_mask = np.array([True if i == scanning_system else False
+                                                                                for i in study_scanning_systems])
+
                                         ########################################################################################
                                         # CALCULATE THE NUMBER & PERCENTAGE OF VALID SCANS
                                         ########################################################################################
 
                                         # FETCH THE "FOR ANALYSIS" COLUMN INFO IN THE SCAN SUMMARY QC FILE
-                                        for_analysis_col = scan_summary_qc["for analysis"]
-                                        all_scans = len(for_analysis_col)  # CALCULATE THE TOTAL NUMBER OF SCANS
-                                        valid_scans = np.sum(for_analysis_col == "x")  # CALCULATE THE NUMBER OF SCANS SELECTED FOR ANALYSIS
-                                        sample_counts[folder] = valid_scans  # SAVE THE NUMBER OF VALID SCANS IN DICT
-                                        percent_valid_scans = (valid_scans / all_scans) * 100  # GET PERCENTAGE VALID SCANS
-                                        valid_scan_percentages[folder] = percent_valid_scans  # SAVE THE PERCENTAGE OF VALID SCANS IN DICT
+                                        for_analysis_col = scan_summary_qc["for analysis"][study_scanning_systems_mask]
+                                        if len(for_analysis_col) > 0:
+                                            all_scans = len(for_analysis_col)  # CALCULATE THE TOTAL NUMBER OF SCANS
+                                            ut.print_c(f"[INFO {folder}] Found {all_scans} scans in total!")
+                                            logging.info(f"[INFO {folder}] Found {all_scans} scans in total!")
+                                            valid_scans = np.sum(
+                                                for_analysis_col == "x")  # CALCULATE THE NUMBER OF SCANS SELECTED FOR ANALYSIS
+                                            ut.print_c(f"[INFO {folder}] Found {valid_scans} valid scans!")
+                                            logging.info(f"[INFO {folder}] Found {valid_scans} valid scans!")
+                                            sample_counts[
+                                                folder] = valid_scans  # SAVE THE NUMBER OF VALID SCANS IN DICT
+                                            percent_valid_scans = (
+                                                                              valid_scans / all_scans) * 100  # GET PERCENTAGE VALID SCANS
+                                            valid_scan_percentages[
+                                                folder] = percent_valid_scans  # SAVE THE PERCENTAGE OF VALID SCANS IN DICT
+                                        else:
+                                            valid_scan_percentages[
+                                                folder] = None  # SAVE THE PERCENTAGE OF VALID SCANS IN DICT
 
                                         ########################################################################################
                                         # GET THE USED CHANNELS & METADATA
@@ -148,103 +202,157 @@ def extract_timestamps(working_directory, studies, scanning_system):
 
                                         for n, sample in scan_summary_qc.iterrows():  # ITERATE OVER EVERY SAMPLE
                                             sample_name = sample["sample name"]
-                                            performance_scores[folder][sample_name] = {}
-                                            n_wavelengths = sample["n_wavelengths"]  # GET THE NUMBER OF WAVELENGTHS USED
-                                            # n_channels = sample["n_channels"]
-                                            excitation_wavelengths = [i for i in sample.keys() if i.startswith("excitation w")]  # FETCH ALL THE EXCITATION WAVELENGTH VALUES
-                                            wavelengths_used = [sample[i] for i in excitation_wavelengths if not np.isnan(sample[i])]  # GET THE USED WAVELENGTHS
-                                            wavelengths_used_mask = [True if not np.isnan(sample[i]) else False for i in excitation_wavelengths]  # GET THE USED WAVELENGTHS
-                                            excitation_wavelengths_used = np.array(excitation_wavelengths)[wavelengths_used_mask]
-                                            n_wavelengths_used = len(wavelengths_used)  # GET THE NUMBER OF USED WAVELENGTHS
-                                            scanning_time = sample["scan time [secs]"]
-                                            total_exposure = 0
-                                            if n_wavelengths == n_wavelengths_used:  # IF THE NUMBER OF USED WAVELENGTHS MATCHED THE METADATA
-                                                for excitation_wavelength in excitation_wavelengths_used:
-                                                    wavelength_value = excitation_wavelength.split(" ")[1]
-                                                    try:
-                                                        used_exposure = sample[f"exposure {wavelength_value} [ms]"]
-                                                    except KeyError:
-                                                        used_exposure = sample[f"exposure [ms]"]
-                                                    total_exposure += used_exposure
-                                                for excitation_wavelength in excitation_wavelengths_used:
-                                                    wavelength_value = excitation_wavelength.split(" ")[1]
-                                                    try:
-                                                        used_exposure = sample[f"exposure {wavelength_value} [ms]"]
-                                                    except KeyError:
-                                                        used_exposure = sample[f"exposure [ms]"]
-                                                    relative_exposure = used_exposure/total_exposure
-                                                    wavelength_used = sample[excitation_wavelength]
-                                                    # target_exposure = optimal_channel_times[str(wavelength_used)]
-                                                    # wavelength_performance_score = used_exposure/target_exposure
-                                                    wavelength_scanning_time = relative_exposure * scanning_time
-                                                    target_scanning_time = optimal_scan_times[str(int(wavelength_used))]*3600
-                                                    wavelength_performance_score = target_scanning_time/wavelength_scanning_time
-                                                    performance_scores[folder][sample_name][str(int(wavelength_used))] = wavelength_performance_score
-                                            else:  # IF THE NUMBER OF USED WAVELENGTHS DOES NOT MATCH THE METADATA
-                                                ut.print_c(f"[WARNING {folder}] Number of wavelengths used does not match metadata!")
+                                            matches = [term for term in available_scanners if term in sample_name]
+                                            if len(matches) == 1:
+                                                sample_scanning_system = matches[0]
+                                            else:
+                                                ut.print_c(f"[WARNING {folder}] Sample: {sample}. "
+                                                           f"No scanning system found: {matches}!")
+                                                logging.info(
+                                                    f"[WARNING {folder}] Sample: {sample}. "
+                                                    f"No scanning system found: {matches}!")
+                                                sample_scanning_system = ""
+                                            if sample_scanning_system == scanning_system:
+                                                performance_scores[folder][sample_name] = {}
+                                                n_wavelengths = sample[
+                                                    "n_wavelengths"]  # GET THE NUMBER OF WAVELENGTHS USED
+                                                # n_channels = sample["n_channels"]
+                                                excitation_wavelengths = [i for i in sample.keys() if i.startswith(
+                                                    "excitation w")]  # FETCH ALL THE EXCITATION WAVELENGTH VALUES
+                                                wavelengths_used = [sample[i] for i in excitation_wavelengths if
+                                                                    not np.isnan(sample[i])]  # GET THE USED WAVELENGTHS
+                                                wavelengths_used_mask = [True if not np.isnan(sample[i]) else False for
+                                                                         i in
+                                                                         excitation_wavelengths]  # GET THE USED WAVELENGTHS
+                                                excitation_wavelengths_used = np.array(excitation_wavelengths)[
+                                                    wavelengths_used_mask]
+                                                n_wavelengths_used = len(
+                                                    wavelengths_used)  # GET THE NUMBER OF USED WAVELENGTHS
+                                                scanning_time = sample["scan time [secs]"]
+                                                total_exposure = 0
+                                                if n_wavelengths == n_wavelengths_used:  # IF THE NUMBER OF USED WAVELENGTHS MATCHED THE METADATA
+                                                    for excitation_wavelength in excitation_wavelengths_used:
+                                                        wavelength_value = excitation_wavelength.split(" ")[1]
+                                                        try:
+                                                            used_exposure = sample[f"exposure {wavelength_value} [ms]"]
+                                                        except KeyError:
+                                                            used_exposure = sample[f"exposure [ms]"]
+                                                        total_exposure += used_exposure
+                                                    for excitation_wavelength in excitation_wavelengths_used:
+                                                        wavelength_value = excitation_wavelength.split(" ")[1]
+                                                        try:
+                                                            used_exposure = sample[f"exposure {wavelength_value} [ms]"]
+                                                        except KeyError:
+                                                            used_exposure = sample[f"exposure [ms]"]
+                                                        relative_exposure = used_exposure / total_exposure
+                                                        wavelength_used = sample[excitation_wavelength]
+                                                        # target_exposure = optimal_channel_times[str(wavelength_used)]
+                                                        # wavelength_performance_score = used_exposure/target_exposure
+                                                        wavelength_scanning_time = relative_exposure * scanning_time
+                                                        target_scanning_time = optimal_scan_times[
+                                                                                   str(int(wavelength_used))] * 3600
+                                                        wavelength_performance_score = target_scanning_time / wavelength_scanning_time
+                                                        performance_scores[folder][sample_name][
+                                                            str(int(wavelength_used))] = wavelength_performance_score
+                                                else:  # IF THE NUMBER OF USED WAVELENGTHS DOES NOT MATCH THE METADATA
+                                                    ut.print_c(
+                                                        f"[WARNING {folder}] Number of wavelengths used does not match metadata!")
+                                                    logging.info(
+                                                        f"[WARNING {folder}] Number of wavelengths used does not match metadata!")
+                                            else:
+                                                ut.print_c(
+                                                    f"[WARNING {folder}] {sample_name} was not scanned with"
+                                                    f" {scanning_system} but {sample_scanning_system}!")
+                                                logging.info(
+                                                    f"[WARNING {folder}] {sample_name} was not scanned with"
+                                                    f" {scanning_system} but {sample_scanning_system}!")
                                     except:
-                                        ut.print_c("[WARNING {folder}] INVALID SCAN SUMMARY FILE")
+                                        ut.print_c(f"[WARNING {folder}] INVALID SCAN SUMMARY FILE")
+                                        logging.info(
+                                            f"[WARNING {folder}] INVALID SCAN SUMMARY FILE")
                                 else:  # IF NO SCAN SUMMARY QC FILE WERE DETECTED
                                     valid_scan_percentages[folder] = None  # SET VALID SCAN PERCENTAGE TO NONE
                                     sample_counts[folder] = None  # SET SAMPLE COUNTS TO NONE
-                            else:   # IF THE STUDY FOLDER DOES NOT EXIST ON U DRIVE
+                            else:  # IF THE STUDY FOLDER DOES NOT EXIST ON U DRIVE
                                 valid_scan_percentages[folder] = None  # SET VALID SCAN PERCENTAGE TO NONE
                                 sample_counts[folder] = None  # SET SAMPLE COUNTS TO NONE
                     else:  # IF THE YEAR FOLDER DOES NOT EXIST
                         ut.CmliteError(f"[ERROR {folder}] Year folder {year} does not exist on U drive!")
+                        logging.info(
+                            f"[ERROR {folder}] Year folder {year} does not exist on U drive!")
 
                     if os.path.isdir(study_dir):
                         raw_dir = os.path.join(study_dir, ".raw")
                         if os.path.exists(raw_dir):
                             for n, sample in enumerate(os.listdir(raw_dir)):
-                                if not np.sum(scan_summary_qc["sample name"] == sample) == 0:
-                                    scan_times = scan_summary_qc["scan time [secs]"][
-                                        scan_summary_qc["sample name"] == sample]
-                                    if len(scan_times) > 1:
+                                if sample not in [".Data-sync-controlled.txt"]:
+                                    sample_mask = np.array(scan_summary_qc["sample name"] == sample)
+                                    if not np.sum(sample_mask) == 0:
+                                        try:  # Fixme: CONSISTENCY!!
+                                            scan_times = scan_summary_qc["scan time [secs]"][sample_mask]
+                                        except KeyError:
+                                            scan_times = scan_summary_qc["scan time [s]"][sample_mask]
+                                        if len(scan_times) > 1:
+                                            ut.print_c(
+                                                f"[CRITICAL {folder}] Multiple scans detected under the same name: {len(scan_times)}!")
+                                            logging.info(
+                                                f"[CRITICAL {folder}] Multiple scans detected under the same name: {len(scan_times)}!")
+                                            scan_time = float(max(scan_times))
+                                        else:
+                                            scan_time = float(scan_times.iloc[0])
+                                        durations.append(scan_time)
+                                        sample_dir = os.path.join(raw_dir, sample)
+                                        ss = [term for term in available_scanners if term in sample]
+                                        if len(ss) == 1:
+                                            ss = ss[0]
+                                        else:
+                                            ut.print_c(f"[CRITICAL {folder}] Multiple scanning systems were detected!")
+                                            logging.info(
+                                                f"[CRITICAL {folder}] Multiple scanning systems were detected!")
+                                        if ss == scanning_system:
+                                            if os.path.isdir(sample_dir):
+                                                resolution_directory = [os.path.join(sample_dir, i) for i in
+                                                                        os.listdir(sample_dir)
+                                                                        if i.startswith("x")]
+                                                if len(resolution_directory) == 1:
+                                                    resolution_directory = resolution_directory[0]
+                                                    config_task = [os.path.join(resolution_directory, i) for i in
+                                                                   os.listdir(resolution_directory)
+                                                                   if
+                                                                   i.startswith("config") and not i.endswith(
+                                                                       "merge.json")]
+                                                    if len(config_task) >= 1:
+                                                        if n == 0:
+                                                            ut.print_c(f"[INFO {folder}] Loading study data")
+                                                            logging.info(
+                                                                f"[INFO {folder}] Loading study data")
+                                                        config_task = config_task[0]
+                                                        config_task_data = ut.load_json_file(config_task)
+                                                        task_tiles = config_task_data["input"]["image_file_paths"][
+                                                            "val"]
+                                                        task_tile = task_tiles[0]
+                                                        timestamp = task_tile.split("/")[7]
+                                                        timestamps.append(timestamp)
+                                                        date = datetime.strptime(timestamp, '%Y-%m-%d_%H%M%S').date()
+                                                        if date not in date_to_study:
+                                                            date_to_study[date] = {}
+                                                        if folder not in date_to_study[date]:
+                                                            date_to_study[date][folder] = 0
+                                                        date_to_study[date][folder] += scan_time
+                                        else:
+                                            ut.print_c(
+                                                f"[WARNING {folder}] Sample: {sample}. Scanning system is: {ss}!")
+                                            logging.info(
+                                                f"[WARNING {folder}] Sample: {sample}. Scanning system is: {ss}!")
+                                    else:
                                         ut.print_c(
-                                            f"[CRITICAL {folder}] Multiple scans detected under the same name: {len(scan_times)}!")
-                                        scan_time = float(max(scan_times))
-                                    else:
-                                        scan_time = float(scan_times.iloc[0])
-                                    durations.append(scan_time)
-                                    sample_dir = os.path.join(raw_dir, sample)
-                                    split_sample_name = sample.split("_")
-                                    ss = [i for i in split_sample_name if i in ["M1", "M2", "M3", "M4"]]
-                                    if len(ss) == 1:
-                                        ss = ss[0]
-                                    else:
-                                        ut.print_c(f"[CRITICAL {folder}] Multiple scanning systems were detected!")
-                                    if ss == scanning_system:
-                                        if os.path.isdir(sample_dir):
-                                            resolution_directory = [os.path.join(sample_dir, i) for i in
-                                                                    os.listdir(sample_dir)
-                                                                    if i.startswith("x")]
-                                            if len(resolution_directory) == 1:
-                                                resolution_directory = resolution_directory[0]
-                                                config_task = [os.path.join(resolution_directory, i) for i in
-                                                               os.listdir(resolution_directory)
-                                                               if
-                                                               i.startswith("config") and not i.endswith("merge.json")]
-                                                if len(config_task) >= 1:
-                                                    if n == 0:
-                                                        ut.print_c(f"[INFO {folder}] Loading study data")
-                                                    config_task = config_task[0]
-                                                    config_task_data = ut.load_json_file(config_task)
-                                                    task_tiles = config_task_data["input"]["image_file_paths"]["val"]
-                                                    task_tile = task_tiles[0]
-                                                    timestamp = task_tile.split("/")[7]
-                                                    timestamps.append(timestamp)
-                                                    date = datetime.strptime(timestamp, '%Y-%m-%d_%H%M%S').date()
-                                                    if date not in date_to_study:
-                                                        date_to_study[date] = {}
-                                                    if folder not in date_to_study[date]:
-                                                        date_to_study[date][folder] = 0
-                                                    date_to_study[date][folder] += scan_time
-                                    else:
-                                        ut.print_c(f"[WARNING {folder}] Sample: {sample}. Scanning system is: {ss}!")
+                                            f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")
+                                        logging.info(
+                                            f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")
                                 else:
-                                    ut.print_c(
-                                        f"[WARNING {folder}] Sample: {sample} could not be located in the summary QC file!")
+                                    ut.print_c(f"[WARNING {folder}] Skipping file: {sample}!")
+                                    logging.info(
+                                        f"[WARNING {folder}] Skipping file: {sample}!")
 
     return timestamps, durations, date_to_study, valid_scan_percentages, sample_counts, performance_scores
 
@@ -465,7 +573,7 @@ def plot_monthly_average_uptime(monthly_avg_uptime, scanning_system, year, savin
     plt.show()
 
 
-def plot_valid_scan_percentages(valid_scan_percentages, sample_counts, saving_dir):
+def plot_quality_per_study(valid_scan_percentages, sample_counts, saving_dir):
     """
     Plot the percentage of valid scans for each study, with bars colored by the number of samples.
     Additionally, plot a horizontal line representing the average valid scan percentage.
@@ -559,7 +667,6 @@ def plot_performance_per_study(performance_scores, scanning_system, saving_dir):
     # Create the plot
     plt.figure(figsize=(14, 8))
 
-
     # Plot bars for each channel within each study group
     for i, (study, avg_performance) in enumerate(study_channel_performance.items()):
         for j, channel in enumerate(all_channels):
@@ -590,19 +697,14 @@ def plot_performance_per_study(performance_scores, scanning_system, saving_dir):
     plt.close()
 
 
-def merge_csv_files(file_paths):
-    """
-    Merge multiple CSV files so that if a scan is labeled in the "for analysis" column with an "x",
-    it keeps the "x" in the merged result, while ensuring only unique sample names are retained.
-
-    :param file_paths: List of file paths to CSV files.
-    :return: A merged DataFrame with unique sample names.
-    """
-    merged_df = pd.DataFrame()
-
-    for file in file_paths:
-        # Read the CSV file
+def load_qc_files(file):
+    try:
+        # Attempt to read with default delimiter (comma)
         df = pd.read_csv(file)
+
+        # If the column count is still 1, try using semicolon as delimiter
+        if len(df.columns) == 1:
+            df = pd.read_csv(file, delimiter=';')
 
         # Standardize column names: remove leading/trailing spaces and lowercase all column names
         df.columns = df.columns.str.strip().str.lower()
@@ -615,11 +717,35 @@ def merge_csv_files(file_paths):
         if 'sample name' not in df.columns:
             raise KeyError(f"'sample name' column not found in {file}")
 
+        return df
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to load {file}: {e}")
+
+
+def merge_csv_files(file_paths):
+    """
+    Merge multiple CSV files so that if a scan is labeled in the "for analysis" column with an "x",
+    it keeps the "x" in the merged result, while ensuring only unique sample names are retained.
+
+    :param file_paths: List of file paths to CSV files.
+    :return: A merged DataFrame with unique sample names.
+    """
+    merged_df = pd.DataFrame()
+
+    for file in file_paths:
+        # Read the CSV file
+        df = load_qc_files(file)
+
         # Ensure all necessary columns are present (excluding 'comments' to avoid type issues)
         required_columns = ['sample name', 'for analysis', 'scan time [secs]']
         for col in required_columns:
             if col not in df.columns:
-                df[col] = ''  # Add the missing column with empty values
+                if col == 'scan time [secs]':
+                    if 'scan time [s]' not in df.columns:
+                        df[col] = ''
+                else:
+                    df[col] = ''  # Add the missing column with empty values
 
         # Merge dataframes on 'sample name' and retain all columns
         if merged_df.empty:

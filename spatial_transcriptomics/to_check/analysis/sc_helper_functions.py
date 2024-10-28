@@ -50,7 +50,7 @@ def process_gene(gene_name, datasets_paths, exp, saving_folder, cluster_name, ca
 
 
 def plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp, saving_folder, saving_name="", mask_name="",
-                                     cluster_name=""):
+                                     cluster_name="", no_bg=False, vmax=None):
     # Create the directory for saving the output
     saving_directory = ut.create_dir(os.path.join(saving_folder, gene_name))
 
@@ -65,14 +65,17 @@ def plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp, saving_fold
     combined_exp_cluster = anndata.concat(exp_cluster, axis=0)
     exp_values = combined_exp_cluster.to_df().values.flatten()
     exp_values = [2**i for i in exp_values]
+    exp_values = np.array(exp_values)
     np.save(os.path.join(saving_directory, f"min_max_{gene_name}.npy"), np.array([np.min(exp_values), np.max(exp_values)]))
 
     # NORMALIZE
     ut.print_c(f"[INFO] Min/Max expression: {np.min(exp_values)}/{np.max(exp_values)}")
-    exp_values_norm = (exp_values - np.min(exp_values)) / (np.max(exp_values) - np.min(exp_values))
+    if vmax is None:
+        exp_values_norm = (exp_values - np.min(exp_values)) / (np.max(exp_values) - np.min(exp_values))
+    else:
+        exp_values[exp_values >= vmax] = vmax
+        exp_values_norm = (exp_values - 0) / (vmax - 0)
     exp_values_norm = np.array(exp_values_norm)
-    # exp_values[exp_values >= 1500] = 1500
-    # exp_values = (exp_values - 0) / (1500 - 0)
 
     # Prepare the dataframe containing cell coordinates
     exp_df = exp[['x', 'y', 'class', 'cluster']]
@@ -118,12 +121,13 @@ def plot_gene_expression_in_10X_data(gene_name, datasets_paths, exp, saving_fold
     fig.set_size_inches(8, 8)
 
     if mask_name or cluster_name:
-        # Plot masked cells in gray
-        ax.scatter(masked_cells_x, masked_cells_y, s=0.05, c='#efefef', marker='.')
+        if not no_bg:
+            # Plot masked cells in gray
+            ax.scatter(masked_cells_x, masked_cells_y, s=0.1, c='#efefef', edgecolors="none")
 
     # Plot non-masked cells with the expression colormap
-    scatter = ax.scatter(sorted_x_non_masked, sorted_y_non_masked, s=0.05,
-                         c=sorted_exp_values_non_masked, marker='.', cmap=plt.cm.gist_heat_r, vmin=0, vmax=1)  #YlOrRd
+    scatter = ax.scatter(sorted_x_non_masked, sorted_y_non_masked, s=0.1,
+                         c=sorted_exp_values_non_masked, cmap=plt.cm.gist_heat_r, vmin=0, vmax=1, edgecolors="none")  #YlOrRd
 
     ax.axis('equal')
     ax.set_xlim(-18, 27)

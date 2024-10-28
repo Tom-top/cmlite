@@ -20,62 +20,21 @@ matplotlib.use("Agg")
 # Selected cluster and category to analyze
 ########################################################################################################################
 
-genes_to_plot = "Gipr"
+genes_to_plot = "Drd1"
 saving_dir = fr"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\10X_mapped_gene_expression\{genes_to_plot}"  # Saving directory
 
 # Name of the cluster and category: class/subclass/supertype/cluster
 cluster_names = [
-                 "3864 SNc-VTA-RAmb Foxa1 Dopa_4",
-                 # "2286 DMH-LHA Vgll2 Glut_2",
-                 # "2620 PVT-PT Ntrk1 Glut_2",
-                 # "1334 CEA-BST Six3 Cyp26b1 Gaba_2",
-                 # "1341 CEA-BST Six3 Cyp26b1 Gaba_4",
-                 # "1394 CEA-BST Ebf1 Pdyn Gaba_3",
-                 # "3936 PB Lmx1a Glut_4",
-                 # "4055 PB Evx4 Glut_5",
-                 # "4065 PB Evx4 Glut_6",
-                 # "23 P Glut",
-                 # "217 PB Lmx1a Glut",
-                 # "0898 PB Lmx1a Glut_4",
-                 # "0899 PB Lmx1a Glut_5",
-                 # "4198 PG-TRN-LRN Fat2 Glut_1",
-                 # "4199 PG-TRN-LRN Fat2 Glut_1",
-                 # "079 CEA-BST Six3 Cyp26b1 Gaba",
-                 # "082 CEA-BST Ebf1 Pdyn Gaba",
-                 # "135 STN-PSTN Pitx2 Glut",
-                 # "064 STR-PAL Chst9 Gaba",
-                 # "014 LA-BLA-BMA-PA Glut",
-                 # "238 NTS Phox2b Glut",
-                 # "252 DMX VII Tbx20 Chol",
-                 # "300 PARN-MDRNd-NTS Gbx2 Gly-Gaba",
-                 # "304 NTS-PARN Neurod2 Gly-Gaba",
+                 # "0951 STR D1 Gaba_3",
+                 # "0962 STR D1 Gaba_8",
+                 # "0961 STR D1 Gaba_8",
+                 "0960 STR D1 Gaba_7",
                  ]
 
 categories = [
+              # "cluster",
+              # "cluster",
               "cluster",
-              # "supertype",
-              # "cluster",
-              # "cluster",
-              # "cluster",
-              # "cluster",
-              # "cluster",
-              # "cluster",
-              # "cluster",
-              # "class",
-              # "subclass",
-              # "supertype",
-              # "supertype",
-              # "cluster",
-              # "cluster",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
-              # "subclass",
               ]
 
 for cluster_name, category in zip(cluster_names, categories):
@@ -114,13 +73,17 @@ for cluster_name, category in zip(cluster_names, categories):
     fig, ax = plt.subplots()  # Create figure
     fig.set_size_inches(8, 8)  # Set figure size (inches)
 
-    plt.scatter(exp['x'][not_cluster_and_library_mask],
-                exp['y'][not_cluster_and_library_mask],
-                s=0.1, c="#E7E7E7", alpha=1, marker=".")  # Plot the cells out of the cluster
+    # plt.scatter(exp['x'][not_cluster_and_library_mask][::10],
+    #             exp['y'][not_cluster_and_library_mask][::10],
+    #             s=0.1, c="#E7E7E7", alpha=1, marker=".")  # Plot the cells out of the cluster
+
+    # plt.scatter(exp['x'],
+    #             exp['y'],
+    #             s=0.1, c="#E7E7E7", alpha=1, edgecolors="none")  # Plot the cells out of the cluster
 
     plt.scatter(exp['x'][cluster_and_library_mask],
                 exp['y'][cluster_and_library_mask],
-                s=0.1, c=color, marker=".")  # Plot the cells in the cluster
+                s=0.1, c=color, edgecolors="none")  # Plot the cells in the cluster
 
     ax.axis('equal')  # Set aspect ratio
     ax.set_xlim(-18, 27)  # Set x axis limits
@@ -178,6 +141,11 @@ for cluster_name, category in zip(cluster_names, categories):
     # sc.pp.highly_variable_genes(combined_data, min_mean=0.0125, max_mean=3, min_disp=0.5)
     sc.tl.rank_genes_groups(combined_data, groupby='dataset', groups=['in'],
                             reference='out')  # Rank genes by enrichment
+
+
+
+
+
 
     # Filter for genes enriched in 'in' group
     log_fold_changes = pd.DataFrame(combined_data.uns['rank_genes_groups']['logfoldchanges'])['in']
@@ -242,49 +210,6 @@ for cluster_name, category in zip(cluster_names, categories):
     plt.savefig(os.path.join(saving_folder,
                              f"10x_top_{number_of_enriched_genes}_enriched_genes_{cluster_name}_{category}.svg"),
                 dpi=300)  # Save result
-    # plt.show()
-
-    # # Volcano plot
-    # log_fold_changes = pd.DataFrame(combined_data.uns['rank_genes_groups']['logfoldchanges'])['in']
-    # pvals_adj = pd.DataFrame(combined_data.uns['rank_genes_groups']['pvals_adj'])['in']
-    #
-    # # Replace zeros in adjusted p-values with a small non-zero number
-    # small_nonzero_value = np.finfo(np.float64).tiny
-    # small_nonzero_value = 0
-    # pvals_adj_nonzero = np.where(pvals_adj == 0, small_nonzero_value, pvals_adj)
-    # neg_log10_p_values = -np.log10(pvals_adj_nonzero)
-    #
-    # # Creating the volcano plot
-    # plt.figure(figsize=(10, 6))
-    # plt.scatter(log_fold_changes, neg_log10_p_values, alpha=0.5, s=1)
-    #
-    # # Label thes axes
-    # plt.xlabel('Log Fold Change')
-    # plt.ylabel('-Log10 Adjusted P-Value')
-    #
-    # # Set reasonable limits for visibility if needed
-    # # plt.xlim(left=np.percentile(log_fold_changes, 1), right=np.percentile(log_fold_changes, 99))
-    # # plt.ylim(bottom=0, top=np.percentile(neg_log10_p_values, 99))
-    #
-    # plt.show()
-    #
-    # # Highlighting significantly differentially expressed genes
-    # # You can adjust the thresholds as per your requirement
-    # threshold_pval = 0.05
-    # threshold_logfc = 1
-    # significant = (np.array(pvals_adj) < threshold_pval) & (np.array(np.abs(log_fold_changes)) > threshold_logfc)
-    # plt.scatter(np.array(log_fold_changes)[significant],
-    #             neg_log10_p_values[significant], color='red', alpha=0.5)
-    #
-    # plt.xlabel('Log Fold Change')
-    # plt.ylabel('-Log10(p-value)')
-    # plt.title('Volcano plot of differential expression')
-    #
-    # plt.axhline(-np.log10(threshold_pval), color='grey', lw=1, linestyle='--')
-    # plt.axvline(threshold_logfc, color='grey', lw=1, linestyle='--')
-    # plt.axvline(-threshold_logfc, color='grey', lw=1, linestyle='--')
-    #
-    # plt.show()
 
     ########################################################################################################################
     # Highlight gene expression levels in the 10x dataset
