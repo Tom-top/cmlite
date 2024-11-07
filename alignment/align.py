@@ -345,7 +345,8 @@ def transform_images(source, sink=[], transform_parameter_file=None, transform_d
         os.remove(delete_image)
 
     if sink == []:
-        return result_data_file(resultdirname)
+        pass
+        # return result_data_file(resultdirname)
     elif sink is None:
         resultfile = result_data_file(resultdirname)
         result = io.read(resultfile)
@@ -358,7 +359,7 @@ def transform_images(source, sink=[], transform_parameter_file=None, transform_d
     if delete_result_directory is not None:
         shutil.rmtree(delete_result_directory)
 
-    return result
+    # return result
 
 
 def write_points(filename, points, indices=False, binary=True):

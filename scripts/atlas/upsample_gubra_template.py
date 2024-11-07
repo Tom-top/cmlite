@@ -36,8 +36,8 @@ res.resample(reference_path, sink=reference_10um_path, **resample_10um_parameter
 
 # ATLAS
 
-atlas_path = os.path.join(working_directory, "gubra_annotation_mouse.tif")
-atlas_10um_path = os.path.join(working_directory, "gubra_annotation_mouse_10um.tif")
+atlas_path = os.path.join(working_directory, "aba_annotation_mouse.tif")
+atlas_10um_path = os.path.join(working_directory, "aba_annotation_mouse_10um.tif")
 
 resample_10um_parameter = {
     "source_resolution": (25, 25, 25),

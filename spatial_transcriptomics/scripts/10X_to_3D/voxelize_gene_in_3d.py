@@ -12,6 +12,7 @@ import anndata
 from scipy.ndimage import gaussian_filter
 import tifffile
 import matplotlib
+
 matplotlib.use("Agg")  # Headless mode (no pop-up plots)
 
 import utils.utils as ut
@@ -25,18 +26,25 @@ DATASETS = np.arange(1, 6, 1)  # Selected datasets to fetch from
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["cluster"]
 NON_NEURONAL_CELL_TYPES = [["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]]
+NON_NEURONAL_CELL_TYPES = [[]]
 # NON_NEURONAL_CELL_TYPES = [["Oligo"], ["Astro"], ["Vascular"], ["Immune"], ["Epen"], ["OEC"]]
 # NON_NEURONAL_CELL_TYPES = [["Vascular"]]
 SHOW_GLIA = False
-# target_genes = ["Mc4r", "Pomc",
-#                 "Mchr1",
-#                 "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
-#                 "Trem2", "Glp1r",
-#                 "Bdnf", ["Bdnf", "Glp1r"],
-#                 "Ntrk2", ["Ntrk2", "Glp1r"]]
-target_genes = ["Drd1", "Drd2", "Drd3", "Drd4", "Drd5"]
+target_genes = [
+    # "Mc4r", "Pomc",
+    # "Mchr1",
+    # "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
+    # "Trem2", "Glp1r",
+    # "Bdnf", ["Bdnf", "Glp1r"],
+    # "Ntrk2", ["Ntrk2", "Glp1r"],
+]
+# target_genes = [["Ntrk2", "Glp1r"]]
+target_genes = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
+                "Pianp", "Serpinb2", "Ostn"]
+# target_genes = ["Dlk1"]
 
 data_scaling = ["linear", "log2"]
+data_scaling = ["linear"]
 
 DOWNLOAD_BASE = r"/default/path"  # PERSONAL
 MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
@@ -114,7 +122,6 @@ for i, dataset_n in enumerate(DATASETS):
     cell_metadata_views.set_index('cell_label', inplace=True)
     metadata_views.append(cell_metadata_views)
 
-
 print("")
 for dsn in metadata_exp:
     ut.print_c(f"[INFO] Loading 10x data for: {dsn}")
@@ -191,9 +198,10 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
         mean_expression_data = {}
 
         if isinstance(gene_name, list):
+            data_scaling_updated = ["linear"]
             saving_name = "_".join(gene_name)
             SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
-            mean_co_expressions = []
+            mean_expression_clusters = {}
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
                 cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
                 mean_expressions = []
@@ -210,7 +218,47 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                         mean_expression = 0
                     mean_expressions.append(mean_expression)
                     mean_expression_data.setdefault(cluster_name, {})[tg] = mean_expression
-                mean_co_expression = np.prod(mean_expressions)
+                    try:
+                        mean_expression_clusters[cluster_name].append(mean_expression)
+                    except KeyError:
+                        mean_expression_clusters[cluster_name] = [mean_expression]
+
+            ############################################################################################################
+            # NORMALIZE THE GENE EXPRESSION ACROSS CLUSTERS
+            ############################################################################################################
+
+            norm_expression_clusters = {}
+
+            for n, tg in enumerate(gene_name):
+
+                # Fetch all the gene expression values across clusters
+                gene_expression_across_clusters = []
+                for cluster_name in unique_cell_clusters[0]:
+                    gene_expression_across_clusters.append(mean_expression_clusters[cluster_name][n])
+                # LINEAR ONLY
+                gene_expression_across_clusters = np.array([2 ** (x) for x in gene_expression_across_clusters])
+
+                # Calculate the min/max of the gene expression data
+                dmin, dmax = np.min(gene_expression_across_clusters), np.max(gene_expression_across_clusters)
+
+                # Populate the nex dict with normalized values
+                for m, cluster_name in enumerate(unique_cell_clusters[0]):
+                    try:
+                        norm_expression_clusters[cluster_name].append(((gene_expression_across_clusters[m]
+                                                                        - dmin) / (dmax - dmin)))
+                    except:
+                        norm_expression_clusters[cluster_name] = [((gene_expression_across_clusters[m]
+                                                                    - dmin) / (dmax - dmin))]
+
+            ############################################################################################################
+            # COMPUTE CO-EXPRESSION PRODUCT
+            ############################################################################################################
+
+            mean_co_expressions = []
+
+            for n, cluster_name in enumerate(unique_cell_clusters[0]):
+                print(f"Computing co-expression for cluster: {cluster_name}")
+                mean_co_expression = np.prod(norm_expression_clusters[cluster_name])
                 mean_co_expressions.append(mean_co_expression)
                 unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_co_expression
                 # Store mean expression in dictionary
@@ -219,7 +267,9 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 color_idx = np.where(cells_cluster_dataset == cluster_name)[0][0]
                 mean_expression_data[cluster_name]["cluster_color"] = cells_cluster_color_dataset[color_idx]
 
+
         else:
+            data_scaling_updated = data_scaling
             saving_name = gene_name
             SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
@@ -248,19 +298,22 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
         # Save to Excel
         mean_expression_df.to_excel(os.path.join(SAVING_DIRECTORY, "mean_expression_data.xlsx"))
 
-        for scale in data_scaling:
+        for scale in data_scaling_updated:
             SCALE_DIRECTORY = ut.create_dir(os.path.join(SAVING_DIRECTORY, scale))
             # REVERT TO LINEAR SCALE
             if scale == "linear":
                 ut.print_c("[WARNING] LINEAR SCALE SELECTED!")
-                scaled_unique_cells_cluster_colors = np.array([2 ** (x) for x in unique_cells_cluster_colors])
+                if isinstance(gene_name, list):
+                    scaled_unique_cells_cluster_colors = unique_cells_cluster_colors
+                else:
+                    scaled_unique_cells_cluster_colors = np.array([2 ** (x) for x in unique_cells_cluster_colors])
             else:
                 ut.print_c("[WARNING] LOG2 SCALE SELECTED!")
                 scaled_unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
 
             fixed_min_max = [0, 2000]
             dynamic_min_max = [min(scaled_unique_cells_cluster_colors), max(scaled_unique_cells_cluster_colors)]
-            ratio = fixed_min_max[1]/dynamic_min_max[1]
+            ratio = fixed_min_max[1] / dynamic_min_max[1]
 
             for m, min_max in enumerate([fixed_min_max, dynamic_min_max]):
 
@@ -370,7 +423,6 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 hm = vox.voxelize(filtered_points_dataset,
                                   **voxelization_parameter)
 
-
                 ########################################################################################################
                 # SAVE THE RAW VOXELIZED RESULT
                 ########################################################################################################
@@ -410,7 +462,7 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 hm_min = hm_blurred.min()
                 hm_max = hm_blurred.max()
                 if m == 0:
-                    hm_max = hm_max*ratio
+                    hm_max = hm_max * ratio
 
                 print(f"MIN: {hm_min}; MAX:{hm_max}")
 
@@ -433,11 +485,12 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 # rgba_ref = np.zeros((512, 268, 369, 4), dtype=float)
                 # Fill the first three channels with the original data and add an alpha channel
                 # for i in range(normalized_ref.shape[-1]):
-                    # Assume data[:, :, i] is grayscale or single-channel image data
-                    # rgba_ref[:, :, i, :3] = np.stack([normalized_ref[:, :, i]] * 3, axis=-1)  # Copy grayscale to RGB
-                    # rgba_ref[:, :, i, 3] = 1  # Set the alpha channel to 255 (fully opaque)
+                # Assume data[:, :, i] is grayscale or single-channel image data
+                # rgba_ref[:, :, i, :3] = np.stack([normalized_ref[:, :, i]] * 3, axis=-1)  # Copy grayscale to RGB
+                # rgba_ref[:, :, i, 3] = 1  # Set the alpha channel to 255 (fully opaque)
                 colored_hm = new_cmap(normalized_hm)
                 # colored_hm[:, :, int(colored_hm.shape[2]/2):] = rgba_ref[:, :, int(rgba_ref.shape[2]/2):]
-                colored_hm[:, :, int(colored_hm.shape[2]/2):] = np.flip(colored_hm[:, :, :int(colored_hm.shape[2]/2)+1], 2)
+                colored_hm[:, :, int(colored_hm.shape[2] / 2):] = np.flip(
+                    colored_hm[:, :, :int(colored_hm.shape[2] / 2) + 1], 2)
                 # colored_hm[:, :, int(colored_hm.shape[2]/2):] = 0
                 tifffile.imwrite(hm_path_all, colored_hm)

@@ -32,16 +32,20 @@ atlas_path = r"resources\atlas"
 with open(os.path.join(atlas_path, "gubra_annotation_mouse.json"), "r") as f:
     metadata = json.load(f)
     metadata = metadata["msg"][0]
-
-# target_genes = ["Mc4r", "Pomc",
-#                 "Mchr1",
-#                 "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
+#
+# target_genes = [
+#                 # "Mc4r", "Pomc",
+#                 # "Mchr1",
+#                 # "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
 #                 "Trem2", "Glp1r",
-#                 "Bdnf", ["Bdnf", "Glp1r"],
-#                 "Ntrk2", ["Ntrk2", "Glp1r"]]
-target_genes = ["Drd1"]
+#                 "Bdnf", "Bdnf_Glp1r",
+#                 "Ntrk2", "Ntrk2_Glp1r",
+# ]
+target_genes = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
+                "Pianp", "Serpinb2", "Ostn"]
 
 data_scaling = ["linear", "log2"]
+data_scaling = ["linear"]
 sort = False
 
 for map_name in target_genes:
@@ -51,13 +55,13 @@ for map_name in target_genes:
 
     df = pd.read_csv(os.path.join(working_directory, "mean_expression_data.csv"))
 
+    first_column = df.columns[1]  # Get the first column name after 'cluster'
     # Check if a "co-expression" column exists
     if 'co-expression' in df.columns:
         # Sort by the "co-expression" column if it exists
         df_sorted = df.sort_values(by="co-expression", ascending=False)
     else:
         # Otherwise, sort by the first column (assumed to be "Glp1r" here)
-        first_column = df.columns[1]  # Get the first column name after 'cluster'
         df_sorted = df.sort_values(by=first_column, ascending=False)
 
     # Limit to top 50 rows after sorting
@@ -195,7 +199,7 @@ for map_name in target_genes:
                 color = bar_colors[::-1]
 
             # Find the indices of the top 20 values
-            sorted_indices = np.argsort(count_values)[::-1][:20]
+            sorted_indices = np.argsort(count_values)[::-1][:50]
 
             # Plot the data
             fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(25, 5))
@@ -211,6 +215,7 @@ for map_name in target_genes:
 
             # Set labels and layout
             ax.set_xlabel('Brain regions')
+            ax.set_xticks([])
             # ax.set_ylabel('Mean Voxel Intensity')
             ax.set_ylabel('CPM per region')
 
@@ -219,6 +224,7 @@ for map_name in target_genes:
                 bar = bars[::-1][idx]  # Reverse the order to match the plot
                 ax.text(bar.get_x() + bar.get_width(), bar.get_height(), f'{regions[idx]}',
                         ha='left', va='center', fontsize=10)
+
 
             # Adjust the layout
             fig.tight_layout()

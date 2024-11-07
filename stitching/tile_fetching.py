@@ -260,9 +260,9 @@ def prepare_sample(raw_directory, sample_name, **kwargs):
                 "tile_x": data_shape[0],
                 "tile_y": data_shape[1],
                 "tile_z": data_shape[2],
-                "x_res": xy_res,
+                "x_res": z_res,
                 "y_res": xy_res,
-                "z_res": z_res,
+                "z_res": xy_res,
             }
             with open(os.path.join(merged_directory, "scan_metadata.json"), 'w') as json_file:
                 json.dump(scan_metadata, json_file, indent=4)

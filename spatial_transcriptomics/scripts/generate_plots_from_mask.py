@@ -40,8 +40,8 @@ BILATERAL = True  # If True: generate bilateral cell distribution in the 3D repr
 ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
 PERCENTAGE_THRESHOLD = 15
-# categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
-categories = ["cluster"]
+categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
+# categories = ["cluster"]
 
 ANO_DIRECTORY = r"resources\atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")

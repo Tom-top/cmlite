@@ -9,8 +9,8 @@ ref_directory = r"resources\atlas"
 # ref_directory = r"E:\tto\test"
 ref_path = os.path.join(ref_directory, "gubra_annotation_mouse.tif")
 # ref_path = os.path.join(ref_directory, "ano.tif")
-regions_to_bin = [5825, 5824, 5868]  # List of region ids to include in the binary mask
-brain_area_name = "VTA"
+regions_to_bin = [5939, 5755, 5747, 5807]  # List of region ids to include in the binary mask
+brain_area_name = "CVOs"
 analysis_directory = ut.create_dir(fr"/default/path")  # PERSONAL
 
 # Load and transpose the image

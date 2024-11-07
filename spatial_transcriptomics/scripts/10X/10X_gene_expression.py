@@ -12,11 +12,8 @@ from concurrent.futures import ProcessPoolExecutor
 
 from spatial_transcriptomics.to_check.analysis import sc_helper_functions as sc_utils
 
-# genes_to_plot = ["Glp1r", "Gipr", "Ramp1", "Ramp2", "Ramp3"]
-# genes_to_plot = ["Slc17a6", "Klb", "Lepr", "Calcr"]
-# genes_to_plot = ["Gipr", "Lepr"]
-genes_to_plot = ["Pde1a"]
-# genes_to_plot = ["Hcrt", "Hcrtr1", "Hcrtr2", "Hcrtr3"]
+genes_to_plot = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
+                "Pianp", "Serpinb2", "Ostn"]
 saving_directory = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results" \
                    r"\10X_mapped_gene_expression"
 
@@ -42,7 +39,7 @@ datasets_paths = {dsn: os.path.join(download_base, metadata_exp[dsn]["log2"]["fi
 with ProcessPoolExecutor(max_workers=None) as executor:
     for n, gene_name in enumerate(genes_to_plot):
         executor.submit(sc_utils.plot_gene_expression_in_10X_data, gene_name, datasets_paths, exp,
-                        saving_directory, saving_name="_all", mask_name="", cluster_name="")
+                        saving_directory, saving_name="_all", mask_name="", cluster_name="", vmax=2000)
 
 # Plot Glia
 with ProcessPoolExecutor(max_workers=None) as executor:

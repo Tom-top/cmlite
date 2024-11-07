@@ -13,46 +13,15 @@ import matplotlib
 
 matplotlib.use("Agg")  # Ensure backend is non-interactive for speed
 
+clusters = pd.read_excel(r"E:\tto\spatial_transcriptomics_results\CVOs\results\3d_views\counts_cells_cluster.xlsx")
+clusters_names = clusters["Label"]
 # Selected cluster names (all will be plotted together)
-defined_cluster_names = {
-    # '0943 STR D1 Gaba_1',
-    # '0944 STR D1 Gaba_1',
-    # '0945 STR D1 Gaba_1',
-    # '0946 STR D1 Gaba_1',
-    # '0947 STR D1 Gaba_1',
-    # '0948 STR D1 Gaba_2',
-    # '0949 STR D1 Gaba_2',
-    # '0950 STR D1 Gaba_3',
-    '0951 STR D1 Gaba_3',
-    # '0952 STR D1 Gaba_3',
-    # '0953 STR D1 Gaba_4',
-    # '0954 STR D1 Gaba_4',
-    # '0955 STR D1 Gaba_5',
-    # '0956 STR D1 Gaba_5',
-    # '0957 STR D1 Gaba_5',
-    # '0958 STR D1 Gaba_6',
-    # '0959 STR D1 Gaba_6',
-    '0960 STR D1 Gaba_7',
-    # '0961 STR D1 Gaba_8',
-    '0962 STR D1 Gaba_8',
-    # '0963 STR D1 Gaba_8',
-    # '0964 STR D1 Gaba_9',
-    # '0990 STR D1 Sema5a Gaba_1',
-    # '0991 STR D1 Sema5a Gaba_1',
-    # '0992 STR D1 Sema5a Gaba_2',
-    # '0993 STR D1 Sema5a Gaba_2',
-    # '0994 STR D1 Sema5a Gaba_2',
-    # '0995 STR D1 Sema5a Gaba_2',
-    # '0996 STR D1 Sema5a Gaba_2',
-    # '0997 STR D1 Sema5a Gaba_3',
-    # '0998 STR D1 Sema5a Gaba_3',
-    # '0999 STR D1 Sema5a Gaba_4',
-    # '1000 STR D1 Sema5a Gaba_4'
-}
+defined_cluster_names = np.array(clusters_names)
+defined_cluster_names = np.append(defined_cluster_names, "3864 SNc-VTA-RAmb Foxa1 Dopa_4")
 
 category_type = "cluster"
 
-saving_dir = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\Drd1\heatmap_gene_expression"
+saving_dir = r"E:\tto\spatial_transcriptomics_results\CVOs\results"
 if not os.path.exists(saving_dir):
     os.mkdir(saving_dir)
 
@@ -248,7 +217,7 @@ sns.clustermap(
     correlation_matrix,
     annot=False,  # Show the correlation values on the heatmap
     cmap='coolwarm',  # Color map for the heatmap
-    figsize=(10, 10),  # Adjust the figure size
+    figsize=(40, 40),  # Adjust the figure size
     method='average',  # Hierarchical clustering method (average linkage)
     metric='correlation',  # Distance metric for clustering
     row_cluster=True,  # Enable clustering on rows

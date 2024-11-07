@@ -23,7 +23,8 @@ import spatial_transcriptomics.utils.coordinate_manipulation as scm
 ########################################################################################################################
 
 ATLAS_USED = "gubra"
-NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
+# NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
+NON_NEURONAL_CELL_TYPES = []
 META_REGION_NAMES = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB",
                      "fiber tracts", "VS"]
 
@@ -114,12 +115,15 @@ for dataset_n in DATASETS:
                                                    f"all_transformed_cells_{ATLAS_USED}_{dataset_n}.npy"))
     transformed_coordinates_neurons = transformed_coordinates[~non_neuronal_mask]
 
-    transformed_coordinates[:, [0, 1]] = transformed_coordinates[:, [1, 0]]  # Swap the 0 and 1 dims to match the atlas shape
-    transformed_coordinates_neurons[:, [0, 1]] = transformed_coordinates_neurons[:, [1, 0]]  # Swap the 0 and 1 dims to match the atlas shape
+    transformed_coordinates[:, [0, 1]] = transformed_coordinates[:,
+                                         [1, 0]]  # Swap the 0 and 1 dims to match the atlas shape
+    transformed_coordinates_neurons[:, [0, 1]] = transformed_coordinates_neurons[:,
+                                                 [1, 0]]  # Swap the 0 and 1 dims to match the atlas shape
 
     for n, reg in enumerate(unique_atlas_values):
 
-        ut.print_c(f"[INFO] Fetching cells from reg {int(reg)}; {n+1}/{n_unique_atlas_values} regs; in dataset {dataset_n}!")
+        ut.print_c(
+            f"[INFO] Fetching cells from reg {int(reg)}; {n + 1}/{n_unique_atlas_values} regs; in dataset {dataset_n}!")
         reg_mask = CLIPPED_ATLAS == reg
         reg_mask_8bit = reg_mask.astype("uint8") * 255
 
@@ -154,17 +158,26 @@ volume_100um_cube = 100 * 100 * 100  # in (um**3)
 region_neuronal_densities = {
     reg: (region_neuronal_counts[reg] / region_voxel_size[reg]) / (volume_voxel / volume_100um_cube) for reg in
     region_neuronal_counts.keys()}
+unique_atlas_values = [i for i in region_neuronal_densities if i != 0]
 sorted_unique_atlas_values = sorted(region_neuronal_densities, key=region_neuronal_densities.get, reverse=True)
 sorted_unique_atlas_values = [i for i in sorted_unique_atlas_values if i != 0]
 
 sorted_reg_acronyms = [sut.find_dict_by_key_value(ATLAS_METADATA, reg).get("acronym")
                        if sut.find_dict_by_key_value(ATLAS_METADATA, reg)
                        else None for reg in sorted_unique_atlas_values]
+reg_acronyms = [sut.find_dict_by_key_value(ATLAS_METADATA, reg).get("acronym")
+                if sut.find_dict_by_key_value(ATLAS_METADATA, reg)
+                else None for reg in unique_atlas_values]
 sorted_reg_colors = [sut.find_dict_by_key_value(ATLAS_METADATA, reg).get("color_hex_triplet")
                      if sut.find_dict_by_key_value(ATLAS_METADATA, reg)
                      else None for reg in sorted_unique_atlas_values]
 sorted_reg_colors = np.array(['#' + color for color in sorted_reg_colors])
+reg_colors = [sut.find_dict_by_key_value(ATLAS_METADATA, reg).get("color_hex_triplet")
+              if sut.find_dict_by_key_value(ATLAS_METADATA, reg)
+              else None for reg in unique_atlas_values]
+reg_colors = np.array(['#' + color for color in reg_colors])
 sorted_reg_density = [region_neuronal_densities[reg] for reg in sorted_unique_atlas_values]
+reg_density = [region_neuronal_densities[reg] for reg in unique_atlas_values]
 
 # Exclude the key 0
 filtered_cells_counts = {k: v for k, v in region_neuronal_counts.items() if k != 0}
@@ -175,6 +188,25 @@ avg_cells_in_100um_cube = avg_neuronal_density / (
 
 # Plot params
 x_tick_fs = 6
+
+# Create a bar plot
+plt.figure(figsize=(15, 3))  # Adjust the figure size as needed
+bars = plt.bar(np.array(reg_acronyms),
+               np.array(reg_density),
+               color=np.array(reg_colors), linewidth=0.1, edgecolor='black',
+               width=1)
+# Add a horizontal line at the average value
+plt.axhline(y=avg_cells_in_100um_cube, color='red', linestyle='--', linewidth=1.5,
+            label=f'Average: {avg_cells_in_100um_cube:.2f}')
+# plt.title('Cell Counts in Brain Regions')
+# plt.xlabel('Brain Region')
+# plt.ylabel(f'{saving_name} neurons')
+plt.xticks(rotation=45, ha="right", fontsize=x_tick_fs)
+plt.tight_layout()  # Adjust layout to not cut off labels
+plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_{ATLAS_USED}.png"), dpi=300)
+plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_{ATLAS_USED}.svg"), dpi=300)
+# plt.show()
+plt.close()
 
 # Create a bar plot
 plt.figure(figsize=(15, 3))  # Adjust the figure size as needed
@@ -190,8 +222,8 @@ plt.axhline(y=avg_cells_in_100um_cube, color='red', linestyle='--', linewidth=1.
 # plt.ylabel(f'{saving_name} neurons')
 plt.xticks(rotation=45, ha="right", fontsize=x_tick_fs)
 plt.tight_layout()  # Adjust layout to not cut off labels
-plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_{ATLAS_USED}.png"), dpi=300)
-plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_{ATLAS_USED}.svg"), dpi=300)
+plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_sorted_{ATLAS_USED}.png"), dpi=300)
+plt.savefig(os.path.join(SAVING_DIRECTORY, f"density_neurons_sorted_{ATLAS_USED}.svg"), dpi=300)
 # plt.show()
 plt.close()
 
@@ -221,7 +253,7 @@ for meta_region in META_REGION_NAMES:
             child_voxels = region_voxel_size[child_id]
             meta_region_voxels.append(child_voxels)
     meta_region_neuron_density = (np.sum(meta_region_counts) / np.sum(meta_region_voxels)) / (
-                volume_voxel / volume_100um_cube)
+            volume_voxel / volume_100um_cube)
     meta_region_neuron_densities.append(meta_region_neuron_density)
 
 # Neurons
