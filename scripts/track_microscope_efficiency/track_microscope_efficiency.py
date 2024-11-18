@@ -9,10 +9,11 @@ working_directory = r'G:\\'  # Replace with the path to your directory
 studies_to_analyze = []  # Replace with your actual study names
 current_date = datetime.now()
 date_string = current_date.strftime('%y-%m-%d')
-saving_dir = ut.create_dir(fr"/default/path")  # PERSONAL
 scanning_systems = ["M3", "M4"]  # Replace with your actual scanning system
 time_frame = 'month'  # Change to 'year', 'month', or 'week' as needed
 value = (2024, 9)  # Change to the specific year, month, or week as needed
+saving_dir = ut.create_dir(fr"/default/path")  # PERSONAL
+month_dir = ut.create_dir(os.path.join(saving_dir, "/default/path".join(value)))  # PERSONAL
 
 for scanning_system in scanning_systems:
     saving_dir_scanning_system = ut.create_dir(os.path.join(saving_dir, scanning_system))

@@ -4,7 +4,6 @@ This script takes as an input a map aligned/transformed to the Gubra v6 atlas an
 
 import os
 
-from natsort import natsorted
 import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import utils.utils as ut
-import spatial_transcriptomics.utils.utils as sut
+import spatial_transcriptomics.old.utils.utils as sut
 
 ATLAS_USED = "gubra"
 ANO_DIRECTORY = r"resources\atlas"

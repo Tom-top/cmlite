@@ -15,7 +15,7 @@ import utils.utils as ut
 import resampling.resampling as res
 
 resources_directory = r"C:\Users\MANDOUDNA\PycharmProjects\cmlite\resources\atlas"
-working_directory = r"E:\LLL\MBP_data\raw\ID523_an000003_g001_Brain_M3_rescan3\xy5p0_z10p0\2024-08-30_231537_merged"
+working_directory = r"E:\tto\24-SOREL-0286-bruker\raw\ID001_an100000_g001_brain_M3\xy5p0_z10p0\2024-09-21_004723_merged"
 saving_directory = ut.create_dir(os.path.join(working_directory, "ants_output"))
 default_syn_params = True
 
@@ -104,7 +104,7 @@ default_syn_params = True
 # ALIGN REFERENCE TO AUTO (25 um)
 ########################################################################################################################
 
-fixed_image_name = "resampled_25um_7"
+fixed_image_name = "resampled_25um_1"
 moving_image_name = "gubra_reference_mouse_-1_2_3_None"
 saving_subdirectory = ut.create_dir(os.path.join(saving_directory, "reference_to_auto_25um"))
 
