@@ -1,6 +1,7 @@
 import os
 
 from natsort import natsorted
+import nibabel as nib
 import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
@@ -11,26 +12,32 @@ import utils.utils as ut
 import spatial_transcriptomics.old.utils.utils as sut
 
 # Define paths and cutoff value for binarization
-zscore_maps_directory = r"/default/path"  # PERSONAL
-zscore_map_name = "GUS2022-189-LY"
-zscore_map_directory = os.path.join(zscore_maps_directory, zscore_map_name)
+voxel_wise_maps_directory = r"/default/path"  # PERSONAL
+# zscore_map_name = ""
+# zscore_map_path = os.path.join(voxel_wise_maps_directory, "result.nii.gz")
 # zscore_map_path = os.path.join(zscore_map_directory, "/default/path")  # PERSONAL
-zscore_map_path = os.path.join(zscore_map_directory, "/default/path")  # PERSONAL
-analysis_directory = ut.create_dir(fr"/default/path")  # PERSONAL
-cutoff = 196  # Value above which all pixels will be kept for the mask (z-score * 100)
+voxel_wise_map_path = os.path.join(voxel_wise_maps_directory,
+                                   # "/default/path")  # PERSONAL
+                                   "/default/path")  # PERSONAL
+analysis_directory = voxel_wise_maps_directory  # PERSONAL
+# cutoff = 5 * 10 ** (-1)  # Value above which all pixels will be kept for the mask (z-score * 100)
+cutoff = 300  # Value above which all pixels will be kept for the mask (z-score * 100)
 
 # Load and transpose the image
 # zscore_map_nii = nib.load(zscore_map_path)
-# zscore_map = zscore_map_nii.get_fdata()  # (369, 512, 268)
-zscore_map = np.array([tifffile.imread(os.path.join(zscore_map_path, i)) for i in natsorted(os.listdir(zscore_map_path))])
-zscore_map = np.swapaxes(zscore_map, 0, 2)
-zscore_map = np.flip(np.transpose(zscore_map, (1, 2, 0)), 1)
+# voxel_wise_stats_map = zscore_map_nii.get_fdata()  # (369, 512, 268)
+# zscore_map = np.array([tifffile.imread(os.path.join(zscore_map_path, i)) for i in natsorted(os.listdir(zscore_map_path))])
+voxel_wise_stats_map = tifffile.imread(voxel_wise_map_path)
+voxel_wise_stats_map = np.swapaxes(voxel_wise_stats_map, 0, 2)
+voxel_wise_stats_map = np.flip(np.transpose(voxel_wise_stats_map, (1, 2, 0)), 1)
+voxel_wise_stats_map = voxel_wise_stats_map[::-1]
 
 # Binarize the image based on the cutoff
-zscore_map_bin = (zscore_map >= cutoff).astype("uint8")
+# zscore_map_bin = (voxel_wise_stats_map <= cutoff).astype("uint8")
+zscore_map_bin = (voxel_wise_stats_map >= cutoff).astype("uint8")
 
 # Process the first half of the image
-midline = zscore_map.shape[-1] // 2
+midline = voxel_wise_stats_map.shape[-1] // 2
 zscore_map_bin_half = zscore_map_bin.copy()
 zscore_map_bin_half[:, :, midline:] = 0
 
@@ -53,7 +60,7 @@ new_f_name = "rgb_" + f_name.split(".")[0] + "." + f_name.split(".")[-1]
 grayscale_image = tifffile.imread(mask_path).astype("uint16")
 
 ATLAS_USED = "gubra"
-ANO_DIRECTORY = r"resources\atlas"
+ANO_DIRECTORY = fr"resources{os.sep}atlas"
 REFERENCE_FILE = os.path.join(ANO_DIRECTORY, fr"{ATLAS_USED}_reference_mouse.tif")
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 
@@ -124,7 +131,9 @@ def project_first_nonzero(aba_colored_mask, axis, direction="forward"):
     return first_nonzero_image
 
 # Choose the axis over which to project (0 for depth, 1 for height, 2 for width)
-axis = 1  # Example: choose depth
+axis = 0  # Example: choose depth
+orix = 1
+xlim, ylim = 369, 268
 direction = "backward"  # Choose "forward" or "backward" for projection direction
 first_nonzero_image = project_first_nonzero(aba_colored_mask, axis, direction)
 
@@ -144,4 +153,55 @@ ax.invert_yaxis()
 ax.axis('off')
 
 # Save the figure
-fig.savefig(os.path.join(analysis_directory, "aba_rgb_" + f_name.split(".")[0] + "_first_nonzero.png"), dpi=600)
+fig.savefig(os.path.join(analysis_directory, "aba_rgb_" + f_name.split(".")[0] + f"_first_nonzero_{axis}.png"), dpi=600)
+
+# Choose the axis over which to project (0 for depth, 1 for height, 2 for width)
+axis = 1  # Example: choose depth
+orix = 2
+xlim, ylim = 369, 512
+direction = "backward"  # Choose "forward" or "backward" for projection direction
+first_nonzero_image = project_first_nonzero(aba_colored_mask, axis, direction)
+
+# Create an RGBA version of the first_nonzero_image
+colored_image_rgba = np.zeros((*first_nonzero_image.shape[:2], 4), dtype=np.float32)
+colored_image_rgba[..., :3] = first_nonzero_image
+colored_image_rgba[..., 3] = np.where(np.any(first_nonzero_image > 0, axis=2), 1.0, 0.0)
+
+# Plot the result
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(np.rot90(np.max(REFERENCE, axis=orix))[::-1], cmap='gray_r', alpha=0.3)
+ax.imshow(colored_image_rgba)
+ax.set_xlim(0, xlim)
+ax.set_ylim(0, ylim)
+ax.invert_yaxis()
+ax.axis('off')
+
+# Save the figure
+fig.savefig(os.path.join(analysis_directory, "aba_rgb_" + f_name.split(".")[0] + f"_first_nonzero_{axis}.png"), dpi=600)
+
+# Choose the axis over which to project (0 for depth, 1 for height, 2 for width)
+axis = 2  # Example: choose depth
+orix = 0
+xlim, ylim = 512, 268
+direction = "backward"  # Choose "forward" or "backward" for projection direction
+first_nonzero_image = project_first_nonzero(aba_colored_mask, axis, direction)
+
+# Create an RGBA version of the first_nonzero_image
+colored_image_rgba = np.zeros((*first_nonzero_image.shape[:2], 4), dtype=np.float32)
+colored_image_rgba[..., :3] = first_nonzero_image
+colored_image_rgba[..., 3] = np.where(np.any(first_nonzero_image > 0, axis=2), 1.0, 0.0)
+colored_image_rgba = np.swapaxes(colored_image_rgba, 0, 1)
+
+# Plot the result
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(np.rot90(np.max(REFERENCE, axis=orix))[::-1], cmap='gray_r', alpha=0.3)
+ax.imshow(colored_image_rgba)
+ax.set_xlim(0, xlim)
+ax.set_ylim(0, ylim)
+ax.invert_yaxis()
+ax.axis('off')
+
+# Save the figure
+fig.savefig(os.path.join(analysis_directory, "aba_rgb_" + f_name.split(".")[0] + f"_first_nonzero_{axis}.png"), dpi=600)

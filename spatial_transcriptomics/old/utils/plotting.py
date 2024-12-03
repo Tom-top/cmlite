@@ -46,7 +46,7 @@ def setup_plot(n, i):
 def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, cell_colors="black", cell_categories=None,
                xlim=0, ylim=0, orix=0, oriy=1, orip=0, ori="", mask_axis=0, s=0.5, sg=0.5, saving_path="", relevant_categories=[],
                show_outline=False, zoom=False, plot_individual_categories=True, show_ref=True, surface_projection=True,
-               show_cluster_name=False, save_mask=True):
+               max_projection=False, show_cluster_name=False, save_mask=True):
 
     # If at least one set of coordinates for a cell is given
     if filtered_points.size > 0:
@@ -140,18 +140,19 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
                 fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}.svg"), dpi=300)
                 plt.close(fig)
 
-            if not os.path.exists(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png")):
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                ax.imshow(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
-                          alpha=0.3)
-                ax.set_xlim(0, cropped_ref.shape[1])
-                ax.set_ylim(0, cropped_ref.shape[0])
-                ax.invert_yaxis()
-                ax.axis('off')
-                fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png"), dpi=300)
-                fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.svg"), dpi=300)
-                plt.close(fig)
+            if zoom:
+                if not os.path.exists(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png")):
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111)
+                    ax.imshow(max_proj_mask[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]], cmap='gray_r',
+                              alpha=0.3)
+                    ax.set_xlim(0, cropped_ref.shape[1])
+                    ax.set_ylim(0, cropped_ref.shape[0])
+                    ax.invert_yaxis()
+                    ax.axis('off')
+                    fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.png"), dpi=300)
+                    fig.savefig(os.path.join(os.path.dirname(saving_path), f"mask_{ori}_zoom.svg"), dpi=300)
+                    plt.close(fig)
 
 
         if categories.size > 0 and plot_individual_categories:
@@ -311,6 +312,14 @@ def plot_cells(filtered_points, reference, tissue_mask, non_neuronal_mask=None, 
                 sorted_colors_z = cell_colors[sorted_z_indices]
                 if cell_categories.size > 0:
                     sorted_categories = cell_categories[sorted_z_indices]
+            elif max_projection:
+                # Get the sorting indices based on `sorted_colors_z`
+                sort_indices = np.argsort(np.mean(cell_colors, axis=1))[::-1]
+                # Reorder all arrays based on the sorted indices
+                sorted_x_z = filtered_points_plot_x[sort_indices]
+                sorted_y_z = filtered_points_plot_y[sort_indices]
+                sorted_colors_z = cell_colors[sort_indices]
+                sorted_categories = cell_categories[sort_indices]
             else:
                 sorted_x_z = filtered_points_plot_x
                 sorted_y_z = filtered_points_plot_y

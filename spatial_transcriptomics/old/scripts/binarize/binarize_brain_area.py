@@ -5,12 +5,13 @@ import tifffile
 import utils.utils as ut
 
 # Define paths and regions to binarize
-ref_directory = r"resources\atlas"
+ref_directory = fr"resources{os.sep}atlas"
 # ref_directory = r"E:\tto\test"
 ref_path = os.path.join(ref_directory, "gubra_annotation_mouse.tif")
 # ref_path = os.path.join(ref_directory, "ano.tif")
-regions_to_bin = [5939, 5755, 5747, 5807]  # List of region ids to include in the binary mask
-brain_area_name = "CVOs"
+# regions_to_bin = [5939, 5755, 5747, 5807]  # List of region ids to include in the binary mask
+regions_to_bin = [5869, 5854]  # List of region ids to include in the binary mask
+brain_area_name = "PPN_CUN"
 analysis_directory = ut.create_dir(fr"/default/path")  # PERSONAL
 
 # Load and transpose the image

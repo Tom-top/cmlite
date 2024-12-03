@@ -27,7 +27,7 @@ PERCENTAGE_THRESHOLD = 15
 # categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
 categories = ["cluster"]
 
-ANO_DIRECTORY = r"resources\atlas"
+ANO_DIRECTORY = fr"resources{os.sep}atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
@@ -60,12 +60,12 @@ else:
 MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results")
 RESULTS_DIR = ut.create_dir(os.path.join(MAIN_RESULTS_DIR, "3d_views"))
 
-TRANSFORM_DIR = r"resources/abc_atlas"
-REFERENCE_FILE = fr"resources/atlas/{ATLAS_USED}_reference_mouse.tif"
+TRANSFORM_DIR = fr"resources{os.sep}abc_atlas"
+REFERENCE_FILE = fr"resources{os.sep}atlas{os.sep}{ATLAS_USED}_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 REFERENCE_SHAPE = REFERENCE.shape
 
-ABC_ATLAS_DIRECTORY = r"resources\abc_atlas"
+ABC_ATLAS_DIRECTORY = fr"resources{os.sep}abc_atlas"
 CLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_class.xlsx"))
 SUBCLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_subclass.xlsx"))
 SUPERTYPE_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_supertype.xlsx"))

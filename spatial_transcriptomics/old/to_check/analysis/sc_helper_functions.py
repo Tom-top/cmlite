@@ -172,3 +172,67 @@ def min_max_normalize(adata):
         adata_norm = anndata.AnnData(X_norm, obs=adata.obs, var=adata.var, dtype='float32')
 
     return adata_norm
+
+
+def plot_clusters_in_10X_data(exp, saving_folder, saving_name="", cluster_names=[], no_bg=False,
+                              color=[]):
+    """
+    Function to plot clusters in 10X data with cluster-specific colors.
+
+    Parameters:
+        exp (pd.DataFrame): DataFrame with cell metadata, including 'x', 'y', 'class', and 'cluster'.
+        saving_folder (str): Path to the folder where output should be saved.
+        saving_name (str): Additional identifier for saved file names.
+        cluster_names (list): Optional; highlights specific clusters.
+        no_bg (bool): Whether to exclude background cells (masked cells).
+    """
+    # Create the directory for saving the output
+    saving_directory = ut.create_dir(os.path.join(saving_folder, "clusters"))
+
+    # Prepare the dataframe containing cell coordinates
+    sorted_exp_df = exp[['x', 'y', 'class', 'cluster', 'cluster_color']]
+
+    if cluster_names:
+        mask = np.array([False if str(i) in cluster_names else True
+                         for i in sorted_exp_df["cluster"]])
+
+    # Map cluster labels to colors
+    color_map = dict(zip(sorted(set(sorted_exp_df["cluster"])), sorted_exp_df["cluster_color"]))
+
+    if color:
+        cell_colors = [color[i] for i in range(len(color)) if not mask[i]]
+    else:
+        cell_colors = [color_map[cluster] for cluster in sorted_exp_df['cluster']]
+        print(cell_colors)
+
+    # Create the figure and axis
+    fig, ax = plt.subplots()
+    fig.set_size_inches(8, 8)
+
+    if cluster_names:
+        if not no_bg:
+            # Plot masked cells in gray
+            masked_cells_x = sorted_exp_df['x'][mask]
+            masked_cells_y = sorted_exp_df['y'][mask]
+            ax.scatter(masked_cells_x, masked_cells_y, s=0.1, c='#efefef', edgecolors="none")
+
+    # Plot cells with cluster-specific colors
+    non_masked_cells_x = sorted_exp_df['x'][~mask]
+    non_masked_cells_y = sorted_exp_df['y'][~mask]
+    non_masked_colors = [cell_colors[i] for i in range(len(cell_colors)) if not mask[i]]
+
+    print(non_masked_colors)
+
+    ax.scatter(non_masked_cells_x, non_masked_cells_y, s=0.1, c=non_masked_colors, edgecolors="none")
+
+    ax.axis('equal')
+    ax.set_xlim(-18, 27)
+    ax.set_ylim(-18, 27)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title("Cluster Visualization")
+
+    # Save the figure
+    plt.savefig(os.path.join(saving_directory, f"10x_clusters{saving_name}.png"), dpi=300)
+    # plt.savefig(os.path.join(saving_directory, f"10x_clusters{saving_name}.svg"), dpi=300)
+    plt.close(fig)

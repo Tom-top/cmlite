@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 from utils.utils import assign_random_colors
 
 MAP_DIR = r"/default/path"  # PERSONAL
-TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
+TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_dilated_mask.tif"))
 threshold_size = 50  # Set your size threshold here (in voxels)
 
 struct = ball(1)  # Define a ball-shaped structuring element
@@ -48,7 +48,7 @@ grayscale_image = tifffile.imread(labeled_mask_path).astype("uint16")
 if grayscale_image.dtype != np.uint16:
     raise ValueError("The image is not 16-bit grayscale")
 # Assign random colors to the grayscale image
-colored_image = assign_random_colors(grayscale_image, color="FFAE6F")
+colored_image = assign_random_colors(grayscale_image, color="")
 tifffile.imwrite(os.path.join(MAP_DIR, new_f_name), colored_image)
 
 REFERENCE_FILE = r"resources/atlas/gubra_reference_mouse.tif"
@@ -88,7 +88,7 @@ ori = "sagittal"
 orix, oriy, mask_axis = 0, 1, 0
 xlim, ylim = 512, 268
 
-max_colored_image = np.max(colored_image, 0)
+max_colored_image = np.max(colored_image, 2)
 # Create an RGBA version of colored_image
 colored_image_rgba = np.zeros((max_colored_image.shape[0], max_colored_image.shape[1], 4), dtype=np.float32)
 # Set the RGB channels

@@ -923,3 +923,47 @@ def generate_npy_chunk(img, range, saving_name):
     np.save(saving_name, img[int(x_range[0]):int(x_range[1]),
                          int(y_range[0]):int(y_range[1]),
                          int(z_range[0]):int(z_range[1]), ])
+
+
+
+def get_sample_directory(raw_directory, sample_name, **kwargs):
+    sample_directory = os.path.join(raw_directory, sample_name)
+    if kwargs["study_params"]["scanning_system"] == "bruker":
+        _, sample_directory = get_bruker_directories(sample_directory)
+    return sample_directory
+
+
+def generate_chunk(img_path, r, saving_dir, save_npy=False, memmap=False):
+    if memmap:
+        img_shape, img_dtype = get_npy_metadata(img_path)
+        img_shape = img_shape[::-1]
+        img = np.memmap(img_path, dtype=img_dtype, mode='r', shape=img_shape)
+    else:
+        img = np.load(img_path)
+
+        # Optional: Check if the data is Fortran-ordered and transpose if necessary
+    if img.flags.f_contiguous:
+        img = np.ascontiguousarray(img)  # Ensure C-contiguous if necessary
+
+    # Extract x, y, z ranges and verify they are within the image bounds
+    x_range, y_range, z_range = r
+
+    # Load the slices directly into memory
+    chunk_img = np.array(img[int(x_range[0]):int(x_range[1]),
+                         int(y_range[0]):int(y_range[1]),
+                         int(z_range[0]):int(z_range[1])])
+
+    # Save the chunked data as .npy and .tif
+    if save_npy:
+        np.save(os.path.join(saving_dir, "chunk.npy"), chunk_img)
+
+    # Save directly as a .tif file
+    tifffile.imwrite(os.path.join(saving_dir, "chunk.tif"), chunk_img)
+
+
+def get_npy_metadata(file_path):
+    with open(file_path, 'rb') as f:
+        version = np.lib.format.read_magic(f)
+        shape, fortran_order, dtype = np.lib.format._read_array_header(f, version)
+        dtype = dtype.newbyteorder('<')  # Ensure little-endian for consistent reading
+        return shape, dtype

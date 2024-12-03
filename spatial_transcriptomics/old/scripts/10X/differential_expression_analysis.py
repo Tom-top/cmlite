@@ -11,22 +11,42 @@ import requests
 # Use the Agg backend to avoid rendering plots interactively
 import matplotlib
 
+import utils.utils as ut
+
 matplotlib.use("Agg")  # Ensure backend is non-interactive for speed
 
-clusters = pd.read_excel(r"E:\tto\spatial_transcriptomics_results\CVOs\results\3d_views\counts_cells_cluster.xlsx")
-clusters_names = clusters["Label"]
 # Selected cluster names (all will be plotted together)
-defined_cluster_names = np.array(clusters_names)
-defined_cluster_names = np.append(defined_cluster_names, "3864 SNc-VTA-RAmb Foxa1 Dopa_4")
+
+# sorted_and_enriched_clusters = pd.read_csv("/mnt/data/Thomas/whole_brain/results/gene_expression/ENSMUSG00000021239/"
+#                                            "mean_expression_data.csv")
+# defined_cluster_names = [x for x, y in zip(sorted_and_enriched_clusters["Unnamed: 0"],
+#                                            sorted_and_enriched_clusters["ENSMUSG00000021239"]) if y > 50]
+
+defined_cluster_names = pd.read_csv("/mnt/data/Thomas/PPN_CUN/results/3d_views/cluster_labels_and_percentages.csv")
+defined_cluster_names = [x for x, y in zip(defined_cluster_names["Label"],
+                                           defined_cluster_names["Percentage"]) if y > 70]
+# defined_cluster_names = ['3334 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3335 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3331 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3332 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3330 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3333 CUN-PPN Evx2 Meis2 Glut_1',
+#                          '3336 CUN-PPN Evx2 Meis2 Glut_2',
+#                          '3338 CUN-PPN Evx2 Meis2 Glut_3']
+
+# sorted_and_enriched_clusters = pd.read_csv(
+#     "/mnt/data/Thomas/PPN_CUN/results/3d_views/cluster_labels_and_percentages.csv")
+# defined_cluster_names = [x for x, y in zip(sorted_and_enriched_clusters["Label"],
+#                                            sorted_and_enriched_clusters["Percentage"]) if y > 50]
+
+# defined_cluster_names = np.append(defined_cluster_names, "3864 SNc-VTA-RAmb Foxa1 Dopa_4")
 
 category_type = "cluster"
 
-saving_dir = r"E:\tto\spatial_transcriptomics_results\CVOs\results"
-if not os.path.exists(saving_dir):
-    os.mkdir(saving_dir)
+saving_dir = ut.create_dir("/mnt/data/Thomas/PPN_CUN/10X_mapped_gene_expression/clusters")
 
 dataset_id = "WMB-10X"  # Select the dataset
-download_base = r'E:\tto\spatial_transcriptomics'  # Path to data on the local drive
+download_base = r'/mnt/data/Thomas/data'  # Path to data on the local drive
 
 # Manifest url
 url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'

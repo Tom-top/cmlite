@@ -36,13 +36,13 @@ N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["neurotransmitter", "class", "subclass", "supertype", "cluster"]
 NON_NEURONAL_CELL_TYPES = ["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC"]
 BILATERAL = True  # If True: generate bilateral cell distribution in the 3D representations
-ONLY_NEURONS = True  # If True: only generate plots for neurons, excluding all non-neuronal cells
+ONLY_NEURONS = False  # If True: only generate plots for neurons, excluding all non-neuronal cells
 PLOT_MOST_REPRESENTED_CATEGORIES = False
-PERCENTAGE_THRESHOLD = 15
+PERCENTAGE_THRESHOLD = 100
 categories = ["class", "subclass", "supertype", "cluster", "neurotransmitter"]
 # categories = ["cluster"]
 
-ANO_DIRECTORY = r"resources\atlas"
+ANO_DIRECTORY = fr"resources{os.sep}atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
@@ -67,6 +67,7 @@ else:
     labels = [1]
     if WHOLE_REGION:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_mask.tif"))
+        # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"hemisphere_dilated_mask.tif"))
         # TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"peri-pag_mask.tif"))
     else:
         TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"smoothed_mask.tif"))
@@ -75,12 +76,12 @@ else:
 MAIN_RESULTS_DIR = os.path.join(MAP_DIR, "results")
 RESULTS_DIR = ut.create_dir(os.path.join(MAIN_RESULTS_DIR, "3d_views"))
 
-TRANSFORM_DIR = r"resources/abc_atlas"
-REFERENCE_FILE = fr"resources/atlas/{ATLAS_USED}_reference_mouse.tif"
+TRANSFORM_DIR = fr"resources{os.sep}abc_atlas"
+REFERENCE_FILE = fr"resources{os.sep}atlas{os.sep}{ATLAS_USED}_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 REFERENCE_SHAPE = REFERENCE.shape
 
-ABC_ATLAS_DIRECTORY = r"resources\abc_atlas"
+ABC_ATLAS_DIRECTORY = fr"resources{os.sep}abc_atlas"
 CLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_class.xlsx"))
 SUBCLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_subclass.xlsx"))
 SUPERTYPE_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_supertype.xlsx"))
@@ -493,7 +494,7 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             merged_data,
             SAVING_DIR,
             plots_to_generate=["categories", "categories_labeled", "percentage"],  # , "percentage"
-            colormap="viridis",
+            colormap="gist_heat_r",
             max_range=PERCENTAGE_THRESHOLD,
         )
 
@@ -617,209 +618,242 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
 
         def plot_linear_tree(hierarchy, save_path, percentage_thresh=40):
             """
-            Plots a linear dendrogram-like tree using the hierarchy dictionary with clear separation of initial nodes.
+            Plots a horizontally growing hierarchical tree with parent nodes centered above/below their children.
+            The vertical spacing is dynamically adjusted based on the number of leaf nodes.
 
             Args:
             - hierarchy (dict): Nested dictionary representing the hierarchical structure.
             - save_path (str): Path to save the output image.
+            - percentage_thresh (int): Threshold for percentage normalization (0-100).
             """
+            import networkx as nx
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+            from matplotlib import cm
+            import numpy as np
+
             # Create a directed graph
             G = nx.DiGraph()
 
-            # Function to recursively add nodes and edges to the graph
             def add_edges(parent, data, level):
                 """
-                Recursively add nodes and edges to the graph while keeping track of levels and percentages.
+                Recursively adds edges and nodes to the graph from the hierarchy dictionary.
                 """
-                # Ensure the parent node is added with its 'level' and 'percentage' attributes
-                G.add_node(parent, level=level, percentage=data.get('Percentage', 0))  # Correctly assign the percentage
-
+                G.add_node(parent, level=level, percentage=data.get('Percentage', 0))
                 for child, child_data in data.get("children", {}).items():
-                    # Add each child node with its 'level' attribute and 'percentage' directly from the data
-                    G.add_node(child, level=level + 1,
-                               percentage=child_data.get("Percentage", 0))  # Fetch directly from data
+                    G.add_node(child, level=level + 1, percentage=child_data.get("Percentage", 0))
                     G.add_edge(parent, child)
-                    # Recursively add the children
                     add_edges(child, child_data, level + 1)
 
-            # Add edges starting from the root classes in the hierarchy
+            # Build the graph from the hierarchy
             for root_class, data in hierarchy.items():
                 if "children" in data:
-                    add_edges(root_class, data, 0)  # Root level is 0
+                    add_edges(root_class, data, 0)
 
-            # Extract levels and percentages from nodes
+            # Get levels and find leaf nodes
             levels = nx.get_node_attributes(G, 'level')
-            percentages = nx.get_node_attributes(G, 'percentage')
+            leaf_nodes = [n for n in G.nodes() if G.out_degree(n) == 0]
+            total_leaf_nodes = len(leaf_nodes)
 
-            # Ensure all nodes have the 'level' attribute
-            for node in G.nodes():
-                if 'level' not in G.nodes[node]:
-                    raise ValueError(f"Node {node} does not have 'level' attribute.")
+            # Recursive function to calculate positions
+            def calculate_positions(node, x_offset, y_spacing):
+                """
+                Recursively calculates positions for nodes to ensure parents are centered relative to their children.
+                """
+                children = list(G.successors(node))
+                if not children:  # Leaf node
+                    pos[node] = (x_offset, calculate_positions.y)
+                    calculate_positions.y += y_spacing
+                else:  # Non-leaf node
+                    child_positions = [calculate_positions(child, x_offset + x_spacing, y_spacing) for child in
+                                       children]
+                    center_y = sum(y for _, y in child_positions) / len(child_positions)
+                    pos[node] = (x_offset, center_y)
+                return pos[node]
 
-            # Normalize percentages globally (0-100 range)
-            min_percentage = 0
-            max_percentage = percentage_thresh
-            norm = plt.Normalize(vmin=min_percentage, vmax=max_percentage)
-            cmap = cm.viridis  # Use viridis colormap
+            # Initialize positions and adaptive vertical spacing
+            pos = {}
+            calculate_positions.y = 0
 
-            # Generate a hierarchy layout for a linear tree with increased separation between levels
-            pos = nx.multipartite_layout(G, subset_key='level', scale=5, align='vertical')
+            # Define horizontal and vertical spacing
+            x_spacing = 2.0  # Horizontal spacing between levels
+            y_spacing = max(1.0, 10 / total_leaf_nodes)  # Adaptive vertical spacing based on leaf nodes
 
-            # Draw the graph with clear separation of root nodes
-            plt.figure(figsize=(13, 10))
+            for root in [n for n, d in G.in_degree() if d == 0]:  # Identify root nodes
+                calculate_positions(root, 0, y_spacing)
+
+            # Normalize percentages for color mapping
+            norm = plt.Normalize(vmin=0, vmax=percentage_thresh)
+            cmap = cm.gist_heat_r
+
+            # Adjust figure size dynamically
+            fig_width = max(10, len(set(levels.values())) * x_spacing * 1.5)
+            fig_height = max(10, total_leaf_nodes * y_spacing / 2)  # Scale height based on spacing
+            plt.figure(figsize=(fig_width, fig_height))
             ax = plt.gca()
 
-            # Draw edges first so they appear behind the nodes
-            nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='gray', alpha=0.7,  width=1.5)
+            # Dynamic rectangle dimensions
+            rect_width = x_spacing * 0.8  # Use a fraction of the horizontal spacing
+            rect_height = y_spacing * 0.8  # Use a fraction of the vertical spacing
 
-            # Draw rectangular nodes for all nodes with width adjusted by label length
-            min_x = np.inf
-            max_x = -np.inf
+            # Draw edges
+            nx.draw_networkx_edges(G, pos, edge_color="gray", alpha=0.7, width=1.5)
+
+            # Draw nodes as rectangles
             for node in G.nodes():
                 x, y = pos[node]
-                if x < min_x:
-                    min_x = x
-                if x > max_x:
-                    max_x = x
-
-                # Dynamically calculate width based on text length
                 label = node
-                width = len(label) * 0.017  # Scale the width by a factor (adjust as needed)
-                height = 0.25  # Fixed height
 
-                # Determine color based on the globally normalized percentage
-                percentage = percentages.get(node, 0)  # Use the directly fetched percentage
+                # Get color based on percentage
+                percentage = nx.get_node_attributes(G, 'percentage').get(node, 0)
                 color = cmap(norm(percentage))
 
                 # Draw rectangle
-                ax.add_patch(Rectangle((x - width / 2, y - height / 2), width, height,
+                ax.add_patch(Rectangle((x - rect_width / 2, y - rect_height / 2), rect_width, rect_height,
                                        edgecolor='black', facecolor=color, lw=1, zorder=1))
-                # Draw label with white text
-                if percentage >= max_percentage:
-                    plt.text(x, y, label, ha='center', va='center', fontsize=8, fontweight='bold', color='black',
-                             zorder=2)
-                else:
-                    plt.text(x, y, label, ha='center', va='center', fontsize=8, fontweight='bold', color='white',
-                             zorder=2)
 
-            # Save and show the plot
-            plt.title("Dendrogram-Like Tree with Viridis-Colored Nodes (Based on Percentage)")
-            # plt.tight_layout()
-            ax.set_xlim(min_x-0.3, max_x+0.3)
+                # Add label (fixed font size)
+                text_color = 'black' if percentage < 30 else 'white'
+                plt.text(x, y, label, ha='center', va='center', fontsize=6, fontweight='bold', color=text_color,
+                         zorder=2)
+
+            # Adjust plot limits
+            x_margin = rect_width / 2
+            y_margin = rect_height / 2
+            all_x, all_y = zip(*pos.values())
+            ax.set_xlim(min(all_x) - x_margin, max(all_x) + x_margin)
+            ax.set_ylim(min(all_y) - y_margin, max(all_y) + y_margin)
+
+            # Finalize plot
+            plt.title("Centered Horizontal Dendrogram")
+            plt.axis("off")
             plt.savefig(save_path)
             plt.show()
 
 
         # Filter the hierarchy based on the 'Percentage' value
-        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=PERCENTAGE_THRESHOLD)
+        min_percentage = 40
+        filtered_hierarchy = filter_hierarchy_by_percentage(hierarchy, min_percentage=min_percentage)
         # Plot the dendrogram
         plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.png"),
-                         percentage_thresh=PERCENTAGE_THRESHOLD)
+                         percentage_thresh=100)
         plot_linear_tree(filtered_hierarchy, os.path.join(SAVING_DIR, "dendrogram.svg"),
-                         percentage_thresh=PERCENTAGE_THRESHOLD)
+                         percentage_thresh=100)
 
         ################################################################################################################
         # PLOT THE TOP PERCENTAGE OVERLAPPING CELLS
         ################################################################################################################
 
         # Neurotransmitter data
+        # class_data = merged_data[0]
+        # subclass_data = merged_data[1]
+        # supertype_data = merged_data[2]
+        cluster_data = merged_data[3]
         neurotransmitter_data = merged_data[4]
 
-        # Sort first dataframe by Percentage
-        df_sorted = cluster_data.sort_values('Percentage', ascending=False)
+        # Define a helper function to plot and save
+        def plot_and_save(df_sorted, second_df_sorted, save_prefix, title_suffix, saving_dir):
+            # Create the color normalization and colormap
+            norm = mcolors.Normalize(vmin=0, vmax=PERCENTAGE_THRESHOLD)
+            cmap = plt.cm.gist_heat_r
+            sm = ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
 
-        # Sort second dataframe based on the first dataframe's order
-        second_df_sorted = neurotransmitter_data.loc[df_sorted.index]  # Align sorting with the first dataframe
+            # Create the figure and two subplots
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(4, 8))
 
-        # Hardcoded limits for the colormap
-        vmin = 0  # Minimum value for colormap
+            # First plot: Percentage-based colors
+            bars1 = ax1.bar(
+                [0],
+                df_sorted['Count_df'],
+                color=[cmap(norm(p)) for p in df_sorted['Percentage']],
+                edgecolor='black',
+                width=0.5,
+                bottom=np.cumsum([0] + df_sorted['Count_df'].tolist()[:-1])
+            )
 
-        # Viridis colormap and color normalization for the first plot (percentage-based colors)
-        norm = mcolors.Normalize(vmin=vmin, vmax=PERCENTAGE_THRESHOLD)  # Force the color map to use vmin and vmax
-        cmap = plt.cm.viridis
-        sm = ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
+            for bar, label in zip(bars1, df_sorted['Label']):
+                bar_height = bar.get_height()
+                bottom = bar.get_y()
+                ax1.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bottom + bar_height / 2,
+                    label,
+                    ha='center',
+                    va='center',
+                    color='black',
+                    fontsize=8
+                )
 
-        # Create the figure and two subplots side by side
-        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(4, 8))
+            # Add colorbar for the first plot
+            cbar1 = plt.colorbar(sm, ax=ax1)
+            cbar1.set_label('Percentage')
 
-        # First plot: Single vertical stacked bar with black borders and colors based on percentage
-        bars1 = ax1.bar([0], df_sorted['Count_df'], color=[cmap(norm(p)) for p in df_sorted['Percentage']],
-                        edgecolor='black', width=0.5, bottom=np.cumsum([0] + df_sorted['Count_df'].tolist()[:-1]))
+            ax1.set_title(f'Bar Plot 1 {title_suffix}')
+            ax1.set_ylabel('Total Count')
+            ax1.invert_yaxis()
+            for spine in ax1.spines.values():
+                spine.set_visible(False)
 
-        # Add labels inside the bar segments for the first plot
-        for bar, label in zip(bars1, df_sorted['Label']):
-            bar_height = bar.get_height()
-            bottom = bar.get_y()
-            ax1.text(bar.get_x() + bar.get_width() / 2, bottom + bar_height / 2, label,
-                     ha='center', va='center', color='black', fontsize=8, rotation=0)
+            # Second plot: Color_df-based colors
+            bars2 = ax2.bar(
+                [0],
+                second_df_sorted['Count_df'],
+                color=second_df_sorted['Color_df'],
+                edgecolor='black',
+                width=0.5,
+                bottom=np.cumsum([0] + second_df_sorted['Count_df'].tolist()[:-1])
+            )
 
-        # Add colorbar for the first plot (force vmin to vmax range)
-        cbar1 = plt.colorbar(sm, ax=ax1)
-        cbar1.set_label('Percentage')
-        cbar1.set_ticks([vmin, PERCENTAGE_THRESHOLD])  # Set ticks to cover the range of the colormap
-        cbar1.ax.set_ylim([vmin, PERCENTAGE_THRESHOLD])  # Set the limits of the colorbar
+            for bar, label in zip(bars2, second_df_sorted['Label_df']):
+                bar_height = bar.get_height()
+                bottom = bar.get_y()
+                ax2.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bottom + bar_height / 2,
+                    label,
+                    ha='center',
+                    va='center',
+                    color='black',
+                    fontsize=8
+                )
 
-        # Label the first plot
-        ax1.set_title('Bar Plot 1 (Percentage-based)')
-        ax1.set_ylabel('Total Count')
+            ax2.set_title(f'Bar Plot 2 {title_suffix}')
+            ax2.set_ylabel('Total Count')
+            ax2.invert_yaxis()
+            for spine in ax2.spines.values():
+                spine.set_visible(False)
 
-        # Remove x-axis ticks and y-axis ticks for clarity
-        ax1.set_xticks([])
-        ax1.set_xticklabels([])
-        ax1.set_yticks([])
+            # Save with labels
+            plt.tight_layout()
+            plt.savefig(os.path.join(saving_dir, f"{save_prefix}_with_labels.png"))
+            plt.savefig(os.path.join(saving_dir, f"{save_prefix}_with_labels.svg"))
 
-        # Remove outer box (spines) from the first plot
-        for spine in ax1.spines.values():
-            spine.set_visible(False)
+            # Remove labels and save
+            for ax in [ax1, ax2]:
+                for text in ax.texts:
+                    text.set_visible(False)
+            plt.savefig(os.path.join(saving_dir, f"{save_prefix}_without_labels.png"))
+            plt.savefig(os.path.join(saving_dir, f"{save_prefix}_without_labels.svg"))
 
-        # Invert the y-axis for the first plot
-        ax1.invert_yaxis()
+            # Show the plot
+            plt.show()
 
-        # Second plot: Single vertical stacked bar with black borders and colors from Color_df in the second dataframe
-        bars2 = ax2.bar([0], second_df_sorted['Count_df'], color=second_df_sorted['Color_df'],
-                        edgecolor='black', width=0.5,
-                        bottom=np.cumsum([0] + second_df_sorted['Count_df'].tolist()[:-1]))
 
-        # Add labels inside the bar segments for the second plot
-        for bar, label in zip(bars2, second_df_sorted['Label_df']):
-            bar_height = bar.get_height()
-            bottom = bar.get_y()
-            ax2.text(bar.get_x() + bar.get_width() / 2, bottom + bar_height / 2, label,
-                     ha='center', va='center', color='black', fontsize=8, rotation=0)
+        # Plot and save the entire dataset
+        df_sorted_full = cluster_data.sort_values('Percentage', ascending=False)
+        second_df_sorted_full = neurotransmitter_data.loc[df_sorted_full.index]
+        plot_and_save(df_sorted_full, second_df_sorted_full, "all_clusters", "(Entire Dataset)", SAVING_DIR)
 
-        # Label the second plot
-        ax2.set_title('Bar Plot 2 (Color_df-based)')
-        ax2.set_ylabel('Total Count')
+        # Plot and save the top n
+        df_sorted_top_n = df_sorted_full.head(50)
+        second_df_sorted_top_n = second_df_sorted_full.loc[df_sorted_top_n.index]
+        plot_and_save(df_sorted_top_n, second_df_sorted_top_n, "top_n_clusters", "(Top n)", SAVING_DIR)
 
-        # Remove x-axis ticks and y-axis ticks for clarity in the second plot
-        ax2.set_xticks([])
-        ax2.set_xticklabels([])
-        ax2.set_yticks([])
-
-        # Remove outer box (spines) from the second plot
-        for spine in ax2.spines.values():
-            spine.set_visible(False)
-
-        # Invert the y-axis for the second plot
-        ax2.invert_yaxis()
-
-        # Save the plot with labels
-        plt.tight_layout()
-        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_with_labels.png"))
-        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_with_labels.svg"))
-
-        # Remove the labels and save the plot without labels
-        for ax in [ax1, ax2]:
-            for text in ax.texts:
-                text.set_visible(False)
-
-        # Save the plot without labels
-        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_without_labels.png"))
-        plt.savefig(os.path.join(SAVING_DIR, "sorted_clusters_without_labels.svg"))
-
-        # Show the plot
-        plt.show()
+        # Save df_sorted['Label'] and df_sorted['Percentage'] to CSV
+        csv_file_path = os.path.join(SAVING_DIR, "cluster_labels_and_percentages.csv")
+        df_sorted_full[['Label', 'Percentage']].to_csv(csv_file_path, index=False)
+        print(f"Cluster labels and percentages saved to: {csv_file_path}")
 
         ################################################################################################################
         # TEST

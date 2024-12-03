@@ -9,14 +9,15 @@ matplotlib.use("Agg")
 
 from concurrent.futures import ProcessPoolExecutor
 
+import utils.utils as ut
+
 from spatial_transcriptomics.old.to_check.analysis import sc_helper_functions as sc_utils
 
 genes_to_plot = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
                 "Pianp", "Serpinb2", "Ostn"]
-saving_directory = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results" \
-                   r"\10X_mapped_gene_expression"
+saving_directory = ut.create_dir(r"/mnt/data/Thomas/Semaglutide/10X_mapped_gene_expression")
 
-download_base = r'E:\tto\spatial_transcriptomics'  # Path to data on the local drive
+download_base = r'/mnt/data/Thomas/data'  # Path to data on the local drive
 url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'  # Manifest url
 manifest = json.loads(requests.get(url).text)  # Load the manifest
 # Fixme: This should be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
@@ -56,8 +57,10 @@ with ProcessPoolExecutor(max_workers=None) as executor:
 # PLOT SPECIFIC CLUSTER
 ########################################################################################################################
 
-clusters = ["0951 STR D1 Gaba_3", "0960 STR D1 Gaba_7", "0962 STR D1 Gaba_8"]
-genes_to_plot = ["Slit2"]
+sorted_and_enriched_clusters = pd.read_csv("/mnt/data/Thomas/Semaglutide/results/3d_views/cluster_labels_and_percentages.csv")
+clusters = [x for x, y in zip(sorted_and_enriched_clusters["Label"],
+                                           sorted_and_enriched_clusters["Percentage"]) if y >= 40]
+genes_to_plot = ["Glp1r"]
 
 for cluster in clusters:
     cluster_n = cluster.split(" ")[0]

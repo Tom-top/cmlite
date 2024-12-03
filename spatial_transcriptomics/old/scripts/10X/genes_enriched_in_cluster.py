@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import gc  # For garbage collection to free memory
 
-# Define directories and dataset information
-saving_dir = r"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\Drd1\heatmap_gene_expression"
-if not os.path.exists(saving_dir):
-    os.mkdir(saving_dir)
+import utils.utils as ut
 
-download_base = r'E:\tto\spatial_transcriptomics'  # Path to the data on the local drive
+# Define directories and dataset information
+saving_dir = ut.create_dir("/mnt/data/Thomas/PPN_CUN")
+
+download_base = r'/mnt/data/Thomas/data'  # Path to the data on the local drive
 
 # Manifest URL and metadata loading
 url = 'https://allen-brain-cell-atlas.s3-us-west-2.amazonaws.com/releases/20230830/manifest.json'
@@ -33,41 +33,10 @@ exp = pd.read_csv(metadata_file)  # Load cell metadata
 exp.set_index('cell_label', inplace=True)
 
 # Define clusters of interest
-defined_cluster_names = [
-    '0943 STR D1 Gaba_1',
-    '0944 STR D1 Gaba_1',
-    '0945 STR D1 Gaba_1',
-    '0946 STR D1 Gaba_1',
-    '0947 STR D1 Gaba_1',
-    '0948 STR D1 Gaba_2',
-    '0949 STR D1 Gaba_2',
-    '0950 STR D1 Gaba_3',
-    '0951 STR D1 Gaba_3',
-    '0952 STR D1 Gaba_3',
-    '0953 STR D1 Gaba_4',
-    '0954 STR D1 Gaba_4',
-    '0955 STR D1 Gaba_5',
-    '0956 STR D1 Gaba_5',
-    '0957 STR D1 Gaba_5',
-    '0958 STR D1 Gaba_6',
-    '0959 STR D1 Gaba_6',
-    '0960 STR D1 Gaba_7',
-    '0961 STR D1 Gaba_8',
-    '0962 STR D1 Gaba_8',
-    '0963 STR D1 Gaba_8',
-    '0964 STR D1 Gaba_9',
-    '0990 STR D1 Sema5a Gaba_1',
-    '0991 STR D1 Sema5a Gaba_1',
-    '0992 STR D1 Sema5a Gaba_2',
-    '0993 STR D1 Sema5a Gaba_2',
-    '0994 STR D1 Sema5a Gaba_2',
-    '0995 STR D1 Sema5a Gaba_2',
-    '0996 STR D1 Sema5a Gaba_2',
-    '0997 STR D1 Sema5a Gaba_3',
-    '0998 STR D1 Sema5a Gaba_3',
-    '0999 STR D1 Sema5a Gaba_4',
-    '1000 STR D1 Sema5a Gaba_4'
-]
+sorted_and_enriched_clusters = pd.read_csv("/mnt/data/Thomas/PPN_CUN/results/3d_views/cluster_labels_and_percentages.csv")
+defined_cluster_names = [x for x, y in zip(sorted_and_enriched_clusters["Label"],
+                                           sorted_and_enriched_clusters["Percentage"]) if y > 50]
+defined_cluster_names = ["3331 CUN-PPN Evx2 Meis2 Glut_1"]
 # Sampling rate for out-cluster cells to avoid memory overload
 sampling_rate = 50  # Sampling rate for out-cluster cells
 

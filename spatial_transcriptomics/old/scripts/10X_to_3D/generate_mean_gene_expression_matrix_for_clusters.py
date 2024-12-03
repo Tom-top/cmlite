@@ -38,13 +38,13 @@ PLOT_MOST_REPRESENTED_CATEGORIES = False
 PERCENTAGE_THRESHOLD = 50
 categories = ["cluster"]
 
-ANO_DIRECTORY = r"resources\atlas"
+ANO_DIRECTORY = fr"resources{os.sep}atlas"
 ANO_PATH = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.tif")
 ANO = np.transpose(tifffile.imread(ANO_PATH), (1, 2, 0))
 ANO_JSON = os.path.join(ANO_DIRECTORY, f"{ATLAS_USED}_annotation_mouse.json")
 
-DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"  # PERSONAL
-MAP_DIR = ut.create_dir(rf"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression")  # PERSONAL
+DOWNLOAD_BASE = r"/default/path"  # PERSONAL
+MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
 WHOLE_REGION = True  # If true, the unprocessed mask will be used
 LABELED_MASK = False  # If true the TISSUE_MASK is a labeled 32bit mask, not a binary.
 PLOT_COUNTS_BY_CATEGORY = True  # If true plots the category plot
@@ -76,7 +76,7 @@ REFERENCE_FILE = fr"resources/atlas/{ATLAS_USED}_reference_mouse.tif"
 REFERENCE = tifffile.imread(REFERENCE_FILE)
 REFERENCE_SHAPE = REFERENCE.shape
 
-ABC_ATLAS_DIRECTORY = r"resources\abc_atlas"
+ABC_ATLAS_DIRECTORY = fr"resources{os.sep}abc_atlas"
 CLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_class.xlsx"))
 SUBCLASS_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_subclass.xlsx"))
 SUPERTYPE_COUNTS = pd.read_excel(os.path.join(ABC_ATLAS_DIRECTORY, "counts_cells_supertype.xlsx"))
@@ -268,9 +268,12 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
     duplicate_gene_entries = {}
 
     # Fixme: REMOVE THIS
-    unique_clusters = unique_cells_cluster[0]
+    unique_clusters = unique_cells_cluster[0][5000:]
 
     for n, cluster_name in enumerate(unique_clusters):
+
+        n = n + 5000
+
         # if cluster_name not in mean_gene_expression_data["cluster_name"]:
         ut.print_c(f"[INFO] Fetching data for cluster: {cluster_name}; {n + 1}/{n_unique_cluster}")
         # cluster_name = cells_cluster_merged[cluster]
@@ -303,20 +306,21 @@ for ul, TISSUE_MASK in zip(labels, TISSUE_MASKS):
             for m, target_gene in enumerate(target_genes):
                 ut.print_c(f"[INFO {cluster_name}] Fetching expression data for gene: {target_gene}; {m + 1}/{n_target_genes}", end="\r")
                 gene_mask = genes["gene_symbol"] == target_gene
-                gene_id = genes["gene_identifier"][gene_mask]
-                n_gene_entries = len(gene_id)
+                gene_ids = genes["gene_identifier"][gene_mask]
+                n_gene_entries = len(gene_ids)
                 if n_gene_entries > 1:
-                    ut.print_c(f"[WARNING {cluster_name}] Duplicate entry for gene: {target_gene}: {n_gene_entries}!")
+                    # ut.print_c(f"[WARNING {cluster_name}] Duplicate entry for gene: {target_gene}: {n_gene_entries}!")
                     duplicate_gene_entries[target_gene] = n_gene_entries
-                    gene_id = gene_id.iloc[0]
-                mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
-                df_to_save[cluster_name][target_gene] = mean_gene_expression
+                    # gene_ids = gene_ids.iloc[0]
+                for gene_id in gene_ids:
+                    mean_gene_expression = float(np.mean(combined_data_in[gene_id], axis=0))
+                    df_to_save[cluster_name][target_gene] = mean_gene_expression
         else:
             ut.print_c(f"[WARNING {cluster_name}] No overlap detected between the cluster and the 10X data!")
             for target_gene in target_genes:
                 df_to_save[cluster_name][target_gene] = np.nan
 
-        if (n+1) % 500 == 0:
+        if (n+1) % 500 == 0 or n+1 == len(unique_clusters)+5000:
             # Convert the dictionary to a DataFrame
             df = pd.DataFrame.from_dict(df_to_save, orient='index')
             df_dup = pd.DataFrame.from_dict(duplicate_gene_entries, orient='index')

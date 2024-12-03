@@ -21,7 +21,7 @@ import analysis.measurements.voxelization as vox
 
 from spatial_transcriptomics.old.utils.coordinate_manipulation import filter_points_in_3d_mask
 
-ATLAS_USED = "aba"  # Atlas to be used: gubra/aba
+ATLAS_USED = "gubra"  # Atlas to be used: gubra/aba
 DATASETS = np.arange(1, 6, 1)  # Selected datasets to fetch from
 N_DATASETS = len(DATASETS)
 CATEGORY_NAMES = ["cluster"]
@@ -31,26 +31,24 @@ NON_NEURONAL_CELL_TYPES = [["Astro", "Oligo", "Vascular", "Immune", "Epen", "OEC
 # NON_NEURONAL_CELL_TYPES = [["Vascular"]]
 SHOW_GLIA = False
 target_genes = [
-    # "Mc4r", "Pomc",
-    # "Mchr1",
-    # "Npy", "Npy1r", "Npy2r", "Npy4r", "Npy5r", "Npy6r",
+    # "Ica1",
+    # "Pick1",
+    # "Slc17a6",
+    # "Slc32a1",
+    # "Chat",
+    # "Vsx2",
+    # "Drd1",
+    # "Drd2",
     "Glp1r",
-    # "Trem2", "Glp1r",
-    # "Bdnf", ["Bdnf", "Glp1r"],
-    # "Ntrk2", ["Ntrk2", "Glp1r"],
+    # ["Ica1", "Pick1"],
 ]
-# target_genes = [["Ntrk2", "Glp1r"]]
-# target_genes = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
-#                 "Pianp", "Serpinb2", "Ostn"]
-# target_genes = ["Dlk1"]
 
 data_scaling = ["linear", "log2"]
-# data_scaling = ["linear"]
+fixed_min_max = [0, 250]
 
-DOWNLOAD_BASE = r"E:\tto\spatial_transcriptomics"
-MAP_DIR = ut.create_dir(rf"E:\tto\{ATLAS_USED}")  # PERSONAL
-MASK_DIR = os.path.join(MAP_DIR, "masks")
-TISSUE_MASK = tifffile.imread(os.path.join(MASK_DIR, r"whole_brain_mask.tif"))
+DOWNLOAD_BASE = r"/mnt/data/Thomas/data"
+MAP_DIR = ut.create_dir(rf"/default/path")  # PERSONAL
+TISSUE_MASK = tifffile.imread(os.path.join(MAP_DIR, r"whole_brain_mask.tif"))
 RESULTS_DIR = ut.create_dir(os.path.join(MAP_DIR, "results"))
 GENE_EXPRESSION_DIR = ut.create_dir(os.path.join(RESULTS_DIR, "gene_expression"))
 
@@ -71,6 +69,25 @@ metadata_genes_relative_path = metadata_json['gene']['files']['csv']['relative_p
 metadata_gene_file = os.path.join(DOWNLOAD_BASE, metadata_genes_relative_path)  # Path to metadata file
 genes = pd.read_csv(metadata_gene_file)  # Load metadata
 
+########################################################################################################################
+# GET GENE IDENTIFIERS FOR THE SELECTED GENE SYMBOL
+########################################################################################################################
+
+target_gene_identifiers = []
+target_gene_names = []
+
+for target_gene in target_genes:
+    if isinstance(target_gene, str):
+        target_gene = [target_gene]
+    gene_symbol_masks = [genes["gene_symbol"] == i for i in target_gene]
+    gene_identifiers = [list(genes["gene_identifier"][i])[0] for i in gene_symbol_masks]
+    ut.print_c(f"[INFO] Gene {target_gene} identifiers: {gene_identifiers}!")
+    target_gene_identifiers.append(gene_identifiers[0])
+    gene_identifier_names = [f"{target_gene[0]}_{i}" for i in gene_identifiers]
+    target_gene_names.append(gene_identifier_names[0])
+
+########################################################################################################################
+
 # Fixme: This should be fixed as only the 10Xv3 dataset is fetched (the largest). 10Xv2 and 10XMulti or omitted
 dataset_id = "WMB-10Xv3"  # Dataset name
 metadata_exp = manifest['file_listing'][dataset_id]['expression_matrices']
@@ -78,7 +95,7 @@ adatas = []
 
 print("")
 ut.print_c("[INFO] Loading mean gene expression matrix!")
-mean_expression_matrix_path = r"resources\abc_atlas\cluster_log2_mean_gene_expression_merge.feather"
+mean_expression_matrix_path = fr"resources{os.sep}abc_atlas{os.sep}cluster_log2_mean_gene_expression_merge.feather"
 mean_expression_matrix = pd.read_feather(mean_expression_matrix_path)
 
 ########################################################################################################################
@@ -195,13 +212,13 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
     unique_cell_clusters = np.unique(cells_cluster_dataset, return_index=True)
     n_unique_cluster = len(unique_cell_clusters[0])
 
-    for gene_name in target_genes:
+    for gene_name, gene_saving_name in zip(target_gene_identifiers, target_gene_names):
         # Initialize a dictionary to store the data
         mean_expression_data = {}
 
         if isinstance(gene_name, list):
             data_scaling_updated = ["linear"]
-            saving_name = "_".join(gene_name)
+            saving_name = "_".join(gene_saving_name)
             SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
             mean_expression_clusters = {}
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
@@ -260,7 +277,16 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
 
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
                 print(f"Computing co-expression for cluster: {cluster_name}")
-                mean_co_expression = np.prod(norm_expression_clusters[cluster_name])
+
+                # FIXME: Make this modular
+                g1, g2 = norm_expression_clusters[cluster_name]
+                epsilon = 1e-10
+                numerator = np.log(g1 + epsilon) - np.log(g2 + epsilon)
+                denominator = np.log(g1 + epsilon) + np.log(g2 + epsilon)
+                mean_co_expression = numerator / denominator
+
+                # mean_co_expression = np.prod(norm_expression_clusters[cluster_name])
+
                 mean_co_expressions.append(mean_co_expression)
                 unique_cells_cluster_colors[cells_cluster_dataset == cluster_name] = mean_co_expression
                 # Store mean expression in dictionary
@@ -269,10 +295,9 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 color_idx = np.where(cells_cluster_dataset == cluster_name)[0][0]
                 mean_expression_data[cluster_name]["cluster_color"] = cells_cluster_color_dataset[color_idx]
 
-
         else:
             data_scaling_updated = data_scaling
-            saving_name = gene_name
+            saving_name = gene_saving_name
             SAVING_DIRECTORY = ut.create_dir(os.path.join(GENE_EXPRESSION_DIR, saving_name))
             for n, cluster_name in enumerate(unique_cell_clusters[0]):
                 cluster_mask = mean_expression_matrix["cluster_name"] == cluster_name
@@ -313,9 +338,12 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                 ut.print_c("[WARNING] LOG2 SCALE SELECTED!")
                 scaled_unique_cells_cluster_colors = np.array(unique_cells_cluster_colors)
 
-            fixed_min_max = [0, 2000]
             dynamic_min_max = [min(scaled_unique_cells_cluster_colors), max(scaled_unique_cells_cluster_colors)]
-            ratio = fixed_min_max[1] / dynamic_min_max[1]
+
+            if dynamic_min_max[1] > fixed_min_max[1]:
+                ratio = fixed_min_max[1] / dynamic_min_max[1]
+            else:
+                ratio = 1
 
             for m, min_max in enumerate([fixed_min_max, dynamic_min_max]):
 
@@ -372,6 +400,7 @@ for cell_type in NON_NEURONAL_CELL_TYPES:
                     shape=np.transpose(tifffile.imread(REFERENCE_FILE), (1, 2, 0)).shape,
                     dtype="float",
                     weights=unique_cells_cluster_colors_norm,
+                    # weights=test,
                     method='sphere',
                     radius=np.array([1, 1, 1]),
                     kernel=None,

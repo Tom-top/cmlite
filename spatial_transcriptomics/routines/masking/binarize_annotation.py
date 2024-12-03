@@ -15,12 +15,12 @@ import utils.utils as ut
 ########################################################################################################################
 
 # Specify the annotation atlas and directory paths
-annotation_used = "aba"  # Options: 'gubra' or 'aba'
-annotation_dir = r"resources\atlas"
+annotation_used = "gubra"  # Options: 'gubra' or 'aba'
+annotation_dir = fr"resources{os.sep}atlas"
 annotation_path = os.path.join(annotation_dir, f"{annotation_used}_annotation_mouse.tif")
 
 # Define directories for saving outputs
-working_dir = r"E:\tto"
+working_dir = r"/mnt/data/Thomas/mPD5"
 saving_dir = ut.create_dir(os.path.join(working_dir, annotation_used))  # Customized for user setup
 mask_dir = ut.create_dir(os.path.join(saving_dir, "masks"))  # Directory to save mask files
 

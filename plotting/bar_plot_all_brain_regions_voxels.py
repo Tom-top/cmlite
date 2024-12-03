@@ -27,7 +27,7 @@ def find_region_by_id(region_data, target_id):
     return None
 
 
-atlas_path = r"resources\atlas"
+atlas_path = fr"resources{os.sep}atlas"
 
 with open(os.path.join(atlas_path, "gubra_annotation_mouse.json"), "r") as f:
     metadata = json.load(f)
@@ -41,53 +41,81 @@ with open(os.path.join(atlas_path, "gubra_annotation_mouse.json"), "r") as f:
 #                 "Bdnf", "Bdnf_Glp1r",
 #                 "Ntrk2", "Ntrk2_Glp1r",
 # ]
-target_genes = ["Fos", "Npas4", "Nr4a1", "Arc", "Egr1", "Bdnf", "Pcsk1", "Crem", "Igf1", "Scg2", "Nptx2", "Homer1",
-                "Pianp", "Serpinb2", "Ostn"]
+target_genes = ["Glp1r_ENSMUSG00000024027"]
 
 data_scaling = ["linear", "log2"]
 data_scaling = ["linear"]
 sort = False
 
+enriched_clusters_path = "/mnt/data/Thomas/Semaglutide/results/3d_views/cluster_labels_and_percentages.csv"
+enriched_clusters_data = pd.read_csv(enriched_clusters_path)
+mask = enriched_clusters_data["Percentage"] >= 40
+enriched_clusters = enriched_clusters_data["Label"][mask]
+plot_only_pre_selected_clusters = True
+
 for map_name in target_genes:
 
     map_color = ""
-    working_directory = fr"E:\tto\spatial_transcriptomics_results\whole_brain_gene_expression\results\gene_expression\{map_name}"
+    working_directory = fr"/mnt/data/Thomas/whole_brain/results/gene_expression/{map_name}"
 
     df = pd.read_csv(os.path.join(working_directory, "mean_expression_data.csv"))
 
-    first_column = df.columns[1]  # Get the first column name after 'cluster'
-    # Check if a "co-expression" column exists
-    if 'co-expression' in df.columns:
-        # Sort by the "co-expression" column if it exists
-        df_sorted = df.sort_values(by="co-expression", ascending=False)
+    if plot_only_pre_selected_clusters:
+        first_column_raw = df.columns[0]
+        pre_selected_clusters_mask = [True if str(x) in list(enriched_clusters) else False for x in df[first_column_raw]]
+        df_filtered = df[pre_selected_clusters_mask]
+        first_column = df_filtered.columns[1]
+        first_column_x_axis = df_filtered.columns[0]
+
+        # Plot the data
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(25, 5))
+
+        # Plot all regions with their corresponding values and cluster colors
+        bars = ax.bar(df_filtered[first_column_x_axis], 2 ** df_filtered[first_column],
+                      color=df_filtered['cluster_color'], width=0.8)
+
+        # Add a black horizontal line representing the mean of the sorted column
+        mean_value = 2 ** df_filtered[first_column].mean()
+        ax.axhline(mean_value, color='black', linestyle='--', linewidth=1)
+
+        # Rotate the x-tick labels for better visibility
+        ax.set_xticks(range(len(df_filtered[first_column_x_axis])))
+        ax.set_xticklabels(df_filtered[first_column_x_axis], rotation=45, ha='right', fontsize=10)
+
     else:
-        # Otherwise, sort by the first column (assumed to be "Glp1r" here)
-        df_sorted = df.sort_values(by=first_column, ascending=False)
+        first_column = df.columns[1]  # Get the first column name after 'cluster'
+        # Check if a "co-expression" column exists
+        if 'co-expression' in df.columns:
+            # Sort by the "co-expression" column if it exists
+            df_sorted = df.sort_values(by="co-expression", ascending=False)
+        else:
+            # Otherwise, sort by the first column (assumed to be "Glp1r" here)
+            df_sorted = df.sort_values(by=first_column, ascending=False)
 
-    # Limit to top 50 rows after sorting
-    df_sorted = df_sorted.head(50)
+        # Limit to top 50 rows after sorting
+        df_sorted = df_sorted.head(50)
 
-    # Get the first column dynamically for the x-axis (e.g., 'cluster')
-    first_column_x_axis = df.columns[0]  # Use the first column for the x-axis
+        # Get the first column dynamically for the x-axis (e.g., 'cluster')
+        first_column_x_axis = df.columns[0]  # Use the first column for the x-axis
 
-    # Plot the data
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(25, 5))
+        # Plot the data
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(25, 5))
 
-    # Plot all regions with their corresponding values and cluster colors
-    bars = ax.bar(df_sorted[first_column_x_axis], 2**df_sorted[first_column],
-                  color=df_sorted['cluster_color'], width=0.8)
+        # Plot all regions with their corresponding values and cluster colors
+        bars = ax.bar(df_sorted[first_column_x_axis], 2**df_sorted[first_column],
+                      color=df_sorted['cluster_color'], width=0.8)
 
-    # Add a black horizontal line representing the mean of the sorted column
-    mean_value = 2**df_sorted[first_column].mean()
-    ax.axhline(mean_value, color='black', linestyle='--', linewidth=1)
+        # Add a black horizontal line representing the mean of the sorted column
+        mean_value = 2**df_sorted[first_column].mean()
+        ax.axhline(mean_value, color='black', linestyle='--', linewidth=1)
+
+        # Rotate the x-tick labels for better visibility
+        ax.set_xticks(range(len(df_sorted[first_column_x_axis])))
+        ax.set_xticklabels(df_sorted[first_column_x_axis], rotation=45, ha='right', fontsize=10)
 
     # Set labels and layout
     ax.set_xlabel('Clusters')
     ax.set_ylabel(f'{first_column} Expression: CPM')
-
-    # Rotate the x-tick labels for better visibility
-    ax.set_xticks(range(len(df_sorted[first_column_x_axis])))
-    ax.set_xticklabels(df_sorted[first_column_x_axis], rotation=45, ha='right', fontsize=10)
 
     # Adjust the layout
     fig.tight_layout()
